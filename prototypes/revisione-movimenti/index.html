@@ -52,7 +52,7 @@ select:focus, input:focus, button:focus-visible { outline: 2px solid var(--text)
 .in { color: var(--text); }
 
 /* Shell: sidebar con etichette (scelta motivata: tesorieri alle prime armi) */
-.shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+.shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
 .side { border-right: 1px solid var(--border); padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 4px; }
 .brand b { font-weight: 500; white-space: nowrap; }
@@ -65,7 +65,8 @@ select:focus, input:focus, button:focus-visible { outline: 2px solid var(--text)
 .nav .grp { font-size: 12px; color: var(--muted); padding: 18px 10px 6px; }
 .side .foot { margin-top: auto; }
 .main { padding: 28px 32px 96px; min-width: 0; }
-.title-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+.title-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+.title-row > div:first-child { flex: 1 1 420px; min-width: 0; }
 h1 { font-size: 24px; font-weight: 500; margin: 0 0 4px; letter-spacing: -0.01em; }
 h2 { font-size: 16px; font-weight: 500; margin: 0; }
 .finding { margin: 0; color: var(--text); }
@@ -73,11 +74,11 @@ h2 { font-size: 16px; font-weight: 500; margin: 0; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); }
 
 /* Striscia di riconciliazione (elemento proprio del prodotto) */
-.recon { display: grid; grid-template-columns: repeat(4, auto) 1fr; align-items: end; gap: 28px; padding: 16px var(--pad); margin-bottom: var(--gap); }
+.recon { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 28px; padding: 16px var(--pad); margin-bottom: var(--gap); }
 .recon .k { font-size: 12px; color: var(--muted); }
 .recon .v { font-size: 18px; }
-.recon .ok-line { justify-self: end; text-align: right; }
-.progress { height: 8px; background: var(--surface); border: 1px solid var(--text); border-radius: 4px; overflow: hidden; margin-top: 8px; width: 220px; margin-left: auto; }
+.recon .ok-line { margin-left: auto; text-align: right; }
+.progress { height: 8px; background: var(--surface); border: 1px solid var(--text); border-radius: 4px; overflow: hidden; margin-top: 8px; width: 180px; max-width: 100%; margin-left: auto; }
 .progress span { display: block; height: 100%; background: var(--yellow); }
 
 /* Variante A: coda + dettaglio */
@@ -95,6 +96,7 @@ h2 { font-size: 16px; font-weight: 500; margin: 0; }
 .row.sel::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--text); }
 .row .d { font-size: 12px; color: var(--muted); }
 .row .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row > span { min-width: 0; }
 .row .src { font-size: 12px; color: var(--muted); }
 .row .a { text-align: right; }
 .row.done .t, .row.done .a { color: var(--muted); }
@@ -191,7 +193,7 @@ tr.current td:first-child { border-left: 3px solid var(--text); }
 .burger:hover { background: var(--raised); }
 .nav a .ico { width: 16px; height: 16px; flex: none; margin-right: 10px; }
 .nav a .lab { display: flex; align-items: center; }
-body.collapsed .shell { grid-template-columns: 64px 1fr; }
+body.collapsed .shell { grid-template-columns: 64px minmax(0, 1fr); }
 body.collapsed .side { padding: 16px 8px; }
 body.collapsed .brand b, body.collapsed .scope, body.collapsed .nav .grp, body.collapsed .nav a .txt, body.collapsed .nav a .count { display: none; }
 body.collapsed .brand { flex-direction: column-reverse; gap: 10px; padding: 4px 0 8px; }
@@ -200,6 +202,33 @@ body.collapsed .nav a { justify-content: center; padding: 0; }
 body.collapsed .nav a .ico { margin-right: 0; }
 body.collapsed .nav .sep { display: block; height: 1px; background: var(--border); margin: 10px 8px; }
 .nav .sep { display: none; }
+
+/* Larghezze intermedie: niente contenuti fuori dai riquadri */
+.tscroll { overflow-x: auto; }
+.tscroll table { table-layout: fixed; }
+.desc1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-act { width: 220px; }
+.td-act-sm { width: 110px; }
+.card, .dpanel { min-width: 0; }
+.dgroup-h { flex-wrap: wrap; }
+td select { min-width: 120px; }
+.desc1 { max-width: 100%; }
+@media (max-width: 1360px) {
+  .col-src, .col-st { display: none; }
+  .td-act { width: 110px; }
+}
+@media (max-width: 1200px) {
+  .col-ini { display: none; }
+  .qa { grid-template-columns: minmax(0, 1fr); }
+  .detail { position: static; }
+  .dwrap.open { grid-template-columns: minmax(0, 1fr); }
+  .dpanel { position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 100vw); max-height: none; border-radius: 0; border-width: 0 0 0 1px; z-index: 40; }
+  .dsteps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 1100px) {
+  .big-recon { grid-template-columns: repeat(3, auto); }
+  .steps .step .lbl { font-size: 13px; }
+}
 
 /* Barra prototipo: chiaramente estranea al design */
 .proto { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; background: #5b2bd6; color: #fff; border-radius: 22px; padding: 4px; box-shadow: 0 4px 16px rgba(0,0,0,.25); z-index: 50; font: 500 13px system-ui, sans-serif; }
@@ -215,7 +244,7 @@ body.collapsed .nav .sep { display: block; height: 1px; background: var(--border
   .vp .tip { right: auto; left: 0; }
   .dsteps { grid-template-columns: 1fr 1fr; }
   .dwrap.open { grid-template-columns: 1fr; }
-  .dpanel { position: static; max-height: none; }
+  .dpanel { left: 0; width: auto; }
   .dgroup-h { grid-template-columns: 1fr auto; }
   .shell { grid-template-columns: 1fr; }
   .side { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 8px; align-items: center; }
@@ -227,8 +256,8 @@ body.collapsed .nav .sep { display: block; height: 1px; background: var(--border
   .main { padding: 16px 16px 120px; }
   .title-row { flex-direction: column; }
   .actions { justify-content: flex-start; }
-  .recon { grid-template-columns: 1fr 1fr; gap: 12px; }
-  .recon .ok-line { grid-column: 1 / -1; justify-self: start; text-align: left; }
+  .recon > div:not(.ok-line) { flex: 1 1 40%; }
+  .recon .ok-line { margin-left: 0; text-align: left; width: 100%; }
   .progress { margin-left: 0; }
   .qa { grid-template-columns: 1fr; }
   .form, .conseq { grid-template-columns: 1fr; }
@@ -480,14 +509,14 @@ function renderB() {
       <td><div class="desc1">${m.breve}</div><div class="small muted">${m.causale}${m.dubbio ? ' · <span class="pill warn">dubbio</span>' : ''}</div></td>
       <td class="r money ${m.imp > 0 ? 'in' : ''}">${signed(m.imp)}</td>
       <td>${giro ? `<span class="small">Giroconto ${m.imp < 0 ? '→' : '←'} ${m.giro.verso}</span>` : `<select data-f="tip" data-id="${m.id}" aria-label="Tipologia">${tipOptions(m)}</select>`}</td>
-      <td>${giro ? '' : `<select data-f="ini" data-id="${m.id}" aria-label="Iniziativa">${iniOptions(m)}</select>`}</td>
+      <td class="col-ini">${giro ? '' : `<select data-f="ini" data-id="${m.id}" aria-label="Iniziativa">${iniOptions(m)}</select>`}</td>
       <td class="small muted">${giro ? (m.giro.stato === 'abbinato' ? 'abbinato' : m.giro.stato === 'creato' ? 'creato' : 'da creare in cassa') : voce(m).split(')')[0]}</td>
-      <td class="small" title="${m.aiChiesta ? m.ai.perche.replace(/"/g, '') : fonteTxt(m)}">${fonteBreve(m)}</td>
+      <td class="small col-src" title="${m.aiChiesta ? m.ai.perche.replace(/"/g, '') : fonteTxt(m)}">${fonteBreve(m)}</td>
       <td class="r">${m.stato === 'confermato' ? '<span class="pill ok">confermato</span>' : `<button class="btn btn-ghost" style="height:30px" data-act="confirm" data-id="${m.id}" ${!m.sel.tip && !giro ? 'disabled' : ''}>Conferma</button>`}</td>
     </tr>`; }).join('');
   return header() + recon() + `<section class="card" aria-label="Movimenti">
     <div class="toolbar">${chips}<span style="flex:1"></span>${ap.length ? `<button class="btn btn-ghost" data-act="ai-all">Chiedi all’AI per ${ap.length} senza proposta · circa ${eur(ap.length * 0.01)} €</button>` : ''}</div>
-    <table><thead><tr><th style="width:36px"></th><th style="width:60px">Data</th><th>Movimento</th><th class="r" style="width:110px">Importo €</th><th style="width:200px">Tipologia</th><th style="width:170px">Iniziativa</th><th style="width:70px">Voce</th><th style="width:96px">Fonte</th><th class="r" style="width:120px"></th></tr></thead><tbody>${body}</tbody></table>
+    <div class="tscroll"><table><thead><tr><th style="width:36px"></th><th style="width:60px">Data</th><th>Movimento</th><th class="r" style="width:110px">Importo €</th><th style="width:190px">Tipologia</th><th class="col-ini" style="width:170px">Iniziativa</th><th style="width:64px">Voce</th><th class="col-src" style="width:96px">Fonte</th><th class="r" style="width:110px"></th></tr></thead><tbody>${body}</tbody></table></div>
   </section>
   ${selB.size ? `<div class="bulk"><span><span class="num">${selB.size}</span> selezionati</span><span style="flex:1"></span>
     <select data-act="bulk-ini" aria-label="Imposta iniziativa" style="height:32px"><option value="">Imposta iniziativa…</option>${Object.entries(INIZIATIVE).map(([k, i]) => `<option value="${k}">${i.nome}</option>`).join('')}</select>
@@ -554,11 +583,11 @@ function rowD(m) {
     <td class="num" style="width:60px">${m.data}</td>
     <td><div class="desc1">${m.breve}</div><div class="small muted">${m.causale}${m.dubbio ? ' · <span class="pill warn">dubbio</span>' : ''}</div></td>
     <td class="r money" style="width:110px">${signed(m.imp)}</td>
-    <td style="width:190px">${giro ? `<span class="small">Giroconto ${m.imp < 0 ? '→' : '←'} ${m.giro.verso}</span>` : `<select data-f="tip" data-id="${m.id}" aria-label="Tipologia">${tipOptions(m)}</select>`}</td>
-    ${openD ? '' : `<td style="width:170px">${giro ? '' : `<select data-f="ini" data-id="${m.id}" aria-label="Iniziativa">${iniOptions(m)}</select>`}</td>`}
+    ${openD ? '' : `<td style="width:190px">${giro ? `<span class="small">Giroconto ${m.imp < 0 ? '→' : '←'} ${m.giro.verso}</span>` : `<select data-f="tip" data-id="${m.id}" aria-label="Tipologia">${tipOptions(m)}</select>`}</td>`}
+    ${openD ? '' : `<td class="col-ini" style="width:170px">${giro ? '' : `<select data-f="ini" data-id="${m.id}" aria-label="Iniziativa">${iniOptions(m)}</select>`}</td>`}
     <td style="width:64px">${voceCell(m)}</td>
-    ${openD ? '' : `<td class="small" style="width:96px">${fonteBreve(m)}</td>`}
-    <td class="r" style="width:${openD ? 130 : 220}px"><div class="status-cell">${m.stato === 'confermato' ? statusPill(m) : `${openD ? '' : statusPill(m)}<button class="btn btn-ghost" style="height:30px" data-act="confirm" data-id="${m.id}" ${!m.sel.tip && !giro ? 'disabled' : ''}>Conferma</button>`}</div></td>
+    ${openD ? '' : `<td class="small col-src" style="width:96px">${fonteBreve(m)}</td>`}
+    <td class="r ${openD ? 'td-act-sm' : 'td-act'}"><div class="status-cell">${m.stato === 'confermato' ? statusPill(m) : `${openD ? '' : `<span class="col-st">${statusPill(m)}</span>`}<button class="btn btn-ghost" style="height:30px" data-act="confirm" data-id="${m.id}" ${!m.sel.tip && !giro ? 'disabled' : ''}>Conferma</button>`}</div></td>
   </tr>`;
 }
 function voceCell(m) {
@@ -570,7 +599,7 @@ function voceCell(m) {
   return `<span class="vp"><button type="button" aria-label="Voce Modello D ${code}">${code}</button><span class="tip" role="tooltip"><b>${code}) ${t.voce}</b>Sezione ${area(m)}: ${sez}. ${m.imp > 0 ? 'Entrate' : 'Uscite'}; ricavata da area e tipologia.</span></span>`;
 }
 function headD() {
-  return `<thead><tr><th></th><th>Data</th><th>Movimento</th><th class="r">Importo €</th><th>Tipologia</th>${openD ? '' : '<th>Iniziativa</th>'}<th>Voce</th>${openD ? '' : '<th>Fonte</th>'}<th></th></tr></thead>`;
+  return `<thead><tr><th style="width:36px"></th><th style="width:60px">Data</th><th>Movimento</th><th class="r" style="width:110px">Importo €</th>${openD ? '' : '<th style="width:190px">Tipologia</th><th class="col-ini" style="width:170px">Iniziativa</th>'}<th style="width:64px">Voce</th>${openD ? '' : '<th class="col-src" style="width:96px">Fonte</th>'}<th class="${openD ? 'td-act-sm' : 'td-act'}"></th></tr></thead>`;
 }
 function renderD() {
   const steps = `<nav class="dsteps" aria-label="Cosa resta da fare">${['giroconti', 'proposte', 'decidere', 'tutti'].map(k => { const n = k === 'tutti' ? M.length : openCount(k);
@@ -584,9 +613,9 @@ function renderD() {
       return `<div class="dgroup"><div class="dgroup-h"><div><span class="t">${TIPOLOGIE[m.sel.tip] ? TIPOLOGIE[m.sel.tip].nome : 'Senza tipologia'}</span> · ${INIZIATIVE[m.sel.ini || ''].nome}<div class="small muted">${voce(m)} · ${fonteTxt(m)}</div></div>
         <span class="num">${l.length} mov.</span><span class="money">${signed(tot)} €</span>
         ${aperti.length ? `<button class="btn btn-primary" data-act="d-group" data-ids="${aperti.map(x => x.id).join(',')}">Conferma il gruppo</button>` : '<span class="pill ok">confermato</span>'}</div>
-        <table><tbody>${l.map(rowD).join('')}</tbody></table></div>`; }).join('');
+        <div class="tscroll"><table><tbody>${l.map(rowD).join('')}</tbody></table></div></div>`; }).join('');
   } else {
-    content = `<table>${headD()}<tbody>${rows.map(rowD).join('') || `<tr><td colspan="8" class="muted">Niente da mostrare.</td></tr>`}</tbody></table>`;
+    content = `<div class="tscroll"><table>${headD()}<tbody>${rows.map(rowD).join('') || `<tr><td colspan="8" class="muted">Niente da mostrare.</td></tr>`}</tbody></table></div>`;
   }
   const m = openD && M.find(x => x.id === openD);
   const panel = m ? `<section class="card dpanel" aria-label="Dettaglio movimento">
@@ -679,6 +708,7 @@ document.addEventListener('change', e => {
   if (m.stato === 'da classificare' && m.sel.tip) m.stato = 'proposto';
   render();
 });
+if (window.innerWidth < 1200 && window.innerWidth > 900) document.body.classList.add('collapsed');
 render();
 </script>
 </body>
