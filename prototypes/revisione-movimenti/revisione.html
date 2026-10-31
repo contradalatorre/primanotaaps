@@ -1,0 +1,711 @@
+<!doctype html>
+<!--
+  PROTOTIPO USA E GETTA — ticket #20 "Schermata di revisione dei movimenti importati", seconda stesura.
+  Variante D ricostruita con il processo completo della skill design-taste-frontend (references/app-screens.md),
+  con due viste della stessa schermata: Tabella (computer, tablet) e Schede (telefono), e un interruttore.
+  Dati inventati, nessun dato reale. Stato in memoria; la vista scelta si ricorda nel browser.
+
+  Note della skill (scritte prima del markup)
+  - Domanda della schermata: "Cosa mi resta da fare per chiudere questo import?"
+    Il blocco più grande è la striscia dei passi con i conteggi; il titolo dice la scoperta.
+  - Scoperta: saldo uguale all'estratto; restano N movimenti da decidere e 1 prelievo da registrare in cassa.
+  - Lavoro più frequente: confermare le proposte pronte (azione primaria nel titolo, "Conferma il gruppo" nei gruppi).
+  - Volto: il giallo della contrada (CMYK 0/15/100/0 = #FFD900) sul dato principale (la barra dei confermati)
+    e sull'unica azione primaria; tutto il resto in nero e grigi neutri. Mai rosso.
+  - Elemento proprio del prodotto: la "catena del saldo" (saldo iniziale + entrate − uscite = saldo finale = estratto).
+  - Stile: achromatic-ledger, seed 1164265756, con il giallo della contrada al posto del blu dei grafici;
+    cifre in Geist Mono come decisione di stile (registro contabile).
+  - Griglia: canvas fluido, padding 24, un solo gap di 16; pannello di dettaglio 420 a destra sopra i 1320 px.
+-->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototipo · Revisione import</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ---------- token (achromatic-ledger + colori della contrada) ---------- */
+:root {
+  --yellow: #ffd900;            /* CMYK 0/15/100/0 */
+  --yellow-ink: #0a0a0a;
+  --ground: #f6f6f4; --surface: #ffffff; --raised: #f2f2f0; --active: #ebebe8;
+  --border: #e6e6e2; --rule: #f0f0ed; --control: #cfcfca;
+  --text: #0f0f0e; --muted: #5c5c58; --faint: #6b6b66;
+  --primary: var(--yellow); --primary-ink: var(--yellow-ink);
+  --positive: #247b50;
+  --pill-pos-bg: #dcfae5; --pill-pos-ink: #04250e;      /* confermato, riconciliato */
+  --pill-info-bg: #e3ecfb; --pill-info-ink: #0b3a80;    /* proposto */
+  --pill-warn-bg: #fff3c2; --pill-warn-ink: #5c4300;    /* dubbio: tinta del giallo */
+  --pill-neutral-bg: #ececea; --pill-neutral-ink: #3a3a37;
+  --font: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, monospace;
+  --fs-title: 24px; --fs-section: 16px; --fs-kpi: 24px; --fs-body: 14px; --fs-small: 12px;
+  --sidebar-width: 232px; --pad: 24px; --gap: 16px; --card-pad: 20px;
+  --radius-card: 8px; --radius-control: 6px; --control-height: 34px; --row-height: 52px; --nav-row: 32px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1); --t-hover: 150ms; --t-ui: 200ms;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--ground); color: var(--text); font: var(--fs-body)/20px var(--font); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, p { margin: 0; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; border-radius: 4px; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.money { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.muted { color: var(--muted); }
+.small { font-size: var(--fs-small); line-height: 16px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* ---------- shell ---------- */
+.app { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); min-height: 100svh; transition: grid-template-columns var(--t-ui) var(--ease-out); }
+body.rail .app { grid-template-columns: 64px minmax(0, 1fr); }
+.sidebar { position: sticky; top: 0; height: 100svh; display: flex; flex-direction: column; gap: 2px; padding: 14px 12px; border-right: 1px solid var(--border); overflow: auto; background: var(--ground); }
+.brand { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 4px 0 6px; margin-bottom: 10px; }
+.brand .name { font-weight: 600; white-space: nowrap; }
+.icon-btn { width: 34px; height: 34px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--text); cursor: pointer; }
+.icon-btn:hover { background: var(--active); }
+.icon-btn svg { width: 18px; height: 18px; }
+.brand .icon-btn { margin-left: auto; }
+.scope { margin: 0 4px 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); }
+.scope .k { font-size: var(--fs-small); color: var(--muted); }
+.group-label { margin: 18px 10px 6px; font-size: var(--fs-small); color: var(--faint); }
+.nav-item { display: flex; align-items: center; gap: 10px; height: var(--nav-row); padding: 0 10px; border-radius: 8px; color: var(--muted); text-decoration: none; transition: background-color var(--t-hover) ease, color var(--t-hover) ease; }
+.nav-item svg { width: 16px; height: 16px; flex: none; }
+.nav-item:hover { background: var(--raised); color: var(--text); }
+.nav-item[aria-current="page"] { background: var(--active); color: var(--text); }
+.nav-item .count { margin-left: auto; min-width: 22px; height: 20px; padding: 0 7px; border-radius: 10px; background: var(--text); color: var(--yellow); font: 500 12px/20px var(--mono); text-align: center; }
+.sidebar .bottom { margin-top: auto; }
+body.rail .sidebar { padding: 14px 10px; }
+body.rail .brand { flex-direction: column-reverse; height: auto; gap: 10px; padding: 0; }
+body.rail .brand .icon-btn { margin-left: 0; }
+body.rail .brand .name, body.rail .scope, body.rail .group-label, body.rail .nav-item .label { display: none; }
+body.rail .nav-item { justify-content: center; padding: 0; }
+body.rail .nav-item .count { position: absolute; transform: translate(12px, -10px); min-width: 18px; height: 16px; padding: 0 4px; font-size: 10px; line-height: 16px; }
+body.rail .nav-item { position: relative; }
+body.rail .rail-rule { display: block; height: 1px; background: var(--border); margin: 10px 6px; }
+.rail-rule { display: none; }
+.topbar { display: none; }
+.canvas { min-width: 0; padding: var(--pad); }
+
+/* ---------- titolo ---------- */
+.title-row { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; margin-bottom: 20px; }
+.title-row .head { flex: 1 1 460px; min-width: 0; }
+.title-row h1 { font-size: var(--fs-title); line-height: 30px; font-weight: 600; letter-spacing: -0.01em; }
+.title-row .meta { margin-top: 2px; font-size: var(--fs-small); color: var(--faint); }
+.title-row .finding { margin-top: 6px; }
+.title-row .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: var(--control-height); padding: 0 14px; border-radius: var(--radius-control); border: 1px solid var(--control); background: var(--surface); font-weight: 500; white-space: nowrap; cursor: pointer; transition: background-color var(--t-hover) ease; }
+.btn:hover { background: var(--raised); }
+.btn.primary { background: var(--primary); color: var(--primary-ink); border-color: var(--text); }
+.btn.primary:hover { background: #f2cd00; }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.ghost:hover { background: var(--active); }
+.btn:disabled { cursor: default; background: var(--raised); color: var(--faint); border-color: var(--border); }
+.btn.sm { height: 30px; padding: 0 10px; }
+.link { padding: 0; border: 0; background: none; color: var(--text); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+/* ---------- catena del saldo + avanzamento (un pannello diviso) ---------- */
+.ledger { display: grid; grid-template-columns: minmax(0, 1fr) auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); margin-bottom: var(--gap); }
+.chain { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 28px; padding: 14px var(--card-pad); }
+.chain .term .k { font-size: var(--fs-small); color: var(--muted); }
+.chain .term .v { font: 400 18px/24px var(--mono); font-variant-numeric: tabular-nums; }
+.chain .op { margin-right: 8px; font-weight: 400; color: var(--faint); }
+.chain .term .k { padding-left: 0; }
+.chain .term.total .v { font-weight: 600; }
+.chain .match { align-self: center; }
+.progress-cell { padding: 14px var(--card-pad); border-left: 1px solid var(--border); min-width: 240px; }
+.progress-cell .k { display: flex; justify-content: space-between; font-size: var(--fs-small); color: var(--muted); }
+.track { position: relative; height: 10px; margin-top: 10px; border-radius: 5px; background: var(--raised); border: 1px solid var(--border); overflow: hidden; }
+.track span { position: absolute; inset: 0 auto 0 0; background: var(--yellow); border-right: 1px solid rgba(0,0,0,.25); transition: width var(--t-ui) var(--ease-out); }
+.track-ends { display: flex; justify-content: space-between; margin-top: 6px; font: 12px/16px var(--mono); color: var(--faint); }
+
+/* ---------- passi come schede (KPI come tab) ---------- */
+.steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); margin-bottom: var(--gap); }
+.step { position: relative; text-align: left; padding: 14px var(--card-pad) 16px; border: 0; background: none; cursor: pointer; transition: background-color var(--t-hover) ease; }
+.step + .step { border-left: 1px solid var(--border); }
+.step:hover { background: var(--raised); }
+.step .lbl { color: var(--muted); }
+.step .val { margin-top: 4px; font: 400 var(--fs-kpi)/30px var(--mono); font-variant-numeric: tabular-nums; }
+.step .sub { margin-top: 2px; font-size: var(--fs-small); line-height: 16px; color: var(--faint); }
+.step[aria-selected="true"] .lbl { color: var(--text); font-weight: 500; }
+.step[aria-selected="true"] .val { font-weight: 500; }
+.step[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: var(--text); }
+.step:first-child[aria-selected="true"]::after { border-bottom-left-radius: var(--radius-card); }
+.step:last-child[aria-selected="true"]::after { border-bottom-right-radius: var(--radius-card); }
+.step .done { font: 500 var(--fs-body)/30px var(--font); color: var(--positive); }
+
+/* ---------- area di lavoro ---------- */
+.work { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-items: start; }
+.work.has-panel { grid-template-columns: minmax(0, 1fr) 420px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); min-width: 0; }
+.panel-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 14px var(--card-pad); }
+.panel-head h2 { font-size: var(--fs-section); line-height: 22px; font-weight: 600; }
+.panel-head .count { font: 400 var(--fs-small)/16px var(--mono); color: var(--muted); }
+.panel-head .spacer { flex: 1; }
+.help { padding: 0 var(--card-pad) 12px; color: var(--muted); max-width: 820px; }
+.help .link { font-weight: 400; color: var(--muted); }
+.segmented { display: inline-flex; padding: 2px; border-radius: 8px; background: var(--raised); border: 1px solid var(--border); }
+.segmented button { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
+.segmented button svg { width: 14px; height: 14px; }
+.segmented button[aria-pressed="true"] { background: var(--surface); color: var(--text); border-color: var(--border); }
+
+/* tabella */
+.table-wrap { overflow-x: auto; border-top: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+th { height: 36px; padding: 0 12px; text-align: left; font-weight: 400; font-size: var(--fs-small); color: var(--muted); white-space: nowrap; border-bottom: 1px solid var(--border); }
+td { height: var(--row-height); padding: 6px 12px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+tbody tr:last-child td { border-bottom: 0; }
+th.n, td.n { text-align: right; }
+th:first-child, td:first-child { padding-left: var(--card-pad); }
+th:last-child, td:last-child { padding-right: var(--card-pad); }
+tr.mov { cursor: pointer; }
+tr.mov[aria-selected="true"] td { background: var(--active); }
+tr.mov.done td .id, tr.mov.done td .money { color: var(--muted); }
+.id { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.sub { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--fs-small); line-height: 16px; color: var(--muted); }
+td select { width: 100%; height: 32px; padding: 0 8px; border: 1px solid var(--control); border-radius: var(--radius-control); background: var(--surface); text-overflow: ellipsis; }
+td select.unset { color: var(--muted); border-style: dashed; }
+.cb { width: 16px; height: 16px; accent-color: #0f0f0e; cursor: pointer; }
+.act { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+tr.group td { height: auto; padding-top: 14px; padding-bottom: 10px; background: var(--raised); border-bottom: 1px solid var(--border); cursor: default; }
+tr.group + tr td { }
+.group-line { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 16px; }
+.group-line .g-name { min-width: 0; }
+.group-line .t { display: block; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.group-line .g-meta { display: block; font-size: var(--fs-small); line-height: 16px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.skeleton { display: inline-block; height: 14px; border-radius: 4px; background: var(--active); vertical-align: middle; }
+.empty { display: grid; place-items: center; margin: 4px var(--card-pad) var(--card-pad); min-height: 96px; padding: 16px; border: 1px dashed var(--control); border-radius: var(--radius-control); color: var(--muted); text-align: center; }
+.notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 var(--card-pad) 12px; padding: 10px 12px; border: 1px solid #f0d76a; border-radius: var(--radius-control); background: #fffbe6; color: #4d3a00; }
+
+/* pill di stato: una per riga */
+.pill { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: var(--fs-small); font-weight: 500; white-space: nowrap; flex: none; background: var(--pill-neutral-bg); color: var(--pill-neutral-ink); }
+.pill.pos { background: var(--pill-pos-bg); color: var(--pill-pos-ink); }
+.pill.info { background: var(--pill-info-bg); color: var(--pill-info-ink); }
+.pill.warn { background: var(--pill-warn-bg); color: var(--pill-warn-ink); }
+
+/* voce con descrizione */
+.vp { position: relative; display: inline-block; }
+.vp > button { padding: 0; border: 0; border-bottom: 1px dotted var(--faint); background: none; font: 400 13px/18px var(--mono); cursor: help; }
+.vp .tip { display: none; position: absolute; z-index: 30; right: -8px; top: calc(100% + 8px); width: 280px; padding: 10px 12px; border-radius: var(--radius-control); background: #161615; color: #fff; font-size: var(--fs-small); line-height: 17px; box-shadow: 0 6px 20px rgba(0,0,0,.18); text-align: left; white-space: normal; }
+.vp .tip b { display: block; margin-bottom: 2px; color: var(--yellow); font-weight: 500; }
+.vp:hover .tip, .vp:focus-within .tip { display: block; }
+
+/* pannello di dettaglio */
+.detail { position: sticky; top: 16px; max-height: calc(100svh - 32px); overflow: auto; }
+.detail-head { display: flex; align-items: flex-start; gap: 12px; padding: 16px var(--card-pad) 12px; border-bottom: 1px solid var(--rule); }
+.detail-head .amt { font: 600 28px/34px var(--mono); font-variant-numeric: tabular-nums; }
+.detail-head .grow { flex: 1; min-width: 0; }
+.detail-body { padding: 16px var(--card-pad); display: grid; gap: 16px; }
+.orig { padding: 8px 10px; border-radius: var(--radius-control); background: var(--raised); font: 12px/18px var(--mono); color: var(--muted); word-break: break-word; }
+.source { display: flex; gap: 10px; align-items: baseline; }
+.field { display: grid; gap: 6px; }
+.field > label, .field > .lab { font-weight: 500; }
+.field .hint { font-size: var(--fs-small); line-height: 16px; color: var(--muted); }
+.input { height: 38px; padding: 0 12px; border: 1px solid var(--control); border-radius: var(--radius-control); background: var(--surface); width: 100%; min-width: 0; }
+.input::placeholder { color: var(--faint); }
+.seg { display: flex; border: 1px solid var(--control); border-radius: var(--radius-control); overflow: hidden; }
+.seg button { flex: 1; height: 36px; border: 0; background: var(--surface); white-space: nowrap; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--control); }
+.seg button[aria-pressed="true"] { background: var(--text); color: var(--yellow); font-weight: 500; }
+.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 16px; padding: 12px; border-radius: var(--radius-control); background: var(--raised); }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+.ai-box { display: grid; gap: 10px; padding: 14px; border: 1px dashed var(--control); border-radius: var(--radius-control); }
+.pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; }
+.pair .side { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-control); }
+.pair .side.missing { border-style: dashed; color: var(--muted); }
+.pair .arrow { color: var(--faint); }
+.detail-foot { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px var(--card-pad); border-top: 1px solid var(--border); background: var(--surface); }
+.detail-foot .spacer { flex: 1; }
+.keys { padding: 0 var(--card-pad) 14px; font-size: var(--fs-small); color: var(--faint); }
+kbd { font: 11px/16px var(--mono); padding: 0 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--raised); }
+
+/* barra delle azioni sulla selezione */
+.bulk { position: sticky; bottom: 16px; z-index: 15; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: var(--gap); padding: 10px 14px; border-radius: var(--radius-card); background: #161615; color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.bulk .spacer { flex: 1; }
+.bulk select { height: 32px; border-radius: var(--radius-control); border: 0; padding: 0 8px; color: var(--text); }
+.bulk .btn { height: 32px; }
+
+/* ---------- vista Schede ---------- */
+.cards { border-top: 1px solid var(--border); }
+.card-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; width: 100%; min-height: 64px; padding: 12px var(--card-pad); border: 0; border-bottom: 1px solid var(--rule); background: none; text-align: left; cursor: pointer; }
+.card-row:last-child { border-bottom: 0; }
+.card-row:active, .card-row:hover { background: var(--raised); }
+.card-row .id { font-weight: 500; }
+.card-row .money { text-align: right; }
+.card-row .line2 { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--fs-small); line-height: 16px; color: var(--muted); }
+.card-row .line2 .txt { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.card-row .right2 { display: flex; justify-content: flex-end; }
+.card-row.done .id, .card-row.done .money { color: var(--muted); }
+.card-group { padding: 14px var(--card-pad); border-bottom: 1px solid var(--border); background: var(--raised); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; }
+.card-group .t { font-weight: 600; }
+.card-group .btn { grid-column: 1 / -1; justify-self: start; margin-top: 6px; }
+
+/* foglio a tutto schermo (telefono, vista Schede) */
+.sheet { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; background: var(--surface); }
+.sheet-top { display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 8px; border-bottom: 1px solid var(--border); }
+.sheet-top .t { font-weight: 600; flex: 1; text-align: center; padding-right: 42px; }
+.sheet-body { flex: 1; overflow: auto; }
+.sheet .detail-foot { position: static; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+.sheet .detail-foot .btn { height: 44px; }
+.sheet .detail-foot .btn.primary { flex: 1; }
+
+/* menu del telefono */
+.menu-sheet { position: fixed; inset: 0; z-index: 45; background: var(--surface); padding: 12px 16px; overflow: auto; }
+.menu-sheet .nav-item { height: 44px; font-size: 16px; }
+
+.h1-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.show-phone { display: none; }
+.show-phone-inline { display: none; }
+.chain-sum { display: none; }
+.l-short { display: none; }
+
+/* ---------- barra del prototipo (estranea al design) ---------- */
+.proto { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 12px; border-radius: 20px; background: #2a2a28; color: #eee; font: 12px/1 var(--font); border: 1px solid #000; white-space: nowrap; }
+.proto button { height: 26px; padding: 0 10px; border: 0; border-radius: 13px; background: #444441; color: #fff; font: inherit; cursor: pointer; }
+.proto button[aria-pressed="true"] { background: var(--yellow); color: #000; }
+.proto .st { color: #bbb; font-family: var(--mono); }
+
+/* ---------- larghezze ---------- */
+@media (max-width: 1360px) { .col-src { display: none; } }
+@media (max-width: 1320px) {
+  .work.has-panel { grid-template-columns: minmax(0, 1fr); }
+  .detail { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100%); max-height: none; z-index: 35; border-radius: 0; border-width: 0 0 0 1px; box-shadow: -12px 0 32px rgba(0,0,0,.10); }
+}
+@media (max-width: 1180px) { .col-ini { display: none; } }
+/* tablet e telefono: il menu laterale diventa una barra in alto con il menu a foglio */
+@media (max-width: 1099px) {
+  .app, body.rail .app { grid-template-columns: minmax(0, 1fr); }
+  .sidebar { display: none; }
+  .topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 16px 0 10px; border-bottom: 1px solid var(--border); background: var(--ground); }
+  .topbar .name { font-weight: 600; }
+  .topbar .scope-mini { margin-left: auto; font-size: var(--fs-small); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .canvas { padding: 20px; }
+}
+@media (max-width: 1099px) { .card-row .line2, .help { font-size: 13px; line-height: 18px; } .proto .st { display: none; } }
+@media (max-width: 760px) {
+  .canvas { padding: 16px; }
+  .title-row h1 { font-size: 22px; line-height: 28px; }
+  .title-row .actions { width: 100%; }
+  .title-row .actions .btn.primary { flex: 1; }
+  .hide-phone { display: none; }
+  .show-phone { display: inline-flex; }
+  .show-phone-inline { display: inline; font: 400 12px/16px var(--mono); color: var(--muted); }
+  .title-row { margin-bottom: 14px; }
+  .title-row .finding { font-size: 13px; line-height: 18px; }
+  .ledger { grid-template-columns: minmax(0, 1fr); }
+  .chain-sum { display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 16px; border: 0; background: none; text-align: left; cursor: pointer; }
+  .chain-sum > span:first-child { flex: 1; min-width: 0; }
+  .chain-sum .k { color: var(--muted); font-size: 13px; }
+  .chain { display: none; }
+  .chain.open { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; padding: 0 16px 12px; }
+  .chain .match { display: none; }
+  .progress-cell { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0 12px; border-left: 0; border-top: 1px solid var(--border); min-width: 0; padding: 10px 16px; }
+  .progress-cell .track { margin-top: 0; }
+  .progress-cell .track-ends { display: none; }
+  .progress-cell .k { gap: 6px; }
+  .steps { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .step { padding: 10px 10px 12px; min-width: 0; }
+  .step .lbl { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .l-long { display: none; } .l-short { display: inline; }
+  .step .val { font-size: 20px; line-height: 26px; }
+  .step .sub { display: none; }
+  .card-row .line2 { font-size: 13px; line-height: 18px; }
+  .help { font-size: 13px; line-height: 18px; }
+  .panel-head { gap: 8px 10px; padding: 12px 16px; }
+  .panel-head h2 { flex: 1 0 100%; display: flex; align-items: baseline; gap: 8px; }
+  .panel-head > .count { display: none; }
+  .panel-head .spacer { display: none; }
+  .panel-head .btn.sm { flex: 1; }
+  .seg-lbl { display: none; }
+  .help { padding: 0 16px 10px; }
+  .pair { grid-template-columns: minmax(0, 1fr); }
+  .pair .arrow { transform: rotate(90deg); justify-self: center; }
+  .proto .st { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" aria-label="Menu">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="6" fill="#ffd900"/><path d="M9 21V10H8V7h2v1.5h1.5V7h3v1.5H16V7h2v3h-1v11z" fill="#0f0f0e"/><rect x="12" y="15" width="2" height="6" fill="#ffd900"/></svg>
+      <span class="name">Prima nota</span>
+      <button class="icon-btn" data-act="rail" aria-label="Comprimi o espandi il menu" title="Comprimi o espandi il menu"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 5h12M3 9h12M3 13h12"/></svg></button>
+    </div>
+    <div class="scope"><div>Contrada La Torre APS</div><div class="k">Esercizio 2026 · aperto</div></div>
+    <nav id="nav"></nav>
+  </aside>
+  <div>
+    <header class="topbar">
+      <button class="icon-btn" data-act="menu" aria-label="Apri il menu"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 5h12M3 9h12M3 13h12"/></svg></button>
+      <svg width="24" height="24" viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="6" fill="#ffd900"/><path d="M9 21V10H8V7h2v1.5h1.5V7h3v1.5H16V7h2v3h-1v11z" fill="#0f0f0e"/><rect x="12" y="15" width="2" height="6" fill="#ffd900"/></svg>
+      <span class="name">Prima nota</span>
+      <span class="scope-mini">Contrada La Torre APS · 2026</span>
+    </header>
+    <main class="canvas" id="app"></main>
+  </div>
+</div>
+<div id="overlay"></div>
+<div class="proto" role="toolbar" aria-label="Strumenti del prototipo">
+  <span>Prototipo</span>
+  <button data-act="p-error" id="pErr" aria-pressed="false">Simula errore AI</button>
+  <button data-act="p-empty">Tutto confermato</button>
+  <button data-act="p-reset">Ricomincia</button>
+  <span class="st" id="pState"></span>
+</div>
+
+<script>
+/* ---------- dati inventati ---------- */
+const TIPOLOGIE = {
+  utenze: { nome: 'Utenze', verso: 'u', voce: 'Servizi', n: 2, spiega: 'Luce, acqua, gas, telefono della sede.' },
+  oneri_banca: { nome: 'Oneri bancari', verso: 'u', voce: 'Su rapporti bancari', n: 1, area: 'D', spiega: 'Canoni, commissioni e competenze del conto e dei sistemi di pagamento.' },
+  stampa: { nome: 'Stampa e promozione', verso: 'u', voce: 'Servizi', n: 2, spiega: 'Manifesti, volantini, inserzioni.' },
+  alimenti: { nome: 'Alimenti e bevande', verso: 'u', voce: 'Materie prime, sussidiarie, di consumo e di merci', n: 1, spiega: 'Cibo e bevande da somministrare.' },
+  noleggi: { nome: 'Noleggi', verso: 'u', voce: 'Godimento beni di terzi', n: 3, spiega: 'Gazebo, palco, impianti presi in affitto.' },
+  consumo: { nome: 'Materiali di consumo', verso: 'u', voce: 'Materie prime, sussidiarie, di consumo e di merci', n: 1, spiega: 'Piccoli acquisti che si consumano nell’anno.' },
+  somministrazione: { nome: 'Somministrazione', verso: 'e', voce: 'Entrate da prestazioni e cessioni a terzi', n: 7, spiega: 'Cibo e bevande venduti durante le iniziative.' },
+  contributi_pubblici: { nome: 'Contributi da enti pubblici', verso: 'e', voce: 'Contributi da enti pubblici', n: 8, spiega: 'Contributi di Comune, Regione e altri enti.' },
+  quote: { nome: 'Quote associative', verso: 'e', voce: 'Entrate da quote associative e apporti dei fondatori', n: 1, area: 'A', spiega: 'La quota annuale pagata dai soci.' },
+  liberalita: { nome: 'Erogazioni liberali', verso: 'e', voce: 'Erogazioni liberali', n: 4, spiega: 'Donazioni senza nulla in cambio.' },
+};
+const INIZIATIVE = { '': { nome: 'Nessuna', area: 'E' }, festa: { nome: 'Festa della Torre', area: 'A' }, sipuofare: { nome: 'Si può fare', area: 'A' }, cene: { nome: 'Cene sociali', area: 'A' } };
+const SEZIONI = { A: 'Attività di interesse generale', B: 'Attività diverse', C: 'Raccolta fondi', D: 'Attività finanziarie e patrimoniali', E: 'Supporto generale' };
+const SALDO_INIZIALE = 4312.40, SALDO_ESTRATTO = 6861.80;
+const BASE = [
+  { id: 1, data: '02/05', causale: 'PAGAMENTO UTENZE', desc: 'ADDEBITO SDD ENEL ENERGIA SPA FATT. 0042 PERIODO APR', breve: 'Enel Energia · luce sede', imp: -86.40, fonte: 'regola', regola: 'Luce della sede', p: { tip: 'utenze', ini: '', soc: '' } },
+  { id: 2, data: '04/05', causale: 'COMMISSIONI/SPESE', desc: 'CANONE NOWBANKING MESE DI APRILE', breve: 'Canone home banking', imp: -6.00, fonte: 'regola', regola: 'Canone banca', p: { tip: 'oneri_banca', ini: '', soc: '' } },
+  { id: 3, data: '06/05', causale: 'GIROCONTO/BONIFICO', desc: 'BONIFICO A FAVORE DI TIPOGRAFIA DEL BORGO SNC FATT 41/2026 MANIFESTI', breve: 'Tipografia del Borgo · manifesti', imp: -312.00, fonte: 'storico', storico: '08/05/2025', p: { tip: 'stampa', ini: 'festa', soc: 'terzo' } },
+  { id: 4, data: '09/05', causale: 'PRELIEVO NOSTRO SPORTELLO AUTOM.', desc: 'PRELIEVO BANCOMAT CARTA ****4410 ORE 18.02', breve: 'Prelievo bancomat', imp: -500.00, fonte: 'giroconto', giro: { verso: 'Cassa contanti', stato: 'da creare' } },
+  { id: 5, data: '12/05', causale: 'GIROCONTO/BONIFICO', desc: 'BONIFICO DA COMUNE TESORERIA ENTE DESCR: CONTRIBUTO MANIFESTAZIONI 2026', breve: 'Comune · contributo manifestazioni', imp: 1500.00, fonte: 'nessuna', ai: { tip: 'contributi_pubblici', ini: 'festa', soc: 'terzo', conf: 'alta', perche: 'Bonifico dal Comune con causale "contributo manifestazioni": contributo da ente pubblico (manuale § 4.2).' } },
+  { id: 6, data: '14/05', causale: 'PAGAMENTO TRAMITE POS', desc: 'PAGAMENTO POS CARTA ****4410 CASH CARRY INGROSSO ALIMENTARI', breve: 'Ingrosso alimentari', imp: -423.80, fonte: 'storico', storico: '15/05/2025', p: { tip: 'alimenti', ini: 'festa', soc: 'terzo' } },
+  { id: 7, data: '16/05', causale: 'PAGAMENTO TRAMITE POS', desc: 'PAGAMENTO POS CARTA ****4410 NOLEGGI ATTREZZATURE EVENTI', breve: 'Noleggio attrezzature eventi', imp: -250.00, fonte: 'nessuna', ai: { tip: 'noleggi', ini: 'festa', soc: 'terzo', conf: 'media', perche: 'Pagamento a un noleggiatore di attrezzature nei giorni della Festa (manuale § 3.4).' } },
+  { id: 8, data: '18/05', causale: 'INCASSO TRAMITE POS', desc: 'INCASSO POS BANCOMAT DEL 16/05/26 CONTRADA LA TORRE', breve: 'Incasso POS Bancomat · 16/05', imp: 768.00, fonte: 'regola', regola: 'Incassi POS durante la Festa', p: { tip: 'somministrazione', ini: 'festa', soc: 'terzo' } },
+  { id: 9, data: '18/05', causale: 'INCASSO TRAMITE POS', desc: 'INCASSO POS NEXI CORE DEL 16/05/26 CONTRADA LA TORRE', breve: 'Incasso POS Nexi · 16/05', imp: 1562.00, fonte: 'regola', regola: 'Incassi POS durante la Festa', p: { tip: 'somministrazione', ini: 'festa', soc: 'terzo' } },
+  { id: 10, data: '18/05', causale: 'INCASSO TRAMITE POS', desc: 'INCASSO POS BANCOMAT DEL 17/05/26 CONTRADA LA TORRE', breve: 'Incasso POS Bancomat · 17/05', imp: 10.00, fonte: 'regola', regola: 'Incassi POS durante la Festa', p: { tip: 'somministrazione', ini: 'festa', soc: 'terzo' } },
+  { id: 11, data: '18/05', causale: 'INCASSO TRAMITE POS', desc: 'INCASSO POS NEXI CORE DEL 17/05/26 CONTRADA LA TORRE', breve: 'Incasso POS Nexi · 17/05', imp: 32.00, fonte: 'regola', regola: 'Incassi POS durante la Festa', p: { tip: 'somministrazione', ini: 'festa', soc: 'terzo' } },
+  { id: 12, data: '18/05', causale: 'GIROCONTO/BONIFICO', desc: 'ORD:SATISPAY EUROPE S.A. DESCR.OPERAZIONE SCT:CONTRADA LA TORRE APS', breve: 'Versamento da Satispay', imp: 246.95, fonte: 'giroconto', giro: { verso: 'Satispay', stato: 'abbinato', nota: '16 incassi del 15–16/05: lordo 247,00 − commissioni 0,05' } },
+  { id: 13, data: '21/05', causale: 'GIROCONTO/BONIFICO', desc: 'BONIFICO DA [SOCIO] DESCR: QUOTA SOCIALE 2026', breve: 'Quota sociale 2026', imp: 25.00, fonte: 'storico', storico: '03/02/2026', p: { tip: 'quote', ini: '', soc: 'socio' } },
+  { id: 14, data: '25/05', causale: 'GIROCONTO/BONIFICO', desc: 'BONIFICO DA [PERSONA] DESCR: PER LA FESTA, GRAZIE', breve: 'Bonifico "per la festa, grazie"', imp: 50.00, fonte: 'nessuna', ai: { tip: 'liberalita', ini: 'festa', soc: 'terzo', conf: 'media', perche: 'Bonifico da privato senza corrispettivo: erogazione liberale. Se chi paga è socio e la somma è la quota, va in Quote associative (manuale § 2.1).' } },
+  { id: 15, data: '28/05', causale: 'PAGAMENTO TRAMITE POS', desc: 'PAGAMENTO POS CARTA ****4410 FERRAMENTA', breve: 'Ferramenta', imp: -64.20, fonte: 'nessuna', ai: { tip: 'consumo', ini: '', soc: 'terzo', conf: 'bassa', perche: 'Acquisto in ferramenta: materiali di consumo. Non è chiaro a quale iniziativa si riferisca (manuale § 3.1).' } },
+  { id: 16, data: '31/05', causale: 'INTERESSI/COMPETENZE', desc: 'COMPETENZE DI CHIUSURA AL 31/05/2026', breve: 'Competenze di chiusura', imp: -2.15, fonte: 'regola', regola: 'Competenze del conto', p: { tip: 'oneri_banca', ini: '', soc: '' } },
+];
+let M;
+function reset() {
+  M = BASE.map(b => ({ ...b, giro: b.giro ? { ...b.giro } : undefined, stato: b.fonte === 'nessuna' ? 'da classificare' : 'proposto', sel: b.p ? { ...b.p } : { tip: '', ini: '', soc: '' }, dubbio: false, ai: b.ai, aiStato: 'mai', giust: '' }));
+}
+reset();
+const cents = v => Math.round(v * 100);
+const ENTRATE = BASE.filter(m => m.imp > 0).reduce((s, m) => s + cents(m.imp), 0) / 100;
+const USCITE = BASE.filter(m => m.imp < 0).reduce((s, m) => s + cents(-m.imp), 0) / 100;
+const SALDO_APP = (cents(SALDO_INIZIALE) + cents(ENTRATE) - cents(USCITE)) / 100;
+console.assert(SALDO_APP === SALDO_ESTRATTO, 'Il saldo non torna');
+
+/* ---------- regole di dominio (semplificate) ---------- */
+const eur = v => new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' }).format(v);
+const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + eur(Math.abs(v));
+const isGiro = m => m.fonte === 'giroconto';
+const area = m => (TIPOLOGIE[m.sel.tip] && TIPOLOGIE[m.sel.tip].area) || INIZIATIVE[m.sel.ini || ''].area;
+const voceCode = m => TIPOLOGIE[m.sel.tip] ? area(m) + TIPOLOGIE[m.sel.tip].n : '';
+const voceFull = m => isGiro(m) ? 'Nessuna voce: giroconto' : TIPOLOGIE[m.sel.tip] ? voceCode(m) + ') ' + TIPOLOGIE[m.sel.tip].voce : '—';
+function natura(m) {
+  if (isGiro(m) || !m.sel.tip || m.imp < 0) return '—';
+  if (area(m) === 'B') return 'Commerciale';
+  if (m.sel.tip === 'somministrazione') return 'Non commerciale, se la sezione A resta entro il 6%';
+  return 'Non commerciale';
+}
+function fonte(m) {
+  if (m.fonte === 'regola') return { tag: 'Regola', txt: 'Regola “' + m.regola + '”' };
+  if (m.fonte === 'storico') return { tag: 'Storico', txt: 'Come il movimento del ' + m.storico };
+  if (isGiro(m)) return { tag: 'Giroconto', txt: m.giro.stato === 'abbinato' ? 'Abbinato a ' + m.giro.verso : 'Da registrare in ' + m.giro.verso };
+  if (m.aiStato === 'ok') return { tag: 'AI · ' + m.ai.conf, txt: m.ai.perche };
+  return { tag: '—', txt: 'Nessuna regola e nessun movimento simile' };
+}
+function statusPill(m) {
+  if (m.stato === 'confermato') return '<span class="pill pos">Confermato</span>';
+  if (m.dubbio) return '<span class="pill warn">Dubbio</span>';
+  if (m.stato === 'proposto') return '<span class="pill info">Proposto</span>';
+  return '<span class="pill">Da classificare</span>';
+}
+const canConfirm = m => m.stato !== 'confermato' && (isGiro(m) || !!m.sel.tip);
+function confirm(m) { if (!canConfirm(m)) return; if (isGiro(m) && m.giro.stato === 'da creare') m.giro.stato = 'creato'; m.stato = 'confermato'; }
+const pronte = () => M.filter(m => m.stato === 'proposto' && (m.fonte === 'regola' || m.fonte === 'storico'));
+const senzaProposta = () => M.filter(m => m.fonte === 'nessuna' && m.aiStato !== 'ok' && m.stato === 'da classificare');
+
+const STEPS = {
+  giro: { short: 'Giroconti', lbl: 'Giroconti', sub: 'tra i nostri conti', f: m => isGiro(m),
+    help: 'Non sono spese né incassi: spostano denaro tra due conti dell’associazione e restano fuori dal Modello D. L’app ha trovato l’altra metà o propone di registrarla.', empty: 'Nessun giroconto da controllare in questo import.' },
+  pronte: { short: 'Pronte', lbl: 'Proposte pronte', sub: 'da regola o precedente', f: m => m.fonte === 'regola' || m.fonte === 'storico',
+    help: 'Raggruppate per tipologia e iniziativa. Controlla ogni gruppo e confermalo in un colpo; se un movimento è sbagliato, aprilo e correggilo prima.', empty: 'Nessuna proposta da confermare.' },
+  decidere: { short: 'Da decidere', lbl: 'Da decidere', sub: 'senza precedenti', f: m => m.fonte === 'nessuna',
+    help: 'Apri ogni movimento e scegli tipologia e iniziativa. Se non sai, chiedi un suggerimento all’AI o segna il movimento come dubbio: resta in elenco per il commercialista.', empty: 'Niente da decidere: tutti i movimenti hanno una proposta.' },
+  tutti: { short: 'Tutti', lbl: 'Tutti', sub: 'l’intero import', f: () => true, help: 'Tutti i movimenti dell’import, nell’ordine dell’estratto.', empty: 'L’import è vuoto.' },
+};
+const aperti = k => M.filter(STEPS[k].f).filter(m => m.stato !== 'confermato');
+
+/* ---------- stato dell'interfaccia ---------- */
+const UI = { chain: false, step: 'decidere', open: null, help: window.innerWidth >= 760, sel: new Set(), view: null, menu: false, aiErr: false, aiLoading: new Set(), aiFail: false };
+try { UI.view = localStorage.getItem('pn-vista'); } catch (e) {}
+const autoView = () => (window.innerWidth < 900 ? 'schede' : 'tabella');
+const view = () => UI.view || autoView();
+const isPhoneSheet = () => view() === 'schede' && window.innerWidth < 1100;
+function setView(v) { UI.view = v; try { localStorage.setItem('pn-vista', v); } catch (e) {} UI.open = null; render(); }
+
+/* ---------- pezzi ---------- */
+const ICONS = {
+  mov: '<path d="M3 4h10M3 8h10M3 12h6"/>', conti: '<path d="M2 6l6-3 6 3M3 6v6M13 6v6M6 7v4M10 7v4M2 13h12"/>',
+  ini: '<path d="M4 14V2M4 3h8l-2 3 2 3H4"/>', reg: '<path d="M2 4h12M2 8h12M2 12h12"/><circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="8" r="1.5"/><circle cx="7" cy="12" r="1.5"/>',
+  modd: '<path d="M4 2h6l3 3v9H4zM10 2v3h3M6 8h5M6 11h5"/>', test: '<path d="M3 8l3 3 7-7"/>',
+  imp: '<circle cx="8" cy="8" r="2.5"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/>',
+  table: '<path d="M2 3h12v10H2zM2 6.5h12M2 10h12M6 3v10"/>', cards: '<rect x="2" y="2.5" width="12" height="4" rx="1"/><rect x="2" y="9.5" width="12" height="4" rx="1"/>',
+};
+const svg = k => `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg>`;
+function navHTML() {
+  const n = M.filter(m => m.stato !== 'confermato').length;
+  const it = (k, l, cur, extra = '') => `<a href="#" class="nav-item" ${cur ? 'aria-current="page"' : ''} title="${l}">${svg(k)}<span class="label">${l}</span>${extra}</a>`;
+  return it('mov', 'Movimenti', true, n ? `<span class="count" title="${n} movimenti da confermare">${n}</span>` : '') + it('conti', 'Conti') + it('ini', 'Iniziative') + it('reg', 'Regole') +
+    '<div class="group-label">Rendicontazione</div><div class="rail-rule"></div>' + it('modd', 'Modello D') + it('test', 'Test CTS') +
+    `<div class="bottom">${it('imp', 'Impostazioni')}</div>`;
+}
+const tipOptions = m => `<option value="">Scegli la tipologia…</option>` + Object.entries(TIPOLOGIE).filter(([, t]) => t.verso === (m.imp > 0 ? 'e' : 'u')).map(([k, t]) => `<option value="${k}" ${m.sel.tip === k ? 'selected' : ''}>${t.nome}</option>`).join('');
+const iniOptions = m => Object.entries(INIZIATIVE).map(([k, i]) => `<option value="${k}" ${m.sel.ini === k ? 'selected' : ''}>${i.nome}</option>`).join('');
+const groupName = m => (TIPOLOGIE[m.sel.tip] ? TIPOLOGIE[m.sel.tip].nome : 'Senza tipologia') + (m.sel.ini ? ' · ' + INIZIATIVE[m.sel.ini].nome : ' · senza iniziativa');
+function voceCell(m) {
+  if (isGiro(m)) return `<span class="vp"><button type="button" aria-label="Voce Modello D: nessuna">—</button><span class="tip" role="tooltip"><b>Nessuna voce</b>Giroconto: sposta denaro tra due conti dell’associazione e resta fuori dal Modello D.</span></span>`;
+  if (!m.sel.tip) return '<span class="muted">—</span>';
+  const a = area(m);
+  return `<span class="vp"><button type="button" aria-label="Voce Modello D ${voceCode(m)}">${voceCode(m)}</button><span class="tip" role="tooltip"><b>${voceFull(m)}</b>Sezione ${a}, ${SEZIONI[a].toLowerCase()} · ${m.imp > 0 ? 'entrate' : 'uscite'}. Si ricava da area e tipologia.</span></span>`;
+}
+function finding() {
+  const nd = aperti('decidere').length, giroDaCreare = M.filter(m => isGiro(m) && m.giro.stato === 'da creare').length, np = pronte().length;
+  const parts = [];
+  if (nd) parts.push(nd + (nd === 1 ? ' movimento da decidere' : ' movimenti da decidere'));
+  if (np) parts.push(np + (np === 1 ? ' proposta pronta' : ' proposte pronte'));
+  if (giroDaCreare) parts.push(giroDaCreare === 1 ? '1 prelievo da registrare in cassa' : giroDaCreare + ' prelievi da registrare in cassa');
+  const left = M.filter(m => m.stato !== 'confermato').length;
+  return '<span class="hide-phone">Saldo uguale all’estratto. </span>' + (left ? 'Restano ' + parts.join(', ').replace(/, ([^,]*)$/, ' e $1') + '.' : 'Tutti i movimenti sono confermati.');
+}
+function titleRow() {
+  const np = pronte().length;
+  return `<div class="title-row"><div class="head">
+      <div class="h1-line"><h1>Revisione import</h1><button class="icon-btn show-phone" data-act="annulla" aria-label="Altre azioni: annulla import" title="Annulla import"><svg viewBox="0 0 18 18" fill="currentColor"><circle cx="4" cy="9" r="1.4"/><circle cx="9" cy="9" r="1.4"/><circle cx="14" cy="9" r="1.4"/></svg></button></div>
+      <div class="meta">Crédit Agricole c/c · 1–31 maggio 2026<span class="hide-phone"> · caricato oggi alle 17:20</span></div>
+      <p class="finding">${finding()}</p></div>
+    <div class="actions"><button class="btn ghost hide-phone" data-act="annulla">Annulla import</button>
+      ${np ? `<button class="btn primary" data-act="conf-pronte">Conferma ${np} ${np === 1 ? 'proposta pronta' : 'proposte pronte'}</button>` : ''}</div></div>`;
+}
+function ledger() {
+  const conf = M.filter(m => m.stato === 'confermato').length, tot = M.length;
+  return `<section class="ledger" aria-label="Riconciliazione e avanzamento">
+    <button class="chain-sum" data-act="chain" aria-expanded="${UI.chain}"><span><span class="k">Saldo al 31/05</span> <span class="money">${eur(SALDO_APP)}</span></span><span class="pill pos">Uguale all\u2019estratto</span><span class="chev" aria-hidden="true">${UI.chain ? '▴' : '▾'}</span></button>
+    <div class="chain ${UI.chain ? 'open' : ''}">
+      <div class="term"><div class="k">Saldo al 30/04</div><div class="v">${eur(SALDO_INIZIALE)}</div></div>
+      <div class="term"><div class="k">Entrate</div><div class="v"><span class="op">+</span>${eur(ENTRATE)}</div></div>
+      <div class="term"><div class="k">Uscite</div><div class="v"><span class="op">−</span>${eur(USCITE)}</div></div>
+      <div class="term total"><div class="k">Saldo al 31/05</div><div class="v"><span class="op">=</span>${eur(SALDO_APP)}</div></div>
+      <span class="pill pos match" title="Il saldo calcolato coincide con il saldo dell’estratto">Uguale all’estratto</span>
+    </div>
+    <div class="progress-cell"><div class="k"><span>Confermati</span><span class="num" style="color:var(--text)">${conf}</span></div>
+      <div class="track" role="progressbar" aria-valuemin="0" aria-valuemax="${tot}" aria-valuenow="${conf}">${conf ? `<span style="width:${conf / tot * 100}%"></span>` : ''}</div>
+      <div class="track-ends"><span>0</span><span>${tot}</span></div></div>
+  </section>`;
+}
+function steps() {
+  return `<div class="steps" role="tablist" aria-label="Cosa resta da fare">${Object.keys(STEPS).map(k => {
+    const n = k === 'tutti' ? M.length : aperti(k).length; const sel = UI.step === k;
+    const val = k !== 'tutti' && n === 0 ? '<div class="done">Fatto</div>' : `<div class="val">${n}</div>`;
+    return `<button class="step" role="tab" aria-selected="${sel}" data-act="step" data-k="${k}"><div class="lbl"><span class="l-long">${STEPS[k].lbl}</span><span class="l-short">${STEPS[k].short}</span></div>${val}<div class="sub">${k !== 'tutti' && n === 0 ? 'niente da confermare' : STEPS[k].sub}</div></button>`; }).join('')}</div>`;
+}
+function panelHead(rows) {
+  const k = UI.step, sp = senzaProposta().filter(STEPS[k].f), loading = UI.aiLoading.size > 0;
+  return `<div class="panel-head"><h2>${STEPS[k].lbl}<span class="count show-phone-inline">${rows.length} mov.</span></h2><span class="count">${rows.length} ${rows.length === 1 ? 'movimento' : 'movimenti'}</span><span class="spacer"></span>
+    ${sp.length ? `<button class="btn sm" data-act="ai-all" ${loading ? 'disabled' : ''}>${loading ? 'Sto chiedendo all’AI…' : `Chiedi all’AI per ${sp.length} · circa ${eur(sp.length * 0.01)} €`}</button>` : ''}
+    <div class="segmented" role="group" aria-label="Vista"><button data-act="view" data-v="tabella" aria-pressed="${view() === 'tabella'}" aria-label="Vista tabella">${svg('table')}<span class="seg-lbl">Tabella</span></button><button data-act="view" data-v="schede" aria-pressed="${view() === 'schede'}" aria-label="Vista schede">${svg('cards')}<span class="seg-lbl">Schede</span></button></div></div>
+    ${UI.help ? `<p class="help">${STEPS[k].help} <button class="link" data-act="help">Nascondi le spiegazioni</button></p>` : `<p class="help help-off"><button class="link" data-act="help">Cosa devo fare qui?</button></p>`}
+    ${UI.aiFail ? `<div class="notice" role="status"><span>L’AI non ha risposto (ultimo tentativo alle 17:42). Puoi classificare a mano o riprovare.</span><button class="link" data-act="ai-all">Riprova</button></div>` : ''}`;
+}
+
+/* ---------- vista Tabella ---------- */
+function rowHTML(m) {
+  const open = UI.open !== null, giro = isGiro(m), loading = UI.aiLoading.has(m.id);
+  const tipCell = loading ? '<span class="skeleton" style="width:80%"></span>' : giro ? `<span class="sub" style="color:var(--text)">Giroconto ${m.imp < 0 ? '→' : '←'} ${m.giro.verso}</span>` : `<select class="${m.sel.tip ? '' : 'unset'}" data-f="tip" data-id="${m.id}" aria-label="Tipologia">${tipOptions(m)}</select>`;
+  const iniCell = loading ? '<span class="skeleton" style="width:70%"></span>' : giro ? '' : `<select data-f="ini" data-id="${m.id}" aria-label="Iniziativa">${iniOptions(m)}</select>`;
+  return `<tr class="mov ${m.stato === 'confermato' ? 'done' : ''}" aria-selected="${UI.open === m.id}" data-act="open" data-id="${m.id}">
+    <td><input type="checkbox" class="cb" data-act="check" data-id="${m.id}" ${UI.sel.has(m.id) ? 'checked' : ''} aria-label="Seleziona ${m.breve}"></td>
+    <td class="num muted">${m.data}</td>
+    <td><span class="id">${m.breve}</span><span class="sub">${m.causale}${open || fonte(m).tag === '—' ? '' : ' · ' + fonte(m).tag}</span></td>
+    <td class="n money">${signed(m.imp)}</td>
+    ${open ? '' : `<td>${tipCell}</td><td class="col-ini">${iniCell}</td>`}
+    <td>${voceCell(m)}</td>
+    <td class="n"><div class="act">${open ? '' : statusPill(m)}${m.stato === 'confermato' ? (open ? statusPill(m) : '') : canConfirm(m) ? `<button class="btn sm" data-act="confirm" data-id="${m.id}">Conferma</button>` : (open ? statusPill(m) : '')}</div></td>
+  </tr>`;
+}
+function colgroup() {
+  const open = UI.open !== null;
+  return `<colgroup><col style="width:52px"><col style="width:64px"><col><col style="width:120px">${open ? '' : '<col style="width:200px"><col class="col-ini" style="width:170px">'}<col style="width:64px"><col style="width:${open ? 120 : 236}px"></colgroup>`;
+}
+function headRow() {
+  const open = UI.open !== null;
+  return `<thead><tr><th><span class="sr">Seleziona</span></th><th>Data</th><th>Movimento</th><th class="n">Importo €</th>${open ? '' : '<th>Tipologia</th><th class="col-ini">Iniziativa</th>'}<th>Voce</th><th class="n">${open ? '' : 'Stato'}</th></tr></thead>`;
+}
+function tableView(rows) {
+  if (!rows.length) return `<div class="empty">${STEPS[UI.step].empty}</div>`;
+  const cols = UI.open !== null ? 6 : 8;
+  let body;
+  if (UI.step === 'pronte') {
+    const groups = {}; rows.forEach(m => { const k = m.sel.tip + '|' + m.sel.ini; (groups[k] = groups[k] || []).push(m); });
+    body = Object.values(groups).map(l => { const m = l[0], tot = l.reduce((s, x) => s + cents(x.imp), 0) / 100, open = l.filter(x => x.stato !== 'confermato');
+      return `<tr class="group"><td colspan="${cols}"><div class="group-line"><div class="g-name"><span class="t">${groupName(m)}</span><span class="g-meta">${voceFull(m)} · ${fonte(m).txt}</span></div>
+        <span class="small muted num">${l.length} mov.</span><span class="money">${signed(tot)} €</span>
+        ${open.length ? `<button class="btn sm" data-act="conf-group" data-ids="${open.map(x => x.id).join(',')}">Conferma il gruppo</button>` : '<span class="pill pos">Confermato</span>'}</div></td></tr>` + l.map(rowHTML).join(''); }).join('');
+  } else body = rows.map(rowHTML).join('');
+  return `<div class="table-wrap"><table>${colgroup()}${headRow()}<tbody>${body}</tbody></table></div>`;
+}
+
+/* ---------- vista Schede ---------- */
+function cardHTML(m) {
+  const t = TIPOLOGIE[m.sel.tip];
+  const line2 = isGiro(m) ? `Giroconto ${m.imp < 0 ? '→' : '←'} ${m.giro.verso}` : t ? t.nome + (m.sel.ini ? ' · ' + INIZIATIVE[m.sel.ini].nome : '') + ' · ' + voceCode(m) : 'Tipologia da scegliere';
+  return `<button class="card-row ${m.stato === 'confermato' ? 'done' : ''}" data-act="open" data-id="${m.id}">
+    <span class="id">${m.breve}</span><span class="money">${signed(m.imp)}</span>
+    <span class="line2"><span class="num">${m.data}</span><span class="txt">${UI.aiLoading.has(m.id) ? 'Sto chiedendo all’AI…' : line2}</span></span><span class="right2">${statusPill(m)}</span>
+  </button>`;
+}
+function cardsView(rows) {
+  if (!rows.length) return `<div class="empty">${STEPS[UI.step].empty}</div>`;
+  if (UI.step === 'pronte') {
+    const groups = {}; rows.forEach(m => { const k = m.sel.tip + '|' + m.sel.ini; (groups[k] = groups[k] || []).push(m); });
+    return `<div class="cards">` + Object.values(groups).map(l => { const m = l[0], tot = l.reduce((s, x) => s + cents(x.imp), 0) / 100, open = l.filter(x => x.stato !== 'confermato');
+      return `<div class="card-group"><span class="t">${groupName(m)}</span><span class="money">${signed(tot)}</span>
+        <span class="small muted">${l.length} mov. · ${voceCode(m)} · ${fonte(m).tag}</span><span>${open.length ? '' : '<span class="pill pos">Confermato</span>'}</span>
+        ${open.length ? `<button class="btn sm" data-act="conf-group" data-ids="${open.map(x => x.id).join(',')}">Conferma il gruppo (${open.length})</button>` : ''}</div>` + l.map(cardHTML).join(''); }).join('') + `</div>`;
+  }
+  return `<div class="cards">${rows.map(cardHTML).join('')}</div>`;
+}
+
+/* ---------- dettaglio del movimento (pannello o foglio) ---------- */
+function editorHTML(m) {
+  if (isGiro(m)) {
+    const done = m.giro.stato !== 'da creare';
+    return `<div class="pair"><div class="side"><div class="small muted">Crédit Agricole c/c</div><div class="money">${signed(m.imp)} €</div></div><span class="arrow" aria-hidden="true">${m.imp < 0 ? '→' : '←'}</span>
+      <div class="side ${done ? '' : 'missing'}"><div class="small muted">${m.giro.verso}</div><div class="money">${signed(-m.imp)} €</div><div class="small">${m.giro.stato === 'abbinato' ? m.giro.nota : done ? 'Registrato e abbinato' : 'Da registrare con la conferma'}</div></div></div>
+      <p class="small muted">Un giroconto sposta denaro tra due conti dell’associazione: non è un’entrata né un’uscita e non entra nel Modello D.</p>`;
+  }
+  const t = TIPOLOGIE[m.sel.tip], f = fonte(m), loading = UI.aiLoading.has(m.id);
+  const ai = m.fonte === 'nessuna' && m.aiStato !== 'ok' ? `<div class="ai-box">${loading ? '<span class="skeleton" style="width:60%"></span><span class="skeleton" style="width:85%"></span>' : `<div><b>Nessuna regola e nessun movimento simile.</b></div><div class="small muted">Scegli tu tipologia e iniziativa, oppure chiedi un suggerimento. L’AI vede la descrizione con i nomi mascherati e il manuale di classificazione.</div>
+    ${UI.aiFail ? '<div class="small" style="color:#4d3a00">L’AI non ha risposto. Riprova tra poco o classifica a mano.</div>' : ''}<div><button class="btn sm" data-act="ai-one" data-id="${m.id}">Chiedi un suggerimento · circa 0,01 €</button></div>`}</div>` : `<div class="source"><span class="pill">${f.tag}</span><span class="small">${f.txt}</span></div>`;
+  return `${ai}
+    <div class="field"><label for="f-tip">Tipologia</label><select id="f-tip" class="input" data-f="tip" data-id="${m.id}">${tipOptions(m)}</select>${t ? `<span class="hint">${t.spiega}</span>` : ''}</div>
+    <div class="field"><label for="f-ini">Iniziativa</label><select id="f-ini" class="input" data-f="ini" data-id="${m.id}">${iniOptions(m)}</select></div>
+    <div class="field"><span class="lab">Chi paga o riceve</span><div class="seg" role="group">${[['socio', 'Socio'], ['terzo', 'Terzo'], ['', 'Non pertinente']].map(([v, l]) => `<button data-act="soc" data-v="${v}" data-id="${m.id}" aria-pressed="${m.sel.soc === v}">${l}</button>`).join('')}</div></div>
+    <div class="field"><label for="f-giu">Giustificativo</label><input id="f-giu" class="input" data-f="giust" data-id="${m.id}" placeholder="Es. Fatt. 41/2026, link al Drive" value="${m.giust}"></div>
+    <dl class="kv"><dt>Voce Modello D</dt><dd>${voceFull(m)}</dd><dt>Natura</dt><dd>${natura(m)}${natura(m) !== '—' ? ' · <button class="link" style="font-weight:400">forza</button>' : ''}</dd></dl>`;
+}
+function detailInner(m, list) {
+  const i = list.findIndex(x => x.id === m.id);
+  return `<div class="detail-head"><div class="grow"><div class="small muted"><span class="num">${m.data}/2026</span> · ${m.causale}</div><div class="amt">${signed(m.imp)} €</div><div>${m.breve}</div><div style="margin-top:8px">${statusPill(m)}</div></div>
+      ${isPhoneSheet() ? '' : '<button class="icon-btn" data-act="close" aria-label="Chiudi il dettaglio"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l10 10M14 4L4 14"/></svg></button>'}</div>
+    <div class="detail-body"><div class="orig">${m.desc}</div>${editorHTML(m)}</div>
+    ${isPhoneSheet() ? '' : '<p class="keys"><kbd>J</kbd> <kbd>K</kbd> per spostarti · <kbd>Invio</kbd> per confermare · <kbd>Esc</kbd> per chiudere</p>'}
+    <div class="detail-foot">
+      <button class="btn ${isPhoneSheet() ? '' : 'sm'}" data-act="prev" ${i <= 0 ? 'disabled' : ''} aria-label="Movimento precedente">‹</button>
+      <button class="btn ${isPhoneSheet() ? '' : 'sm'}" data-act="next" ${i >= list.length - 1 ? 'disabled' : ''} aria-label="Movimento successivo">›</button>
+      <button class="btn ghost ${isPhoneSheet() ? '' : 'sm'}" data-act="dubbio" data-id="${m.id}">${m.dubbio ? 'Togli dubbio' : 'Segna dubbio'}</button>
+      <span class="spacer"></span>
+      ${m.stato === 'confermato' ? statusPill(m) : !canConfirm(m) ? '<span class="small muted">Scegli la tipologia per confermare</span>' : `<button class="btn primary ${isPhoneSheet() ? '' : 'sm'}" data-act="confirm" data-id="${m.id}">${isGiro(m) && m.giro.stato === 'da creare' ? 'Registra e conferma' : 'Conferma'}</button>`}
+    </div>`;
+}
+
+/* ---------- composizione ---------- */
+function render() {
+  document.getElementById('nav').innerHTML = navHTML();
+  const rows = M.filter(STEPS[UI.step].f);
+  const m = UI.open !== null ? M.find(x => x.id === UI.open) : null;
+  const phoneSheet = m && isPhoneSheet();
+  const list = view() === 'schede' ? cardsView(rows) : tableView(rows);
+  const allDone = M.every(x => x.stato === 'confermato');
+  document.getElementById('app').innerHTML = titleRow() + ledger() + steps() +
+    `<div class="work ${m && !phoneSheet ? 'has-panel' : ''}"><section class="panel" aria-label="${STEPS[UI.step].lbl}">${panelHead(rows)}${allDone && UI.step !== 'tutti' ? `<div class="empty">Import completato: tutti i ${M.length} movimenti sono confermati. <button class="link" data-act="step" data-k="tutti">Rivedi l’elenco</button></div>` : list}</section>
+      ${m && !phoneSheet ? `<aside class="panel detail" aria-label="Dettaglio del movimento">${detailInner(m, rows)}</aside>` : ''}</div>
+    ${UI.sel.size ? `<div class="bulk" role="region" aria-label="Azioni sui selezionati"><span><span class="num">${UI.sel.size}</span> selezionati</span><span class="spacer"></span>
+      <select data-act="bulk-ini" aria-label="Imposta l’iniziativa"><option value="">Imposta l’iniziativa…</option>${Object.entries(INIZIATIVE).map(([k, i]) => `<option value="${k}">${i.nome}</option>`).join('')}</select>
+      <button class="btn" data-act="bulk-dubbio">Segna dubbi</button><button class="btn primary" data-act="bulk-conf">Conferma i selezionati</button>
+      <button class="btn ghost" style="color:#fff" data-act="bulk-clear">Annulla</button></div>` : ''}`;
+  let ov = '';
+  if (phoneSheet) ov = `<div class="sheet" role="dialog" aria-label="Movimento"><div class="sheet-top"><button class="icon-btn" data-act="close" aria-label="Torna all’elenco"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M11 3L5 9l6 6"/></svg></button><span class="t">${STEPS[UI.step].lbl}</span></div><div class="sheet-body">${detailInner(m, rows).replace(/<div class="detail-foot">[\s\S]*$/, '')}</div>${detailInner(m, rows).match(/<div class="detail-foot">[\s\S]*$/)[0]}</div>`;
+  if (UI.menu) ov += `<div class="menu-sheet" role="dialog" aria-label="Menu"><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><button class="icon-btn" data-act="menu" aria-label="Chiudi il menu"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l10 10M14 4L4 14"/></svg></button><b>Prima nota</b></div><div class="scope" style="margin:0 0 12px"><div>Contrada La Torre APS</div><div class="k">Esercizio 2026 · aperto</div></div>${navHTML()}</div>`;
+  document.getElementById('overlay').innerHTML = ov;
+  document.querySelector('.proto').style.display = ov ? 'none' : '';
+  const c = { conf: M.filter(x => x.stato === 'confermato').length, prop: M.filter(x => x.stato === 'proposto').length, nulla: M.filter(x => x.stato === 'da classificare').length, dubbi: M.filter(x => x.dubbio).length };
+  document.getElementById('pState').textContent = `vista ${view()}${UI.view ? '' : ' (auto)'} · confermati ${c.conf} · proposti ${c.prop} · da classificare ${c.nulla} · dubbi ${c.dubbi}`;
+  document.getElementById('pErr').setAttribute('aria-pressed', UI.aiErr);
+}
+
+/* ---------- azioni ---------- */
+const byId = id => M.find(x => x.id === +id);
+function nextOpenFrom(id) { const rows = M.filter(STEPS[UI.step].f); const i = rows.findIndex(x => x.id === id); const after = rows.slice(i + 1).concat(rows.slice(0, i)).find(x => x.stato !== 'confermato'); return after ? after.id : id; }
+function askAI(list) {
+  UI.aiFail = false; list.forEach(m => UI.aiLoading.add(m.id)); render();
+  setTimeout(() => {
+    list.forEach(m => UI.aiLoading.delete(m.id));
+    if (UI.aiErr) { UI.aiFail = true; }
+    else list.forEach(m => { if (m.ai) { m.aiStato = 'ok'; m.sel = { tip: m.ai.tip, ini: m.ai.ini, soc: m.ai.soc }; m.stato = 'proposto'; } });
+    render();
+  }, 900);
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const a = b.dataset.act, m = b.dataset.id ? byId(b.dataset.id) : null;
+  if (a === 'open') { if (e.target.closest('select, input, button, .vp')) return; UI.open = m.id; }
+  else if (a === 'check') { UI.sel.has(m.id) ? UI.sel.delete(m.id) : UI.sel.add(m.id); }
+  else if (a === 'close') UI.open = null;
+  else if (a === 'confirm') { confirm(m); if (UI.open === m.id) UI.open = nextOpenFrom(m.id); }
+  else if (a === 'conf-pronte') pronte().forEach(confirm);
+  else if (a === 'conf-group') b.dataset.ids.split(',').forEach(id => confirm(byId(id)));
+  else if (a === 'step') { UI.step = b.dataset.k; UI.open = null; UI.sel.clear(); }
+  else if (a === 'view') return setView(b.dataset.v);
+  else if (a === 'help') UI.help = !UI.help;
+  else if (a === 'chain') UI.chain = !UI.chain;
+  else if (a === 'ai-all') return askAI(senzaProposta().filter(STEPS[UI.step].f).concat(UI.step === 'decidere' ? [] : []));
+  else if (a === 'ai-one') return askAI([m]);
+  else if (a === 'soc') { m.sel.soc = b.dataset.v; }
+  else if (a === 'dubbio') m.dubbio = !m.dubbio;
+  else if (a === 'prev' || a === 'next') { const rows = M.filter(STEPS[UI.step].f); const i = rows.findIndex(x => x.id === UI.open); const j = a === 'next' ? i + 1 : i - 1; if (rows[j]) UI.open = rows[j].id; }
+  else if (a === 'bulk-conf') { UI.sel.forEach(id => confirm(byId(id))); UI.sel.clear(); }
+  else if (a === 'bulk-dubbio') { UI.sel.forEach(id => byId(id).dubbio = true); UI.sel.clear(); }
+  else if (a === 'bulk-clear') UI.sel.clear();
+  else if (a === 'rail') document.body.classList.toggle('rail');
+  else if (a === 'menu') UI.menu = !UI.menu;
+  else if (a === 'annulla') { alert('Prototipo: un import si annulla per intero solo se nessun movimento è confermato.'); return; }
+  else if (a === 'p-error') UI.aiErr = !UI.aiErr;
+  else if (a === 'p-empty') M.forEach(x => { if (!x.sel.tip && !isGiro(x)) { x.sel = { ...(x.ai ? { tip: x.ai.tip, ini: x.ai.ini, soc: x.ai.soc } : x.sel) }; } confirm(x); });
+  else if (a === 'p-reset') { reset(); UI.open = null; UI.sel.clear(); UI.aiFail = false; UI.step = 'decidere'; }
+  else return;
+  render();
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.act === 'bulk-ini') { UI.sel.forEach(id => { const x = byId(id); if (!isGiro(x)) x.sel.ini = t.value; }); return render(); }
+  const f = t.dataset.f; if (!f) return; const m = byId(t.dataset.id);
+  if (f === 'giust') { m.giust = t.value; return; }
+  m.sel[f] = t.value; if (m.stato === 'da classificare' && m.sel.tip) m.stato = 'proposto';
+  render();
+});
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input, select, textarea')) return;
+  if (e.key === 'Escape') { if (UI.menu) UI.menu = false; else UI.open = null; return render(); }
+  if (UI.open === null) return;
+  const rows = M.filter(STEPS[UI.step].f), i = rows.findIndex(x => x.id === UI.open);
+  if (e.key === 'j' && rows[i + 1]) { UI.open = rows[i + 1].id; render(); }
+  if (e.key === 'k' && rows[i - 1]) { UI.open = rows[i - 1].id; render(); }
+  if (e.key === 'Enter') { const m = byId(UI.open); if (canConfirm(m)) { confirm(m); UI.open = nextOpenFrom(m.id); render(); } }
+});
+let lastW = window.innerWidth;
+window.addEventListener('resize', () => { if ((lastW < 1100) !== (window.innerWidth < 1100) || (lastW < 900) !== (window.innerWidth < 900)) { lastW = window.innerWidth; render(); } });
+if (window.innerWidth < 1240 && window.innerWidth >= 1100) document.body.classList.add('rail');
+render();
+</script>
+</body>
+</html>
