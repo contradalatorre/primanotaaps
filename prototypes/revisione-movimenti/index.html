@@ -1,0 +1,524 @@
+<!doctype html>
+<!--
+  PROTOTIPO USA E GETTA — ticket #20 "Schermata di revisione dei movimenti importati".
+  Tre varianti della stessa schermata, scelte con ?variant=A|B|C o con la barra in basso (frecce ← →).
+  Dati inventati, nessun dato reale. Stato solo in memoria: ricaricare la pagina riparte da capo.
+  Non va in produzione: vive sul branch prototype/revisione-movimenti.
+-->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototipo · Revisione import</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&family=Geist+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ground: #f2f4f7; --surface: #ffffff; --raised: #eceef1; --border: #e3e6ea; --rule: #eef0f3; --control: #d4d7dc;
+  --text: #0a0a0a; --muted: #62666d; --accent: #141414;
+  --positive: #23662a; --negative: #c4242a; --warning: #92400e; --hue: #1d5fbf;
+  --pill-positive-bg: #dcfae5; --pill-positive-ink: #04250e;
+  --pill-warning-bg: #fffbeb; --pill-warning-ink: #92400e;
+  --pill-neutral-bg: #eceef1; --pill-neutral-ink: #3d3d3d;
+  --radius-card: 8px; --radius-control: 6px; --gap: 12px; --pad: 24px; --control-height: 36px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font: 400 14px/1.45 "Geist", Inter, system-ui, sans-serif; color: var(--text); background: var(--ground); }
+.num, .money { font-family: "Geist Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.money { font-weight: 700; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+button { font: inherit; cursor: pointer; }
+select, input { font: inherit; height: var(--control-height); border: 1px solid var(--control); border-radius: var(--radius-control); background: #fff; padding: 0 10px; color: var(--text); min-width: 0; }
+select:focus, input:focus, button:focus-visible { outline: 2px solid var(--hue); outline-offset: 1px; }
+.btn { height: var(--control-height); padding: 0 14px; border-radius: var(--radius-control); border: 1px solid transparent; white-space: nowrap; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #2b2b2b; }
+.btn-secondary { background: #e5e5e5; color: var(--text); }
+.btn-secondary:hover { background: #dadada; }
+.btn-ghost { background: transparent; border-color: var(--control); color: var(--text); }
+.btn-ghost:hover { background: var(--raised); }
+.btn:disabled { opacity: .45; cursor: default; }
+.link { background: none; border: 0; padding: 0; color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+.pill { display: inline-block; font-size: 12px; line-height: 20px; padding: 0 8px; border-radius: 10px; background: var(--pill-neutral-bg); color: var(--pill-neutral-ink); white-space: nowrap; }
+.pill.ok { background: var(--pill-positive-bg); color: var(--pill-positive-ink); }
+.pill.warn { background: var(--pill-warning-bg); color: var(--pill-warning-ink); }
+.in { color: var(--positive); }
+
+/* Shell: sidebar con etichette (scelta motivata: tesorieri alle prime armi) */
+.shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+.side { border-right: 1px solid var(--border); padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 4px; }
+.brand b { font-weight: 500; white-space: nowrap; }
+.scope { margin: 8px 8px 18px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); font-size: 13px; }
+.nav a { display: flex; justify-content: space-between; align-items: center; height: 32px; padding: 0 10px; margin: 1px 0; border-radius: 8px; color: #4b4d52; text-decoration: none; }
+.nav a.on { background: #e3e6ea; color: var(--text); }
+.nav a .count { font-size: 12px; color: var(--muted); }
+.nav .grp { font-size: 12px; color: var(--muted); padding: 18px 10px 6px; }
+.side .foot { margin-top: auto; }
+.main { padding: 28px 32px 96px; min-width: 0; }
+.title-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+h1 { font-size: 24px; font-weight: 500; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 16px; font-weight: 500; margin: 0; }
+.finding { margin: 0; color: var(--text); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); }
+
+/* Striscia di riconciliazione (elemento proprio del prodotto) */
+.recon { display: grid; grid-template-columns: repeat(4, auto) 1fr; align-items: end; gap: 28px; padding: 16px var(--pad); margin-bottom: var(--gap); }
+.recon .k { font-size: 12px; color: var(--muted); }
+.recon .v { font-size: 18px; }
+.recon .ok-line { justify-self: end; text-align: right; }
+.progress { height: 6px; background: var(--raised); border-radius: 3px; overflow: hidden; margin-top: 8px; width: 220px; margin-left: auto; }
+.progress span { display: block; height: 100%; background: var(--hue); }
+
+/* Variante A: coda + dettaglio */
+.qa { display: grid; grid-template-columns: 400px minmax(0, 1fr); gap: var(--gap); align-items: start; }
+.qa > * { min-width: 0; }
+.detail { position: sticky; top: 16px; }
+.wrap-btn { white-space: normal; height: auto; min-height: var(--control-height); padding: 8px 14px; text-align: left; }
+.list { overflow: hidden; }
+.list .grp-h { display: flex; justify-content: space-between; padding: 14px 16px 6px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--rule); }
+.list .grp-h:first-child { border-top: 0; }
+.row { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; align-items: center; padding: 9px 16px; border: 0; background: none; width: 100%; text-align: left; border-top: 1px solid var(--rule); color: var(--text); }
+.row:hover { background: #f7f8fa; }
+.row.sel { background: #e9ecf0; }
+.row .d { font-size: 12px; color: var(--muted); }
+.row .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .src { font-size: 12px; color: var(--muted); }
+.row .a { text-align: right; }
+.row.done .t, .row.done .a { color: var(--muted); }
+.detail { padding: var(--pad); }
+.detail .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--rule); }
+.detail .amount { font-size: 30px; line-height: 1.1; }
+.orig { font-family: "Geist Mono", monospace; font-size: 12px; color: var(--muted); background: #f7f8fa; border: 1px solid var(--rule); border-radius: var(--radius-control); padding: 8px 10px; margin-top: 10px; word-break: break-word; }
+.form { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); margin: 18px 0; }
+.field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.field select, .field input { width: 100%; }
+.seg { display: inline-flex; border: 1px solid var(--control); border-radius: var(--radius-control); overflow: hidden; height: var(--control-height); }
+.seg button { border: 0; background: #fff; padding: 0 12px; border-left: 1px solid var(--control); }
+.seg button:first-child { border-left: 0; }
+.seg button.on { background: var(--raised); font-weight: 500; }
+.source { display: flex; gap: 10px; align-items: baseline; padding: 12px 14px; border: 1px solid var(--rule); border-radius: var(--radius-control); background: #fafbfc; }
+.source b { font-weight: 500; }
+.conseq { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); margin: 14px 0 20px; }
+.conseq div { font-size: 13px; }
+.conseq .k { font-size: 12px; color: var(--muted); display: block; }
+.bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.bar .spacer { flex: 1; }
+.pair { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; margin: 18px 0; }
+.pair .side-box { border: 1px solid var(--border); border-radius: var(--radius-control); padding: 12px 14px; }
+.pair .side-box.missing { border-style: dashed; color: var(--muted); }
+.arrow { color: var(--muted); }
+.ai-box { border: 1px dashed var(--control); border-radius: var(--radius-control); padding: 14px; margin: 16px 0; }
+
+/* Variante B: tabella */
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--rule); }
+.chip { height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid var(--control); background: #fff; font-size: 13px; }
+.chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-weight: 400; font-size: 12px; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--border); }
+td { padding: 8px 12px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+td.r, th.r { text-align: right; }
+tr.done td { color: var(--muted); }
+tr.selrow td { background: #f3f6fb; }
+td select { width: 100%; height: 32px; }
+.desc1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
+.bulk { position: sticky; bottom: 64px; margin-top: var(--gap); display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: var(--accent); color: #fff; border-radius: var(--radius-card); }
+.bulk .btn-secondary { background: #fff; }
+
+/* Variante C: guidata */
+.steps { display: flex; gap: 0; margin-bottom: var(--gap); }
+.step { flex: 1; border: 0; background: none; text-align: left; padding: 10px 12px 12px; border-top: 3px solid var(--control); color: var(--muted); }
+.step.on { border-top-color: var(--accent); color: var(--text); }
+.step.past { border-top-color: var(--hue); color: var(--text); }
+.step .n { font-family: "Geist Mono", monospace; font-size: 12px; }
+.panel { padding: var(--pad); }
+.explain { background: #f7f8fa; border-left: 3px solid var(--control); padding: 10px 14px; margin: 0 0 18px; color: #33363b; }
+.group { border-top: 1px solid var(--rule); padding: 14px 0; display: grid; grid-template-columns: 24px 1fr auto auto; gap: 12px; align-items: center; }
+.group:first-of-type { border-top: 0; }
+.group .members { grid-column: 2 / -1; font-size: 12px; color: var(--muted); }
+.big-recon { display: grid; grid-template-columns: repeat(5, auto); gap: 8px 24px; align-items: baseline; justify-content: start; margin: 8px 0 18px; }
+.big-recon .v { font-size: 22px; }
+.nav-steps { display: flex; justify-content: space-between; margin-top: 20px; }
+.voci td { padding: 6px 12px; }
+
+/* Barra prototipo: chiaramente estranea al design */
+.proto { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; background: #ff3d7f; color: #fff; border-radius: 22px; padding: 4px; box-shadow: 0 4px 16px rgba(0,0,0,.25); z-index: 50; font: 500 13px system-ui, sans-serif; }
+.proto button { background: rgba(255,255,255,.2); color: #fff; border: 0; border-radius: 18px; width: 34px; height: 34px; font-size: 16px; }
+.proto span { padding: 0 12px; white-space: nowrap; }
+.state { position: fixed; right: 16px; bottom: 16px; background: #222; color: #ddd; font: 12px/1.5 ui-monospace, monospace; padding: 8px 12px; border-radius: 8px; z-index: 49; }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  .side { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 8px; align-items: center; }
+  .side .scope, .side .nav .grp, .side .foot { display: none; }
+  .nav { display: flex; gap: 4px; }
+  .nav a { white-space: nowrap; }
+  .nav a .count { display: none; }
+  .detail { position: static; }
+  .toolbar .btn { white-space: normal; height: auto; padding: 8px 12px; }
+  .main { padding: 16px 16px 120px; }
+  .title-row { flex-direction: column; }
+  .actions { justify-content: flex-start; }
+  .recon { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .recon .ok-line { grid-column: 1 / -1; justify-self: start; text-align: left; }
+  .progress { margin-left: 0; }
+  .qa { grid-template-columns: 1fr; }
+  .form, .conseq { grid-template-columns: 1fr; }
+  .pair { grid-template-columns: 1fr; }
+  .arrow { transform: rotate(90deg); justify-self: center; }
+  table thead { display: none; }
+  table, tbody, tr, td { display: block; width: 100%; }
+  tr { border-bottom: 1px solid var(--border); padding: 8px 0; }
+  td { border: 0; padding: 4px 12px; }
+  td.r { text-align: left; }
+  .desc1 { max-width: none; white-space: normal; }
+  .big-recon { grid-template-columns: 1fr 1fr; }
+  .steps .step .lbl { display: none; }
+  .state { display: none; }
+  .bulk { bottom: 70px; flex-wrap: wrap; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="0.5" y="0.5" width="25" height="25" rx="6" fill="#fff" stroke="#d4d7dc"/><path d="M9 21V10h-1V7h2v1.5h1.5V7h3v1.5H16V7h2v3h-1v11z" fill="#141414"/><rect x="12" y="15" width="2" height="6" fill="#fff"/></svg>
+      <b>Prima nota</b>
+    </div>
+    <div class="scope">Contrada La Torre APS<br><span class="muted">Esercizio 2026 · aperto</span></div>
+    <nav class="nav">
+      <a href="#" class="on"><span>Movimenti</span><span class="count" id="navCount"></span></a>
+      <a href="#"><span>Conti</span></a>
+      <a href="#"><span>Iniziative</span></a>
+      <a href="#"><span>Regole</span></a>
+      <div class="grp">Rendicontazione</div>
+      <a href="#"><span>Modello D</span></a>
+      <a href="#"><span>Test CTS</span></a>
+    </nav>
+    <nav class="nav foot"><a href="#"><span>Impostazioni</span></a></nav>
+  </aside>
+  <main class="main" id="app"></main>
+</div>
+<div class="proto" role="toolbar" aria-label="Varianti del prototipo">
+  <button id="prev" aria-label="Variante precedente">←</button><span id="vlabel"></span><button id="next" aria-label="Variante successiva">→</button>
+</div>
+<div class="state" id="state"></div>
+
+<script>
+/* ---------- Dati inventati ---------- */
+const TIPOLOGIE = {
+  utenze: { nome: 'Utenze', verso: 'u', voce: 'Servizi', n: 2, spiega: 'Luce, acqua, gas, telefono della sede.' },
+  oneri_banca: { nome: 'Oneri bancari', verso: 'u', voce: 'Su rapporti bancari', n: 1, area: 'D', spiega: 'Canoni, commissioni, competenze del conto e dei sistemi di pagamento.' },
+  stampa: { nome: 'Stampa e promozione', verso: 'u', voce: 'Servizi', n: 2, spiega: 'Manifesti, volantini, inserzioni.' },
+  alimenti: { nome: 'Alimenti e bevande', verso: 'u', voce: 'Materie prime, sussidiarie, di consumo e di merci', n: 1, spiega: 'Acquisti di cibo e bevande da somministrare.' },
+  noleggi: { nome: 'Noleggi', verso: 'u', voce: 'Godimento beni di terzi', n: 3, spiega: 'Gazebo, palco, impianti presi in affitto.' },
+  consumo: { nome: 'Materiali di consumo', verso: 'u', voce: 'Materie prime, sussidiarie, di consumo e di merci', n: 1, spiega: 'Piccoli acquisti che si consumano nell’anno.' },
+  somministrazione: { nome: 'Somministrazione', verso: 'e', voce: 'Entrate da prestazioni e cessioni a terzi', n: 7, spiega: 'Cibo e bevande venduti durante le iniziative.' },
+  contributi_pubblici: { nome: 'Contributi da enti pubblici', verso: 'e', voce: 'Contributi da enti pubblici', n: 8, spiega: 'Contributi di Comune, Regione e altri enti.' },
+  quote: { nome: 'Quote associative', verso: 'e', voce: 'Entrate da quote associative e apporti dei fondatori', n: 1, area: 'A', spiega: 'La quota annuale pagata dai soci.' },
+  liberalita: { nome: 'Erogazioni liberali', verso: 'e', voce: 'Erogazioni liberali', n: 4, spiega: 'Donazioni senza nulla in cambio.' },
+};
+const INIZIATIVE = {
+  '': { nome: '— nessuna —', area: 'E' },
+  festa: { nome: 'Festa della Torre', area: 'A' },
+  sipuofare: { nome: 'Si può fare', area: 'A' },
+  cene: { nome: 'Cene sociali', area: 'A' },
+};
+const SALDO_INIZIALE = 4312.40;
+const SALDO_ESTRATTO = 6861.80; // saldo finale letto dall'estratto (dato originale)
+
+// fonte: regola | storico | giroconto | nessuna ; ai: proposta disponibile solo dopo la richiesta
+const M = [
+  { id: 1, data: '02/05', causale: 'PAGAMENTO UTENZE', desc: 'ADDEBITO SDD ENEL ENERGIA SPA FATT. 0042 PERIODO APR', breve: 'Enel Energia · luce sede', imp: -86.40, fonte: 'regola', regola: 'Luce della sede', p: { tip: 'utenze', ini: '', soc: '' } },
+  { id: 2, data: '04/05', causale: 'COMMISSIONI/SPESE', desc: 'CANONE NOWBANKING MESE DI APRILE', breve: 'Canone home banking', imp: -6.00, fonte: 'regola', regola: 'Canone banca', p: { tip: 'oneri_banca', ini: '', soc: '' } },
+  { id: 3, data: '06/05', causale: 'GIROCONTO/BONIFICO', desc: 'BONIFICO A FAVORE DI TIPOGRAFIA DEL BORGO SNC FATT 41/2026 MANIFESTI', breve: 'Tipografia del Borgo · manifesti', imp: -312.00, fonte: 'storico', storico: 'come il movimento del 08/05/2025', p: { tip: 'stampa', ini: 'festa', soc: 'terzo' } },
+  { id: 4, data: '09/05', causale: 'PRELIEVO NOSTRO SPORTELLO AUTOM.', desc: 'PRELIEVO BANCOMAT CARTA ****4410 ORE 18.02', breve: 'Prelievo bancomat', imp: -500.00, fonte: 'giroconto', giro: { verso: 'Cassa contanti', stato: 'da creare' } },
+  { id: 5, data: '12/05', causale: 'GIROCONTO/BONIFICO', desc: 'BONIFICO DA COMUNE TESORERIA ENTE DESCR: CONTRIBUTO MANIFESTAZIONI 2026', breve: 'Comune · contributo manifestazioni', imp: 1500.00, fonte: 'nessuna', ai: { tip: 'contributi_pubblici', ini: 'festa', soc: 'terzo', conf: 'alta', perche: 'Bonifico dal Comune con causale "contributo manifestazioni": contributo da ente pubblico. Manuale § 4.2.' } },
+  { id: 6, data: '14/05', causale: 'PAGAMENTO TRAMITE POS', desc: 'PAGAMENTO POS CARTA ****4410 CASH CARRY INGROSSO ALIMENTARI', breve: 'Ingrosso alimentari', imp: -423.80, fonte: 'storico', storico: 'come il movimento del 15/05/2025', p: { tip: 'alimenti', ini: 'festa', soc: 'terzo' } },
+  { id: 7, data: '16/05', causale: 'PAGAMENTO TRAMITE POS', desc: 'PAGAMENTO POS CARTA ****4410 NOLEGGI ATTREZZATURE EVENTI', breve: 'Noleggio attrezzature eventi', imp: -250.00, fonte: 'nessuna', ai: { tip: 'noleggi', ini: 'festa', soc: 'terzo', conf: 'media', perche: 'Pagamento a un noleggiatore di attrezzature in coincidenza con la Festa (16/05). Manuale § 3.4.' } },
+  { id: 8, data: '18/05', causale: 'INCASSO TRAMITE POS', desc: 'INCASSO POS BANCOMAT DEL 16/05/26 CONTRADA LA TORRE', breve: 'Incasso POS Bancomat · 16/05', imp: 768.00, fonte: 'regola', regola: 'Incassi POS durante la Festa', p: { tip: 'somministrazione', ini: 'festa', soc: 'terzo' } },
+  { id: 9, data: '18/05', causale: 'INCASSO TRAMITE POS', desc: 'INCASSO POS NEXI CORE DEL 16/05/26 CONTRADA LA TORRE', breve: 'Incasso POS Nexi · 16/05', imp: 1562.00, fonte: 'regola', regola: 'Incassi POS durante la Festa', p: { tip: 'somministrazione', ini: 'festa', soc: 'terzo' } },
+  { id: 10, data: '18/05', causale: 'INCASSO TRAMITE POS', desc: 'INCASSO POS BANCOMAT DEL 17/05/26 CONTRADA LA TORRE', breve: 'Incasso POS Bancomat · 17/05', imp: 10.00, fonte: 'regola', regola: 'Incassi POS durante la Festa', p: { tip: 'somministrazione', ini: 'festa', soc: 'terzo' } },
+  { id: 11, data: '18/05', causale: 'INCASSO TRAMITE POS', desc: 'INCASSO POS NEXI CORE DEL 17/05/26 CONTRADA LA TORRE', breve: 'Incasso POS Nexi · 17/05', imp: 32.00, fonte: 'regola', regola: 'Incassi POS durante la Festa', p: { tip: 'somministrazione', ini: 'festa', soc: 'terzo' } },
+  { id: 12, data: '18/05', causale: 'GIROCONTO/BONIFICO', desc: 'ORD:SATISPAY EUROPE S.A. DESCR.OPERAZIONE SCT:CONTRADA LA TORRE APS', breve: 'Versamento da Satispay', imp: 246.95, fonte: 'giroconto', giro: { verso: 'Satispay', stato: 'abbinato', nota: '16 incassi del 15–16/05: lordo 247,00 € − commissioni 0,05 €' } },
+  { id: 13, data: '21/05', causale: 'GIROCONTO/BONIFICO', desc: 'BONIFICO DA [SOCIO] DESCR: QUOTA SOCIALE 2026', breve: 'Quota sociale 2026', imp: 25.00, fonte: 'storico', storico: 'come il movimento del 03/02/2026', p: { tip: 'quote', ini: '', soc: 'socio' } },
+  { id: 14, data: '25/05', causale: 'GIROCONTO/BONIFICO', desc: 'BONIFICO DA [PERSONA] DESCR: PER LA FESTA, GRAZIE', breve: 'Bonifico "per la festa, grazie"', imp: 50.00, fonte: 'nessuna', ai: { tip: 'liberalita', ini: 'festa', soc: 'terzo', conf: 'media', perche: 'Bonifico da privato senza corrispettivo indicato: erogazione liberale. Se chi paga è socio e la somma è la quota, va in Quote associative. Manuale § 2.1.' } },
+  { id: 15, data: '28/05', causale: 'PAGAMENTO TRAMITE POS', desc: 'PAGAMENTO POS CARTA ****4410 FERRAMENTA', breve: 'Ferramenta', imp: -64.20, fonte: 'nessuna', ai: { tip: 'consumo', ini: '', soc: 'terzo', conf: 'bassa', perche: 'Acquisto in ferramenta: materiali di consumo. Non è chiaro a quale iniziativa si riferisca. Manuale § 3.1.' } },
+  { id: 16, data: '31/05', causale: 'INTERESSI/COMPETENZE', desc: 'COMPETENZE DI CHIUSURA AL 31/05/2026', breve: 'Competenze di chiusura', imp: -2.15, fonte: 'regola', regola: 'Competenze del conto', p: { tip: 'oneri_banca', ini: '', soc: '' } },
+];
+M.forEach(m => { m.stato = m.fonte === 'nessuna' ? 'da classificare' : 'proposto'; m.sel = m.p ? { ...m.p } : { tip: '', ini: '', soc: '' }; m.dubbio = false; m.aiChiesta = false; m.giust = ''; });
+
+const entrate = M.filter(m => m.imp > 0).reduce((s, m) => s + Math.round(m.imp * 100), 0) / 100;
+const uscite = M.filter(m => m.imp < 0).reduce((s, m) => s + Math.round(-m.imp * 100), 0) / 100;
+const saldoCalc = Math.round((SALDO_INIZIALE + entrate - uscite) * 100) / 100;
+console.assert(saldoCalc === SALDO_ESTRATTO, 'Il saldo non torna', saldoCalc, SALDO_ESTRATTO);
+
+/* ---------- Regole di dominio (semplificate) ---------- */
+const eur = v => new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' }).format(v);
+const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + eur(Math.abs(v));
+function area(m) { const t = TIPOLOGIE[m.sel.tip]; if (t && t.area) return t.area; return INIZIATIVE[m.sel.ini || ''].area; }
+function voce(m) {
+  if (m.fonte === 'giroconto') return 'Nessuna: giroconto, fuori dal rendiconto';
+  const t = TIPOLOGIE[m.sel.tip]; if (!t) return '—';
+  return area(m) + t.n + ') ' + t.voce;
+}
+function natura(m) {
+  if (m.fonte === 'giroconto' || !m.sel.tip) return '—';
+  if (m.imp < 0) return '—';
+  const a = area(m);
+  if (a === 'B') return 'commerciale';
+  if (m.sel.tip === 'somministrazione') return 'non commerciale (test sezione A nei limiti)';
+  return 'non commerciale';
+}
+const fonteTxt = m => m.fonte === 'regola' ? 'Regola: ' + m.regola : m.fonte === 'storico' ? 'Storico: ' + m.storico : m.fonte === 'giroconto' ? 'Giroconto' : m.aiChiesta ? 'AI: confidenza ' + m.ai.conf : 'Nessuna proposta';
+const fonteBreve = m => m.fonte === 'regola' ? 'Regola' : m.fonte === 'storico' ? 'Storico' : m.fonte === 'giroconto' ? 'Giroconto' : m.aiChiesta ? 'AI · ' + m.ai.conf : '—';
+const counts = () => ({
+  tot: M.length,
+  conf: M.filter(m => m.stato === 'confermato').length,
+  prop: M.filter(m => m.stato === 'proposto').length,
+  nulla: M.filter(m => m.stato === 'da classificare').length,
+  dubbi: M.filter(m => m.dubbio).length,
+});
+const bulkable = () => M.filter(m => m.stato === 'proposto' && (m.fonte === 'regola' || m.fonte === 'storico'));
+function confirm(m) { if (m.fonte === 'giroconto' && m.giro.stato === 'da creare') m.giro.stato = 'creato'; m.stato = 'confermato'; }
+function askAI(list) { list.forEach(m => { if (m.ai && !m.aiChiesta) { m.aiChiesta = true; m.sel = { tip: m.ai.tip, ini: m.ai.ini, soc: m.ai.soc }; m.stato = 'proposto'; } }); }
+const aiPending = () => M.filter(m => m.fonte === 'nessuna' && !m.aiChiesta);
+function finding() {
+  const c = counts(); const giroAperti = M.filter(m => m.fonte === 'giroconto' && m.giro.stato === 'da creare' && m.stato !== 'confermato').length;
+  const parts = [];
+  if (c.nulla) parts.push(c.nulla + (c.nulla === 1 ? ' movimento senza proposta' : ' movimenti senza proposta'));
+  const giroDaConf = M.filter(m => m.fonte === 'giroconto' && m.stato !== 'confermato').length;
+  const propNonGiro = M.filter(m => m.stato === 'proposto' && m.fonte !== 'giroconto').length;
+  if (giroDaConf) parts.push(giroDaConf + (giroDaConf === 1 ? ' giroconto' : ' giroconti') + ' da confermare' + (giroAperti ? ' (di cui ' + giroAperti + ' prelievo da registrare in cassa)' : ''));
+  if (propNonGiro) parts.push(propNonGiro + (propNonGiro === 1 ? ' proposta' : ' proposte') + ' da confermare');
+  return 'Saldo riconciliato con l’estratto. ' + (parts.length ? 'Restano ' + parts.join(', ') + '.' : 'Tutto confermato.');
+}
+
+/* ---------- Pezzi comuni ---------- */
+function tipOptions(m) {
+  const v = m.imp > 0 ? 'e' : 'u';
+  return '<option value="">Scegli la tipologia…</option>' + Object.entries(TIPOLOGIE).filter(([, t]) => t.verso === v).map(([k, t]) => `<option value="${k}" ${m.sel.tip === k ? 'selected' : ''}>${t.nome}</option>`).join('');
+}
+const iniOptions = m => Object.entries(INIZIATIVE).map(([k, i]) => `<option value="${k}" ${m.sel.ini === k ? 'selected' : ''}>${i.nome}</option>`).join('');
+function header(noBulk) {
+  const c = counts(); const nb = bulkable().length;
+  return `<div class="title-row">
+    <div><h1>Revisione import · Crédit Agricole c/c · maggio 2026</h1><p class="finding">${finding()}</p></div>
+    <div class="actions"><button class="btn btn-secondary" data-act="annulla">Annulla import</button>
+    ${noBulk ? '' : `<button class="btn btn-primary" data-act="bulk" ${nb ? '' : 'disabled'}>Conferma ${nb} proposte da regola e storico</button>`}</div>
+  </div>`;
+}
+function recon() {
+  const c = counts(); const pct = Math.round(c.conf / c.tot * 100);
+  return `<section class="card recon" aria-label="Riconciliazione">
+    <div><div class="k">Saldo iniziale 01/05</div><div class="v num">${eur(SALDO_INIZIALE)}</div></div>
+    <div><div class="k">Entrate</div><div class="v num">+${eur(entrate)}</div></div>
+    <div><div class="k">Uscite</div><div class="v num">−${eur(uscite)}</div></div>
+    <div><div class="k">Saldo finale 31/05</div><div class="v money">${eur(saldoCalc)} <span class="pill ok">= estratto</span></div></div>
+    <div class="ok-line"><div class="k">Confermati</div><div class="num">${c.conf} su ${c.tot}</div><div class="progress"><span style="width:${pct}%"></span></div></div>
+  </section>`;
+}
+function editor(m, compact) {
+  if (m.fonte === 'giroconto') {
+    const done = m.giro.stato !== 'da creare';
+    return `<div class="pair">
+      <div class="side-box"><div class="small muted">Crédit Agricole c/c</div><div class="money">${signed(m.imp)} €</div><div class="small muted">${m.data}/2026</div></div>
+      <div class="arrow">${m.imp < 0 ? '→' : '←'}</div>
+      <div class="side-box ${done ? '' : 'missing'}"><div class="small muted">${m.giro.verso}</div><div class="money">${signed(-m.imp)} €</div><div class="small">${m.giro.stato === 'abbinato' ? m.giro.nota : done ? 'Creato e abbinato' : 'Movimento da creare in cassa'}</div></div>
+    </div>
+    <p class="small muted">Un giroconto sposta denaro tra due conti dell’associazione: non è un’entrata né un’uscita e non va nel Modello D.</p>`;
+  }
+  const t = TIPOLOGIE[m.sel.tip];
+  const aiBlock = m.fonte === 'nessuna' && !m.aiChiesta ? `<div class="ai-box"><b>Nessuna regola e nessun movimento simile.</b><p class="small muted" style="margin:6px 0 10px">Puoi scegliere tu tipologia e iniziativa, oppure chiedere un suggerimento. L’AI vede la descrizione con i nomi mascherati e il manuale di classificazione.</p><button class="btn btn-ghost" data-act="ai-one" data-id="${m.id}">Chiedi un suggerimento all’AI · circa 0,01 €</button></div>` : '';
+  const src = m.fonte !== 'nessuna' || m.aiChiesta ? `<div class="source"><span class="pill">${fonteBreve(m)}</span><span>${m.aiChiesta ? m.ai.perche : fonteTxt(m)}</span></div>` : '';
+  return `${aiBlock}${src}
+  <div class="form">
+    <div class="field"><label>Tipologia</label><select data-f="tip" data-id="${m.id}">${tipOptions(m)}</select>${t && !compact ? `<div class="small muted" style="margin-top:4px">${t.spiega}</div>` : ''}</div>
+    <div class="field"><label>Iniziativa</label><select data-f="ini" data-id="${m.id}">${iniOptions(m)}</select></div>
+    <div class="field"><label>Chi paga o riceve</label><div class="seg">${['socio', 'terzo', ''].map(s => `<button data-f="soc" data-v="${s}" data-id="${m.id}" class="${m.sel.soc === s ? 'on' : ''}">${s === '' ? 'Non pertinente' : s[0].toUpperCase() + s.slice(1)}</button>`).join('')}</div></div>
+    <div class="field"><label>Giustificativo</label><input data-f="giust" data-id="${m.id}" placeholder="es. Fatt. 41/2026, link Drive" value="${m.giust}"></div>
+  </div>
+  <div class="conseq">
+    <div><span class="k">Voce Modello D</span>${voce(m)}</div>
+    <div><span class="k">Natura</span>${natura(m)} ${natura(m) !== '—' ? '<button class="link small">forza</button>' : ''}</div>
+  </div>`;
+}
+function itemActions(m) {
+  const giroDaCreare = m.fonte === 'giroconto' && m.giro.stato === 'da creare';
+  return `<div class="bar">
+    <button class="btn btn-primary" data-act="confirm" data-id="${m.id}" ${m.stato === 'confermato' || (!m.sel.tip && m.fonte !== 'giroconto') ? 'disabled' : ''}>${m.stato === 'confermato' ? 'Confermato' : giroDaCreare ? 'Crea in cassa e conferma' : 'Conferma'}</button>
+    <button class="btn btn-ghost" data-act="dubbio" data-id="${m.id}">${m.dubbio ? 'Togli il segno di dubbio' : 'Segna come dubbio'}</button>
+    <span class="spacer"></span>
+    ${m.dubbio ? '<span class="pill warn">Dubbio: da chiedere al commercialista</span>' : ''}
+  </div>`;
+}
+
+/* ---------- Variante A: coda e dettaglio ---------- */
+let selA = 5;
+function groupsA() {
+  return [
+    ['Senza proposta', M.filter(m => m.stato === 'da classificare')],
+    ['Proposte dell’AI', M.filter(m => m.stato === 'proposto' && m.aiChiesta)],
+    ['Giroconti', M.filter(m => m.stato !== 'confermato' && m.fonte === 'giroconto')],
+    ['Proposte da regola e storico', M.filter(m => m.stato === 'proposto' && (m.fonte === 'regola' || m.fonte === 'storico'))],
+    ['Confermati', M.filter(m => m.stato === 'confermato')],
+  ].filter(([, l]) => l.length);
+}
+function renderA() {
+  const m = M.find(x => x.id === selA) || M[0];
+  const ap = aiPending();
+  const list = groupsA().map(([nome, l]) => `<div class="grp-h"><span>${nome}</span><span class="num">${l.length}</span></div>` + l.map(x => `
+    <button class="row ${x.id === m.id ? 'sel' : ''} ${x.stato === 'confermato' ? 'done' : ''}" data-act="sel" data-id="${x.id}">
+      <span class="d num">${x.data}</span>
+      <span><div class="t">${x.breve}</div><div class="src">${x.dubbio ? 'Dubbio · ' : ''}${x.stato === 'confermato' ? 'Confermato' : fonteBreve(x)}</div></span>
+      <span class="a num ${x.imp > 0 ? 'in' : ''}">${signed(x.imp)}</span>
+    </button>`).join('')).join('');
+  return header() + recon() + `<div class="qa">
+    <section class="card list" aria-label="Movimenti">${ap.length ? `<div style="padding:12px 16px;border-bottom:1px solid var(--rule)"><button class="btn btn-ghost wrap-btn" style="width:100%" data-act="ai-all">Chiedi all’AI per i ${ap.length} senza proposta · circa ${eur(ap.length * 0.01)} €</button></div>` : ''}${list}</section>
+    <section class="card detail" aria-label="Dettaglio movimento">
+      <div class="head"><div><div class="small muted">${m.data}/2026 · ${m.causale}</div><div class="amount money ${m.imp > 0 ? 'in' : ''}">${signed(m.imp)} €</div><div>${m.breve}</div></div>
+      <div class="small muted" style="text-align:right">Movimento ${M.indexOf(m) + 1} di ${M.length}<br><span class="pill ${m.stato === 'confermato' ? 'ok' : ''}">${m.stato}</span></div></div>
+      <div class="orig">${m.desc}</div>
+      ${editor(m)}
+      ${itemActions(m)}
+      <p class="small muted" style="margin:16px 0 0">Scorciatoie: <span class="num">J</span>/<span class="num">K</span> per spostarti, <span class="num">Invio</span> per confermare.</p>
+    </section></div>`;
+}
+function nextOpen(fromId) {
+  const order = groupsA().flatMap(([, l]) => l).filter(x => x.stato !== 'confermato');
+  return (order.find(x => x.id !== fromId) || M.find(x => x.id === fromId)).id;
+}
+
+/* ---------- Variante B: tabella ---------- */
+let filterB = 'tutti'; const selB = new Set();
+const FILTRI = { tutti: m => true, nulla: m => m.stato === 'da classificare', giro: m => m.fonte === 'giroconto', regola: m => m.fonte === 'regola' && m.stato !== 'confermato', storico: m => m.fonte === 'storico' && m.stato !== 'confermato', ai: m => m.aiChiesta && m.stato !== 'confermato', conf: m => m.stato === 'confermato' };
+const FNOMI = { tutti: 'Tutti', nulla: 'Senza proposta', giro: 'Giroconti', regola: 'Da regola', storico: 'Da storico', ai: 'Dall’AI', conf: 'Confermati' };
+function renderB() {
+  const rows = M.filter(FILTRI[filterB]);
+  const ap = aiPending();
+  const chips = Object.keys(FILTRI).map(k => { const n = M.filter(FILTRI[k]).length; return n || k === 'tutti' ? `<button class="chip ${filterB === k ? 'on' : ''}" data-act="filter" data-k="${k}">${FNOMI[k]} <span class="num">${n}</span></button>` : ''; }).join('');
+  const body = rows.map(m => {
+    const giro = m.fonte === 'giroconto';
+    return `<tr class="${m.stato === 'confermato' ? 'done' : ''} ${selB.has(m.id) ? 'selrow' : ''}">
+      <td><input type="checkbox" style="height:16px;width:16px" data-act="check" data-id="${m.id}" ${selB.has(m.id) ? 'checked' : ''} aria-label="Seleziona"></td>
+      <td class="num">${m.data}</td>
+      <td><div class="desc1">${m.breve}</div><div class="small muted">${m.causale}${m.dubbio ? ' · <span class="pill warn">dubbio</span>' : ''}</div></td>
+      <td class="r money ${m.imp > 0 ? 'in' : ''}">${signed(m.imp)}</td>
+      <td>${giro ? `<span class="small">Giroconto ${m.imp < 0 ? '→' : '←'} ${m.giro.verso}</span>` : `<select data-f="tip" data-id="${m.id}" aria-label="Tipologia">${tipOptions(m)}</select>`}</td>
+      <td>${giro ? '' : `<select data-f="ini" data-id="${m.id}" aria-label="Iniziativa">${iniOptions(m)}</select>`}</td>
+      <td class="small muted">${giro ? (m.giro.stato === 'abbinato' ? 'abbinato' : m.giro.stato === 'creato' ? 'creato' : 'da creare in cassa') : voce(m).split(')')[0]}</td>
+      <td class="small" title="${m.aiChiesta ? m.ai.perche.replace(/"/g, '') : fonteTxt(m)}">${fonteBreve(m)}</td>
+      <td class="r">${m.stato === 'confermato' ? '<span class="pill ok">confermato</span>' : `<button class="btn btn-ghost" style="height:30px" data-act="confirm" data-id="${m.id}" ${!m.sel.tip && !giro ? 'disabled' : ''}>Conferma</button>`}</td>
+    </tr>`; }).join('');
+  return header() + recon() + `<section class="card" aria-label="Movimenti">
+    <div class="toolbar">${chips}<span style="flex:1"></span>${ap.length ? `<button class="btn btn-ghost" data-act="ai-all">Chiedi all’AI per ${ap.length} senza proposta · circa ${eur(ap.length * 0.01)} €</button>` : ''}</div>
+    <table><thead><tr><th style="width:36px"></th><th style="width:60px">Data</th><th>Movimento</th><th class="r" style="width:110px">Importo €</th><th style="width:200px">Tipologia</th><th style="width:170px">Iniziativa</th><th style="width:70px">Voce</th><th style="width:96px">Fonte</th><th class="r" style="width:120px"></th></tr></thead><tbody>${body}</tbody></table>
+  </section>
+  ${selB.size ? `<div class="bulk"><span><span class="num">${selB.size}</span> selezionati</span><span style="flex:1"></span>
+    <select data-act="bulk-ini" aria-label="Imposta iniziativa" style="height:32px"><option value="">Imposta iniziativa…</option>${Object.entries(INIZIATIVE).map(([k, i]) => `<option value="${k}">${i.nome}</option>`).join('')}</select>
+    <button class="btn btn-secondary" data-act="bulk-dubbio">Segna come dubbi</button>
+    <button class="btn btn-secondary" data-act="bulk-sel">Conferma i selezionati</button></div>` : ''}`;
+}
+
+/* ---------- Variante C: percorso guidato ---------- */
+let stepC = 0; let idxC = 0;
+const STEPS = ['Saldo', 'Giroconti', 'Proposte', 'Senza proposta', 'Riepilogo'];
+function renderC() {
+  const steps = `<nav class="steps" aria-label="Passi">${STEPS.map((s, i) => `<button class="step ${i === stepC ? 'on' : i < stepC ? 'past' : ''}" data-act="step" data-i="${i}"><span class="n">${i + 1}</span> <span class="lbl">${s}</span></button>`).join('')}</nav>`;
+  let body = '';
+  if (stepC === 0) body = `<h2>Il saldo torna con l’estratto</h2>
+    <p class="explain">L’app ha sommato i 16 movimenti del file al saldo di fine aprile. Il risultato coincide con il saldo che la banca indica al 31 maggio, quindi non manca nulla e non c’è nulla di doppio.</p>
+    <div class="big-recon"><div><div class="small muted">Saldo 30/04</div><div class="v num">${eur(SALDO_INIZIALE)}</div></div><div><div class="small muted">+ entrate</div><div class="v num">${eur(entrate)}</div></div><div><div class="small muted">− uscite</div><div class="v num">${eur(uscite)}</div></div><div><div class="small muted">= saldo app</div><div class="v money">${eur(saldoCalc)}</div></div><div><div class="small muted">saldo banca</div><div class="v money">${eur(SALDO_ESTRATTO)}</div></div></div>
+    <span class="pill ok">Riconciliato fino al 31/05/2026</span>
+    <h2 style="margin-top:28px">Cosa resta da fare</h2>
+    ${[[1, 'Giroconti da controllare', M.filter(m => m.fonte === 'giroconto' && m.stato !== 'confermato').length, 'soldi spostati tra i nostri conti'], [2, 'Proposte già pronte', bulkable().length, 'da regola o da movimenti simili, si confermano a gruppi'], [3, 'Da decidere uno per uno', M.filter(m => m.fonte === 'nessuna' && m.stato !== 'confermato').length, 'nessuna regola e nessun precedente']].map(([i, t, n, d]) => `<div class="group" style="grid-template-columns:32px 1fr auto auto"><span class="num muted">${i + 1}</span><div>${t}<div class="small muted">${d}</div></div><span class="num">${n}</span><button class="btn btn-ghost" data-act="step" data-i="${i}">Vai</button></div>`).join('')}`;
+  if (stepC === 1) { const g = M.filter(m => m.fonte === 'giroconto');
+    body = `<h2>Soldi spostati tra i nostri conti</h2><p class="explain">Questi movimenti non sono né spese né incassi: spostano denaro da un conto all’altro. Per ognuno l’app ha trovato o propone l’altra metà.</p>` + g.map(m => `<div style="border-top:1px solid var(--rule);padding-top:8px"><b>${m.data} · ${m.breve}</b>${editor(m)}${itemActions(m)}</div>`).join(''); }
+  if (stepC === 2) { const groups = {}; bulkable().concat(M.filter(m => m.stato === 'confermato' && (m.fonte === 'regola' || m.fonte === 'storico'))).forEach(m => { const k = m.sel.tip + '|' + m.sel.ini; (groups[k] = groups[k] || []).push(m); });
+    const nb = bulkable().length;
+    body = `<h2>Proposte già pronte</h2><p class="explain">Per questi movimenti c’è una regola o un movimento simile già confermato in passato. Controlla i gruppi: se uno è sbagliato, togli la spunta e lo sistemi a parte.</p>` +
+      Object.values(groups).map(l => { const m = l[0]; const tot = l.reduce((s, x) => s + Math.round(x.imp * 100), 0) / 100; const allDone = l.every(x => x.stato === 'confermato');
+        return `<div class="group"><input type="checkbox" ${allDone ? 'checked disabled' : 'checked'} aria-label="Includi" style="height:16px;width:16px">
+          <div><b>${TIPOLOGIE[m.sel.tip].nome}</b> · ${INIZIATIVE[m.sel.ini].nome}<div class="small muted">${voce(m)} · ${fonteTxt(m)}</div></div>
+          <span class="num">${l.length} mov.</span><span class="money">${signed(tot)} €</span>
+          <div class="members">${l.map(x => x.data + ' ' + x.breve).join(' · ')}</div></div>`; }).join('') +
+      `<div class="bar" style="margin-top:12px"><button class="btn btn-primary" data-act="bulk" ${nb ? '' : 'disabled'}>Conferma ${nb} movimenti</button></div>`; }
+  if (stepC === 3) { const l = M.filter(m => m.fonte === 'nessuna');
+    const m = l[Math.min(idxC, l.length - 1)]; const ap = aiPending();
+    body = `<h2>Da decidere uno per uno</h2><p class="explain">Per questi movimenti non c’è una regola né un precedente. Scegli tipologia e iniziativa; se non sai, chiedi un suggerimento all’AI o segna il movimento come dubbio.</p>
+      ${ap.length ? `<button class="btn btn-ghost" data-act="ai-all">Chiedi all’AI per tutti e ${ap.length} · circa ${eur(ap.length * 0.01)} €</button>` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:16px"><div><span class="small muted">${idxC + 1} di ${l.length} · ${m.data}/2026</span><div class="amount money ${m.imp > 0 ? 'in' : ''}" style="font-size:26px">${signed(m.imp)} €</div><div>${m.breve}</div></div><span class="pill ${m.stato === 'confermato' ? 'ok' : ''}">${m.stato}</span></div>
+      <div class="orig">${m.desc}</div>${editor(m)}${itemActions(m)}
+      <div class="bar" style="margin-top:10px"><button class="btn btn-ghost" data-act="c-prev" ${idxC === 0 ? 'disabled' : ''}>Precedente</button><button class="btn btn-ghost" data-act="c-next" ${idxC >= l.length - 1 ? 'disabled' : ''}>Successivo</button></div>`; }
+  if (stepC === 4) { const c = counts(); const byVoce = {};
+    M.filter(m => m.stato === 'confermato' && m.fonte !== 'giroconto').forEach(m => { const v = voce(m); byVoce[v] = (byVoce[v] || 0) + Math.round(m.imp * 100); });
+    body = `<h2>Riepilogo dell’import</h2><p class="explain">Ecco come cambia il rendiconto con i movimenti confermati. I movimenti non confermati restano in attesa e puoi tornarci quando vuoi.</p>
+      <p><span class="num">${c.conf}</span> confermati · <span class="num">${c.prop}</span> proposti · <span class="num">${c.nulla}</span> senza proposta · <span class="num">${c.dubbi}</span> dubbi</p>
+      <table class="voci"><thead><tr><th>Voce Modello D</th><th class="r">Importo €</th></tr></thead><tbody>${Object.entries(byVoce).sort().map(([v, s]) => `<tr><td>${v}</td><td class="r money">${signed(s / 100)}</td></tr>`).join('') || '<tr><td class="muted">Nessun movimento confermato</td><td class="r muted">—</td></tr>'}</tbody></table>`; }
+  return header(true) + steps + `<section class="card panel">${body}<div class="nav-steps"><button class="btn btn-ghost" data-act="c-back" ${stepC === 0 ? 'disabled' : ''}>Indietro</button><button class="btn btn-primary" data-act="c-fwd" ${stepC === STEPS.length - 1 ? 'disabled' : ''}>Avanti</button></div></section>`;
+}
+
+/* ---------- Switcher e rendering ---------- */
+const VARIANTS = { A: ['Coda e dettaglio', renderA], B: ['Tabella', renderB], C: ['Percorso guidato', renderC] };
+const keys = Object.keys(VARIANTS);
+let variant = new URLSearchParams(location.search).get('variant') || 'A'; if (!VARIANTS[variant]) variant = 'A';
+function setVariant(v) { variant = v; const u = new URL(location); u.searchParams.set('variant', v); history.replaceState(null, '', u); render(); }
+function render() {
+  document.getElementById('app').innerHTML = VARIANTS[variant][1]();
+  document.getElementById('vlabel').textContent = variant + ' (' + VARIANTS[variant][0] + ')';
+  const c = counts(); document.getElementById('navCount').textContent = (c.prop + c.nulla) ? 'Da confermare ' + (c.prop + c.nulla) : '';
+  document.getElementById('state').textContent = `confermati ${c.conf} · proposti ${c.prop} · senza proposta ${c.nulla} · dubbi ${c.dubbi}`;
+}
+document.getElementById('prev').onclick = () => setVariant(keys[(keys.indexOf(variant) + keys.length - 1) % keys.length]);
+document.getElementById('next').onclick = () => setVariant(keys[(keys.indexOf(variant) + 1) % keys.length]);
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input, textarea, select, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft') document.getElementById('prev').click();
+  if (e.key === 'ArrowRight') document.getElementById('next').click();
+  if (variant === 'A') {
+    const order = groupsA().flatMap(([, l]) => l); const i = order.findIndex(x => x.id === selA);
+    if (e.key === 'j') { selA = order[Math.min(i + 1, order.length - 1)].id; render(); }
+    if (e.key === 'k') { selA = order[Math.max(i - 1, 0)].id; render(); }
+    if (e.key === 'Enter') { const m = M.find(x => x.id === selA); if (m.sel.tip || m.fonte === 'giroconto') { confirm(m); selA = nextOpen(m.id); render(); } }
+  }
+});
+const byId = id => M.find(m => m.id === +id);
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act], [data-f="soc"]'); if (!b) return;
+  if (b.dataset.f === 'soc') { byId(b.dataset.id).sel.soc = b.dataset.v; return render(); }
+  const a = b.dataset.act, m = byId(b.dataset.id);
+  if (a === 'sel') selA = m.id;
+  if (a === 'confirm') { confirm(m); if (variant === 'A') selA = nextOpen(m.id); }
+  if (a === 'dubbio') m.dubbio = !m.dubbio;
+  if (a === 'bulk') bulkable().forEach(confirm);
+  if (a === 'ai-one') askAI([m]);
+  if (a === 'ai-all') askAI(aiPending());
+  if (a === 'annulla') alert('Prototipo: l’import si annulla per intero solo se nessun movimento è confermato.');
+  if (a === 'filter') filterB = b.dataset.k;
+  if (a === 'check') { selB.has(m.id) ? selB.delete(m.id) : selB.add(m.id); }
+  if (a === 'bulk-sel') { selB.forEach(id => { const x = byId(id); if (x.sel.tip || x.fonte === 'giroconto') confirm(x); }); selB.clear(); }
+  if (a === 'bulk-dubbio') { selB.forEach(id => byId(id).dubbio = true); selB.clear(); }
+  if (a === 'step') stepC = +b.dataset.i;
+  if (a === 'c-fwd') stepC = Math.min(stepC + 1, STEPS.length - 1);
+  if (a === 'c-back') stepC = Math.max(stepC - 1, 0);
+  if (a === 'c-next') idxC++;
+  if (a === 'c-prev') idxC--;
+  render();
+});
+document.addEventListener('change', e => {
+  const f = e.target.dataset.f;
+  if (e.target.dataset.act === 'bulk-ini') { selB.forEach(id => { const x = byId(id); if (x.fonte !== 'giroconto') x.sel.ini = e.target.value; }); return render(); }
+  if (!f) return; const m = byId(e.target.dataset.id);
+  if (f === 'giust') { m.giust = e.target.value; return; }
+  m.sel[f] = e.target.value;
+  if (m.stato === 'da classificare' && m.sel.tip) m.stato = 'proposto';
+  render();
+});
+render();
+</script>
+</body>
+</html>
