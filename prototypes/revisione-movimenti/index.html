@@ -18,7 +18,8 @@
   --yellow: #ffd900; --yellow-hover: #f0cc00; --yellow-tint: #fff7cc; --yellow-soft: #fffbe5;
   --ground: #f6f6f4; --surface: #ffffff; --raised: #ececea; --border: #e2e2df; --rule: #eeeeeb; --control: #cfcfcb;
   --text: #0a0a0a; --muted: #5f5f5b; --accent: #0a0a0a;
-  --pill-ok-bg: #0a0a0a; --pill-ok-ink: #ffd900;
+  --pill-ok-bg: #dcf5e3; --pill-ok-ink: #0b3d1c;      /* confermato, riconciliato: verde */
+  --pill-info-bg: #e2ecff; --pill-info-ink: #0b3a8a;  /* proposto: blu */
   --pill-warn-bg: #ffd900; --pill-warn-ink: #0a0a0a;
   --pill-neutral-bg: #ececea; --pill-neutral-ink: #333330;
   --radius-card: 8px; --radius-control: 6px; --gap: 12px; --pad: 24px; --control-height: 36px;
@@ -44,6 +45,9 @@ select:focus, input:focus, button:focus-visible { outline: 2px solid var(--text)
 .link { background: none; border: 0; padding: 0; color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
 .pill { display: inline-block; font-size: 12px; line-height: 20px; padding: 0 8px; border-radius: 10px; background: var(--pill-neutral-bg); color: var(--pill-neutral-ink); white-space: nowrap; }
 .pill.ok { background: var(--pill-ok-bg); color: var(--pill-ok-ink); }
+.pill.info { background: var(--pill-info-bg); color: var(--pill-info-ink); }
+.pill.todo { background: var(--pill-neutral-bg); color: var(--pill-neutral-ink); }
+.status-cell { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
 .pill.warn { background: var(--pill-warn-bg); color: var(--pill-warn-ink); }
 .in { color: var(--text); }
 
@@ -55,8 +59,9 @@ select:focus, input:focus, button:focus-visible { outline: 2px solid var(--text)
 .scope { margin: 8px 8px 18px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); font-size: 13px; }
 .nav a { display: flex; justify-content: space-between; align-items: center; height: 32px; padding: 0 10px; margin: 1px 0; border-radius: 8px; color: #4b4d52; text-decoration: none; }
 .nav a.on { background: var(--yellow); color: var(--text); font-weight: 500; }
-.nav a.on .count { color: var(--text); }
-.nav a .count { font-size: 12px; color: var(--muted); }
+.nav a.on .count { color: var(--yellow); }
+.nav a .count { font: 500 12px/20px "Geist Mono", monospace; min-width: 22px; padding: 0 7px; text-align: center; border-radius: 10px; background: var(--text); color: var(--yellow); }
+.nav a .count:empty { display: none; }
 .nav .grp { font-size: 12px; color: var(--muted); padding: 18px 10px 6px; }
 .side .foot { margin-top: auto; }
 .main { padding: 28px 32px 96px; min-width: 0; }
@@ -182,17 +187,17 @@ tr.current td:first-child { border-left: 3px solid var(--text); }
 .vp:hover .tip, .vp:focus-within .tip { display: block; }
 
 /* Menu laterale comprimibile */
-.side-toggle { margin: 0 8px 8px; height: 28px; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-control); font-size: 12px; color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 6px; }
-.side-toggle:hover { background: var(--yellow-soft); color: var(--text); }
+.burger { margin-left: auto; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; border-radius: var(--radius-control); color: var(--text); }
+.burger:hover { background: var(--raised); }
 .nav a .ico { width: 16px; height: 16px; flex: none; margin-right: 10px; }
 .nav a .lab { display: flex; align-items: center; }
 body.collapsed .shell { grid-template-columns: 64px 1fr; }
 body.collapsed .side { padding: 16px 8px; }
-body.collapsed .brand b, body.collapsed .scope, body.collapsed .nav .grp, body.collapsed .nav a .txt, body.collapsed .nav a .count, body.collapsed .side-toggle .txt { display: none; }
-body.collapsed .brand { justify-content: center; padding: 4px 0; }
+body.collapsed .brand b, body.collapsed .scope, body.collapsed .nav .grp, body.collapsed .nav a .txt, body.collapsed .nav a .count { display: none; }
+body.collapsed .brand { flex-direction: column-reverse; gap: 10px; padding: 4px 0 8px; }
+body.collapsed .burger { margin-left: 0; }
 body.collapsed .nav a { justify-content: center; padding: 0; }
 body.collapsed .nav a .ico { margin-right: 0; }
-body.collapsed .side-toggle { margin: 8px 0; }
 body.collapsed .nav .sep { display: block; height: 1px; background: var(--border); margin: 10px 8px; }
 .nav .sep { display: none; }
 
@@ -203,7 +208,7 @@ body.collapsed .nav .sep { display: block; height: 1px; background: var(--border
 .state { position: fixed; right: 16px; bottom: 16px; background: #222; color: #ddd; font: 12px/1.5 ui-monospace, monospace; padding: 8px 12px; border-radius: 8px; z-index: 49; }
 
 @media (max-width: 900px) {
-  .side-toggle { display: none; }
+  .burger { display: none; }
   .nav a .ico { display: none; }
   body.collapsed .shell { grid-template-columns: 1fr; }
   body.collapsed .nav a .txt { display: inline; }
@@ -217,7 +222,6 @@ body.collapsed .nav .sep { display: block; height: 1px; background: var(--border
   .side .scope, .side .nav .grp, .side .foot { display: none; }
   .nav { display: flex; gap: 4px; }
   .nav a { white-space: nowrap; }
-  .nav a .count { display: none; }
   .detail { position: static; }
   .toolbar .btn { white-space: normal; height: auto; padding: 8px 12px; }
   .main { padding: 16px 16px 120px; }
@@ -249,8 +253,8 @@ body.collapsed .nav .sep { display: block; height: 1px; background: var(--border
     <div class="brand">
       <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="6" fill="#ffd900"/><path d="M9 21V10h-1V7h2v1.5h1.5V7h3v1.5H16V7h2v3h-1v11z" fill="#0a0a0a"/><rect x="12" y="15" width="2" height="6" fill="#ffd900"/></svg>
       <b>Prima nota</b>
+      <button class="burger" data-act="toggle-side" aria-label="Comprimi o espandi il menu" title="Comprimi o espandi il menu"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3 5h12M3 9h12M3 13h12"/></svg></button>
     </div>
-    <button class="side-toggle" data-act="toggle-side" aria-label="Comprimi o espandi il menu"><span aria-hidden="true">⇤</span><span class="txt">Comprimi menu</span></button>
     <div class="scope">Contrada La Torre APS<br><span class="muted">Esercizio 2026 · aperto</span></div>
     <nav class="nav">
       <a href="#" class="on" title="Movimenti"><span class="lab"><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h10M3 8h10M3 12h6"/></svg><span class="txt">Movimenti</span></span><span class="count" id="navCount"></span></a>
@@ -366,6 +370,11 @@ function tipOptions(m) {
   return '<option value="">Scegli la tipologia…</option>' + Object.entries(TIPOLOGIE).filter(([, t]) => t.verso === v).map(([k, t]) => `<option value="${k}" ${m.sel.tip === k ? 'selected' : ''}>${t.nome}</option>`).join('');
 }
 const iniOptions = m => Object.entries(INIZIATIVE).map(([k, i]) => `<option value="${k}" ${m.sel.ini === k ? 'selected' : ''}>${i.nome}</option>`).join('');
+function statusPill(m) {
+  if (m.stato === 'confermato') return '<span class="pill ok">confermato</span>';
+  if (m.stato === 'proposto') return '<span class="pill info">proposto</span>';
+  return '<span class="pill todo">da classificare</span>';
+}
 function header(noBulk) {
   const c = counts(); const nb = bulkable().length;
   return `<div class="title-row">
@@ -443,7 +452,7 @@ function renderA() {
     <section class="card list" aria-label="Movimenti">${ap.length ? `<div style="padding:12px 16px;border-bottom:1px solid var(--rule)"><button class="btn btn-ghost wrap-btn" style="width:100%" data-act="ai-all">Chiedi all’AI per i ${ap.length} senza proposta · circa ${eur(ap.length * 0.01)} €</button></div>` : ''}${list}</section>
     <section class="card detail" aria-label="Dettaglio movimento">
       <div class="head"><div><div class="small muted">${m.data}/2026 · ${m.causale}</div><div class="amount money ${m.imp > 0 ? 'in' : ''}">${signed(m.imp)} €</div><div>${m.breve}</div></div>
-      <div class="small muted" style="text-align:right">Movimento ${M.indexOf(m) + 1} di ${M.length}<br><span class="pill ${m.stato === 'confermato' ? 'ok' : ''}">${m.stato}</span></div></div>
+      <div class="small muted" style="text-align:right">Movimento ${M.indexOf(m) + 1} di ${M.length}<br>${statusPill(m)}${m.dubbio ? ' <span class="pill warn">dubbio</span>' : ''}</div></div>
       <div class="orig">${m.desc}</div>
       ${editor(m)}
       ${itemActions(m)}
@@ -513,7 +522,7 @@ function renderC() {
     const m = l[Math.min(idxC, l.length - 1)]; const ap = aiPending();
     body = `<h2>Da decidere uno per uno</h2><p class="explain">Per questi movimenti non c’è una regola né un precedente. Scegli tipologia e iniziativa; se non sai, chiedi un suggerimento all’AI o segna il movimento come dubbio.</p>
       ${ap.length ? `<button class="btn btn-ghost" data-act="ai-all">Chiedi all’AI per tutti e ${ap.length} · circa ${eur(ap.length * 0.01)} €</button>` : ''}
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:16px"><div><span class="small muted">${idxC + 1} di ${l.length} · ${m.data}/2026</span><div class="amount money ${m.imp > 0 ? 'in' : ''}" style="font-size:26px">${signed(m.imp)} €</div><div>${m.breve}</div></div><span class="pill ${m.stato === 'confermato' ? 'ok' : ''}">${m.stato}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:16px"><div><span class="small muted">${idxC + 1} di ${l.length} · ${m.data}/2026</span><div class="amount money ${m.imp > 0 ? 'in' : ''}" style="font-size:26px">${signed(m.imp)} €</div><div>${m.breve}</div></div>${statusPill(m)}</div>
       <div class="orig">${m.desc}</div>${editor(m)}${itemActions(m)}
       <div class="bar" style="margin-top:10px"><button class="btn btn-ghost" data-act="c-prev" ${idxC === 0 ? 'disabled' : ''}>Precedente</button><button class="btn btn-ghost" data-act="c-next" ${idxC >= l.length - 1 ? 'disabled' : ''}>Successivo</button></div>`; }
   if (stepC === 4) { const c = counts(); const byVoce = {};
@@ -549,7 +558,7 @@ function rowD(m) {
     ${openD ? '' : `<td style="width:170px">${giro ? '' : `<select data-f="ini" data-id="${m.id}" aria-label="Iniziativa">${iniOptions(m)}</select>`}</td>`}
     <td style="width:64px">${voceCell(m)}</td>
     ${openD ? '' : `<td class="small" style="width:96px">${fonteBreve(m)}</td>`}
-    <td class="r" style="width:110px">${m.stato === 'confermato' ? '<span class="pill ok">confermato</span>' : `<button class="btn btn-ghost" style="height:30px" data-act="confirm" data-id="${m.id}" ${!m.sel.tip && !giro ? 'disabled' : ''}>Conferma</button>`}</td>
+    <td class="r" style="width:${openD ? 130 : 220}px"><div class="status-cell">${m.stato === 'confermato' ? statusPill(m) : `${openD ? '' : statusPill(m)}<button class="btn btn-ghost" style="height:30px" data-act="confirm" data-id="${m.id}" ${!m.sel.tip && !giro ? 'disabled' : ''}>Conferma</button>`}</div></td>
   </tr>`;
 }
 function voceCell(m) {
@@ -582,7 +591,7 @@ function renderD() {
   const m = openD && M.find(x => x.id === openD);
   const panel = m ? `<section class="card dpanel" aria-label="Dettaglio movimento">
     <button class="btn btn-ghost close" data-act="d-close" aria-label="Chiudi">Chiudi</button>
-    <div class="small muted">${m.data}/2026 · ${m.causale}</div><div class="money" style="font-size:28px;line-height:1.15">${signed(m.imp)} €</div><div>${m.breve}</div>
+    <div class="small muted">${m.data}/2026 · ${m.causale}</div><div style="margin:6px 0">${statusPill(m)}${m.dubbio ? ' <span class="pill warn">dubbio</span>' : ''}</div><div class="money" style="font-size:28px;line-height:1.15">${signed(m.imp)} €</div><div>${m.breve}</div>
     <div class="orig">${m.desc}</div>${editor(m, true)}${itemActions(m)}
     <p class="small muted" style="margin:14px 0 0">J/K per spostarti tra le righe, Invio per confermare, Esc per chiudere.</p></section>` : '';
   return header() + recon() + steps +
@@ -605,7 +614,7 @@ function setVariant(v) { variant = v; const u = new URL(location); u.searchParam
 function render() {
   document.getElementById('app').innerHTML = VARIANTS[variant][1]();
   document.getElementById('vlabel').textContent = variant + ' (' + VARIANTS[variant][0] + ')';
-  const c = counts(); document.getElementById('navCount').textContent = (c.prop + c.nulla) ? 'Da confermare ' + (c.prop + c.nulla) : '';
+  const c = counts(); document.getElementById('navCount').textContent = (c.prop + c.nulla) || ''; document.getElementById('navCount').title = (c.prop + c.nulla) + ' movimenti da confermare';
   document.getElementById('state').textContent = `confermati ${c.conf} · proposti ${c.prop} · senza proposta ${c.nulla} · dubbi ${c.dubbi}`;
 }
 document.getElementById('prev').onclick = () => setVariant(keys[(keys.indexOf(variant) + keys.length - 1) % keys.length]);
