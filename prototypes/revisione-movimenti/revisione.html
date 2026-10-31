@@ -179,7 +179,8 @@ tr.group + tr td { }
 .notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 var(--card-pad) 12px; padding: 10px 12px; border: 1px solid #f0d76a; border-radius: var(--radius-control); background: #fffbe6; color: #4d3a00; }
 
 /* pill di stato: una per riga */
-.pill { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: var(--fs-small); font-weight: 500; white-space: nowrap; flex: none; background: var(--pill-neutral-bg); color: var(--pill-neutral-ink); }
+.pill { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: var(--fs-small); font-weight: 500; white-space: nowrap; flex: none; background: var(--pill-neutral-bg); color: var(--pill-neutral-ink); box-shadow: inset 0 0 0 1px #d9d9d4; }
+.pill.pos, .pill.info, .pill.warn { box-shadow: none; }
 .pill.pos { background: var(--pill-pos-bg); color: var(--pill-pos-ink); }
 .pill.info { background: var(--pill-info-bg); color: var(--pill-info-ink); }
 .pill.warn { background: var(--pill-warn-bg); color: var(--pill-warn-ink); }
@@ -242,6 +243,19 @@ kbd { font: 11px/16px var(--mono); padding: 0 4px; border: 1px solid var(--borde
 .card-group .t { font-weight: 600; }
 .card-group .btn { grid-column: 1 / -1; justify-self: start; margin-top: 6px; }
 
+/* scheda espansa */
+.card { border-bottom: 1px solid var(--rule); }
+.card:last-child { border-bottom: 0; }
+.card .card-row { border-bottom: 0; }
+.card.expanded { border-bottom: 1px solid var(--border); box-shadow: inset 3px 0 0 var(--text); }
+.card.expanded .card-row { background: var(--raised); }
+.work.cards-view > .panel { max-width: 920px; }
+.card-exp { display: grid; gap: 14px; padding: 14px var(--card-pad) 16px; }
+.card-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+.card-fields > .ai-box, .card-fields > .source, .card-fields > .kv, .card-fields > .pair, .card-fields > p { grid-column: 1 / -1; }
+.card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.card-actions .spacer { flex: 1; }
+
 /* foglio a tutto schermo (telefono, vista Schede) */
 .sheet { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; background: var(--surface); }
 .sheet-top { display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 8px; border-bottom: 1px solid var(--border); }
@@ -273,7 +287,8 @@ kbd { font: 11px/16px var(--mono); padding: 0 4px; border: 1px solid var(--borde
   .work.has-panel { grid-template-columns: minmax(0, 1fr); }
   .detail { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100%); max-height: none; z-index: 35; border-radius: 0; border-width: 0 0 0 1px; box-shadow: -12px 0 32px rgba(0,0,0,.10); }
 }
-@media (max-width: 1180px) { .col-ini { display: none; } }
+.ini-inline { display: none; }
+@media (max-width: 1180px) { .col-ini { display: none; } td select.ini-inline { display: block; margin-top: 6px; } }
 /* tablet e telefono: il menu laterale diventa una barra in alto con il menu a foglio */
 @media (max-width: 1099px) {
   .app, body.rail .app { grid-template-columns: minmax(0, 1fr); }
@@ -321,6 +336,9 @@ kbd { font: 11px/16px var(--mono); padding: 0 4px; border: 1px solid var(--borde
   .seg-lbl { display: none; }
   .help { padding: 0 16px 10px; }
   .pair { grid-template-columns: minmax(0, 1fr); }
+  .card-fields { grid-template-columns: minmax(0, 1fr); }
+  .card-exp { padding: 12px 16px 16px; }
+  .card-actions .btn.primary { flex: 1 0 100%; height: 44px; order: 3; }
   .pair .arrow { transform: rotate(90deg); justify-self: center; }
   .proto .st { display: none; }
 }
@@ -450,7 +468,7 @@ const UI = { chain: false, step: 'decidere', open: null, help: window.innerWidth
 try { UI.view = localStorage.getItem('pn-vista'); } catch (e) {}
 const autoView = () => (window.innerWidth < 900 ? 'schede' : 'tabella');
 const view = () => UI.view || autoView();
-const isPhoneSheet = () => view() === 'schede' && window.innerWidth < 1100;
+const isPhoneSheet = () => false;
 function setView(v) { UI.view = v; try { localStorage.setItem('pn-vista', v); } catch (e) {} UI.open = null; render(); }
 
 /* ---------- pezzi ---------- */
@@ -530,7 +548,7 @@ function panelHead(rows) {
 /* ---------- vista Tabella ---------- */
 function rowHTML(m) {
   const open = UI.open !== null, giro = isGiro(m), loading = UI.aiLoading.has(m.id);
-  const tipCell = loading ? '<span class="skeleton" style="width:80%"></span>' : giro ? `<span class="sub" style="color:var(--text)">Giroconto ${m.imp < 0 ? '→' : '←'} ${m.giro.verso}</span>` : `<select class="${m.sel.tip ? '' : 'unset'}" data-f="tip" data-id="${m.id}" aria-label="Tipologia">${tipOptions(m)}</select>`;
+  const tipCell = loading ? '<span class="skeleton" style="width:80%"></span>' : giro ? `<span class="sub" style="color:var(--text)">Giroconto ${m.imp < 0 ? '→' : '←'} ${m.giro.verso}</span>` : `<select class="${m.sel.tip ? '' : 'unset'}" data-f="tip" data-id="${m.id}" aria-label="Tipologia">${tipOptions(m)}</select><select class="ini-inline" data-f="ini" data-id="${m.id}" aria-label="Iniziativa">${iniOptions(m)}</select>`;
   const iniCell = loading ? '<span class="skeleton" style="width:70%"></span>' : giro ? '' : `<select data-f="ini" data-id="${m.id}" aria-label="Iniziativa">${iniOptions(m)}</select>`;
   return `<tr class="mov ${m.stato === 'confermato' ? 'done' : ''}" aria-selected="${UI.open === m.id}" data-act="open" data-id="${m.id}">
     <td><input type="checkbox" class="cb" data-act="check" data-id="${m.id}" ${UI.sel.has(m.id) ? 'checked' : ''} aria-label="Seleziona ${m.breve}"></td>
@@ -568,10 +586,22 @@ function tableView(rows) {
 function cardHTML(m) {
   const t = TIPOLOGIE[m.sel.tip];
   const line2 = isGiro(m) ? `Giroconto ${m.imp < 0 ? '→' : '←'} ${m.giro.verso}` : t ? t.nome + (m.sel.ini ? ' · ' + INIZIATIVE[m.sel.ini].nome : '') + ' · ' + voceCode(m) : 'Tipologia da scegliere';
-  return `<button class="card-row ${m.stato === 'confermato' ? 'done' : ''}" data-act="open" data-id="${m.id}">
+  const exp = UI.open === m.id;
+  return `<div class="card ${exp ? 'expanded' : ''}" id="card-${m.id}"><button class="card-row ${m.stato === 'confermato' ? 'done' : ''}" data-act="open" data-id="${m.id}" aria-expanded="${exp}" aria-controls="exp-${m.id}">
     <span class="id">${m.breve}</span><span class="money">${signed(m.imp)}</span>
     <span class="line2"><span class="num">${m.data}</span><span class="txt">${UI.aiLoading.has(m.id) ? 'Sto chiedendo all’AI…' : line2}</span></span><span class="right2">${statusPill(m)}</span>
-  </button>`;
+  </button>${exp ? cardExpand(m) : ''}</div>`;
+}
+function cardExpand(m) {
+  return `<div class="card-exp" id="exp-${m.id}">
+    <div class="orig"><span class="num">${m.data}/2026</span> · ${m.causale}<br>${m.desc}</div>
+    <div class="card-fields">${editorHTML(m)}</div>
+    <div class="card-actions">
+      <button class="btn ghost sm" data-act="dubbio" data-id="${m.id}">${m.dubbio ? 'Togli dubbio' : 'Segna dubbio'}</button>
+      <button class="btn ghost sm" data-act="close">Chiudi</button>
+      <span class="spacer"></span>
+      ${m.stato === 'confermato' ? statusPill(m) : !canConfirm(m) ? '<span class="small muted">Scegli la tipologia per confermare</span>' : `<button class="btn primary" data-act="confirm" data-id="${m.id}">${isGiro(m) && m.giro.stato === 'da creare' ? 'Registra e conferma' : 'Conferma'}</button>`}
+    </div></div>`;
 }
 function cardsView(rows) {
   if (!rows.length) return `<div class="empty">${STEPS[UI.step].empty}</div>`;
@@ -623,12 +653,13 @@ function render() {
   document.getElementById('nav').innerHTML = navHTML();
   const rows = M.filter(STEPS[UI.step].f);
   const m = UI.open !== null ? M.find(x => x.id === UI.open) : null;
-  const phoneSheet = m && isPhoneSheet();
+  const phoneSheet = false;
+  const inlineCards = view() === 'schede';
   const list = view() === 'schede' ? cardsView(rows) : tableView(rows);
   const allDone = M.every(x => x.stato === 'confermato');
   document.getElementById('app').innerHTML = titleRow() + ledger() + steps() +
-    `<div class="work ${m && !phoneSheet ? 'has-panel' : ''}"><section class="panel" aria-label="${STEPS[UI.step].lbl}">${panelHead(rows)}${allDone && UI.step !== 'tutti' ? `<div class="empty">Import completato: tutti i ${M.length} movimenti sono confermati. <button class="link" data-act="step" data-k="tutti">Rivedi l’elenco</button></div>` : list}</section>
-      ${m && !phoneSheet ? `<aside class="panel detail" aria-label="Dettaglio del movimento">${detailInner(m, rows)}</aside>` : ''}</div>
+    `<div class="work ${m && !inlineCards ? 'has-panel' : ''} ${inlineCards ? 'cards-view' : ''}"><section class="panel" aria-label="${STEPS[UI.step].lbl}">${panelHead(rows)}${allDone && UI.step !== 'tutti' ? `<div class="empty">Import completato: tutti i ${M.length} movimenti sono confermati. <button class="link" data-act="step" data-k="tutti">Rivedi l’elenco</button></div>` : list}</section>
+      ${m && !inlineCards ? `<aside class="panel detail" aria-label="Dettaglio del movimento">${detailInner(m, rows)}</aside>` : ''}</div>
     ${UI.sel.size ? `<div class="bulk" role="region" aria-label="Azioni sui selezionati"><span><span class="num">${UI.sel.size}</span> selezionati</span><span class="spacer"></span>
       <select data-act="bulk-ini" aria-label="Imposta l’iniziativa"><option value="">Imposta l’iniziativa…</option>${Object.entries(INIZIATIVE).map(([k, i]) => `<option value="${k}">${i.nome}</option>`).join('')}</select>
       <button class="btn" data-act="bulk-dubbio">Segna dubbi</button><button class="btn primary" data-act="bulk-conf">Conferma i selezionati</button>
@@ -646,6 +677,11 @@ function render() {
 /* ---------- azioni ---------- */
 const byId = id => M.find(x => x.id === +id);
 function nextOpenFrom(id) { const rows = M.filter(STEPS[UI.step].f); const i = rows.findIndex(x => x.id === id); const after = rows.slice(i + 1).concat(rows.slice(0, i)).find(x => x.stato !== 'confermato'); return after ? after.id : id; }
+function scrollToOpen() {
+  if (view() !== 'schede' || UI.open === null) return;
+  const el = document.getElementById('card-' + UI.open);
+  if (el) { const r = el.getBoundingClientRect(); if (r.top < 60 || r.top > window.innerHeight * 0.6) window.scrollTo({ top: window.scrollY + r.top - 72, behavior: 'smooth' }); }
+}
 function askAI(list) {
   UI.aiFail = false; list.forEach(m => UI.aiLoading.add(m.id)); render();
   setTimeout(() => {
@@ -658,10 +694,10 @@ function askAI(list) {
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const a = b.dataset.act, m = b.dataset.id ? byId(b.dataset.id) : null;
-  if (a === 'open') { if (e.target.closest('select, input, button, .vp')) return; UI.open = m.id; }
+  if (a === 'open') { if (e.target.closest('select, input, .vp') || (e.target.closest('button') && e.target.closest('button') !== b)) return; UI.open = (view() === 'schede' && UI.open === m.id) ? null : m.id; render(); scrollToOpen(); return; }
   else if (a === 'check') { UI.sel.has(m.id) ? UI.sel.delete(m.id) : UI.sel.add(m.id); }
   else if (a === 'close') UI.open = null;
-  else if (a === 'confirm') { confirm(m); if (UI.open === m.id) UI.open = nextOpenFrom(m.id); }
+  else if (a === 'confirm') { confirm(m); if (UI.open === m.id) { const nx = nextOpenFrom(m.id); UI.open = nx === m.id ? null : nx; render(); scrollToOpen(); return; } }
   else if (a === 'conf-pronte') pronte().forEach(confirm);
   else if (a === 'conf-group') b.dataset.ids.split(',').forEach(id => confirm(byId(id)));
   else if (a === 'step') { UI.step = b.dataset.k; UI.open = null; UI.sel.clear(); }
@@ -700,7 +736,7 @@ document.addEventListener('keydown', e => {
   const rows = M.filter(STEPS[UI.step].f), i = rows.findIndex(x => x.id === UI.open);
   if (e.key === 'j' && rows[i + 1]) { UI.open = rows[i + 1].id; render(); }
   if (e.key === 'k' && rows[i - 1]) { UI.open = rows[i - 1].id; render(); }
-  if (e.key === 'Enter') { const m = byId(UI.open); if (canConfirm(m)) { confirm(m); UI.open = nextOpenFrom(m.id); render(); } }
+  if (e.key === 'Enter') { const m = byId(UI.open); if (canConfirm(m)) { confirm(m); const nx = nextOpenFrom(m.id); UI.open = nx === m.id ? null : nx; render(); scrollToOpen(); } }
 });
 let lastW = window.innerWidth;
 window.addEventListener('resize', () => { if ((lastW < 1100) !== (window.innerWidth < 1100) || (lastW < 900) !== (window.innerWidth < 900)) { lastW = window.innerWidth; render(); } });
