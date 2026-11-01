@@ -12,6 +12,8 @@
   - Lavoro più frequente: confermare le proposte pronte (azione primaria nel titolo, "Conferma il gruppo" nei gruppi).
   - Volto: il giallo della contrada (CMYK 0/15/100/0 = #FFD900) sul dato principale (la barra dei confermati)
     e sull'unica azione primaria; tutto il resto in nero e grigi neutri. Mai rosso.
+  - Dubbi: card propria accanto ai passi (striscia sotto i passi su tablet e telefono), righe in tinta gialla,
+    e su ogni riga due bottoni, spunta (conferma) e punto interrogativo (dubbio), al posto di "Conferma".
   - Elemento proprio del prodotto: la "catena del saldo" (saldo iniziale + entrate − uscite = saldo finale = estratto).
   - Stile: achromatic-ledger, seed 1164265756, con il giallo della contrada al posto del blu dei grafici;
     cifre in Geist Mono come decisione di stile (registro contabile).
@@ -37,6 +39,7 @@
   --pill-pos-bg: #dcfae5; --pill-pos-ink: #04250e;      /* confermato, riconciliato */
   --pill-info-bg: #e3ecfb; --pill-info-ink: #0b3a80;    /* proposto */
   --pill-warn-bg: #fff3c2; --pill-warn-ink: #5c4300;    /* dubbio: tinta del giallo */
+  --doubt-bg: #fffbe6; --doubt-bar: #e6c200; --doubt-line: #f0d76a;
   --pill-neutral-bg: #ececea; --pill-neutral-ink: #3a3a37;
   --font: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Geist Mono", ui-monospace, monospace;
@@ -135,6 +138,24 @@ body.rail .rail-rule { display: block; height: 1px; background: var(--border); m
 .step:last-child[aria-selected="true"]::after { border-bottom-right-radius: var(--radius-card); }
 .step .done { font: 500 var(--fs-body)/30px var(--font); color: var(--positive); }
 
+/* card dei dubbi accanto ai passi */
+.steps-row { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: var(--gap); margin-bottom: var(--gap); }
+.steps-row .steps { margin-bottom: 0; }
+.doubts { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-content: start; gap: 0 8px; padding: 14px var(--card-pad) 16px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); text-align: left; cursor: pointer; transition: background-color var(--t-hover) ease; }
+.doubts:hover { background: var(--raised); }
+.doubts .lbl { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.doubts .lbl svg { width: 15px; height: 15px; flex: none; }
+.doubts .val { margin-top: 4px; font: 400 var(--fs-kpi)/30px var(--mono); font-variant-numeric: tabular-nums; }
+.doubts .sub { margin-top: 2px; font-size: var(--fs-small); line-height: 16px; color: var(--faint); min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.doubts .go { grid-column: 2; grid-row: 1 / span 3; align-self: center; font-size: 20px; color: var(--faint); }
+.doubts.has { background: var(--doubt-bg); border-color: var(--doubt-line); }
+.doubts.has:hover { background: #fff6cc; }
+.doubts.has .lbl { color: var(--pill-warn-ink); font-weight: 500; }
+.doubts.has .val { font-weight: 500; }
+.doubts.has .sub { color: var(--pill-warn-ink); }
+.doubts[aria-selected="true"] { border-color: var(--text); }
+.doubts[aria-selected="true"]::after { content: ""; position: absolute; left: -1px; right: -1px; bottom: -1px; height: 3px; background: var(--text); border-radius: 0 0 var(--radius-card) var(--radius-card); }
+
 /* ---------- area di lavoro ---------- */
 .work { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-items: start; }
 .work.has-panel { grid-template-columns: minmax(0, 1fr) 420px; }
@@ -162,6 +183,17 @@ th:last-child, td:last-child { padding-right: var(--card-pad); }
 tr.mov { cursor: pointer; }
 tr.mov[aria-selected="true"] td { background: var(--active); }
 tr.mov.done td .id, tr.mov.done td .money { color: var(--muted); }
+tr.mov.dubbio td { background: var(--doubt-bg); }
+tr.mov.dubbio td:first-child { box-shadow: inset 3px 0 0 var(--doubt-bar); }
+tr.mov.dubbio[aria-selected="true"] td { background: #fff3c2; }
+/* conferma e dubbio sulla riga */
+.rbs { display: inline-flex; gap: 6px; flex: none; }
+.rb { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--control); border-radius: var(--radius-control); background: var(--surface); color: var(--text); cursor: pointer; transition: background-color var(--t-hover) ease, border-color var(--t-hover) ease; }
+.rb svg { width: 16px; height: 16px; }
+.rb.ok:hover { background: var(--yellow); border-color: var(--text); }
+.rb.q:hover { background: var(--raised); }
+.rb.q[aria-pressed="true"] { background: #fff3c2; border-color: var(--doubt-bar); color: var(--pill-warn-ink); }
+.rb-ph { width: 32px; height: 32px; flex: none; }
 .id { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .sub { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--fs-small); line-height: 16px; color: var(--muted); }
 td select { width: 100%; height: 32px; padding: 0 8px; border: 1px solid var(--control); border-radius: var(--radius-control); background: var(--surface); text-overflow: ellipsis; }
@@ -248,7 +280,14 @@ kbd { font: 11px/16px var(--mono); padding: 0 4px; border: 1px solid var(--borde
 .card:last-child { border-bottom: 0; }
 .card .card-row { border-bottom: 0; }
 .card.expanded { border-bottom: 1px solid var(--border); box-shadow: inset 3px 0 0 var(--text); }
-.card.expanded .card-row { background: var(--raised); }
+.card-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; transition: background-color var(--t-hover) ease; }
+.card-line .card-row { padding-right: 10px; }
+.card-line .card-row:hover, .card-line .card-row:active { background: transparent; }
+.card-line:hover { background: var(--raised); }
+.card-line .rbs { padding-right: var(--card-pad); }
+.card.dubbio .card-line { background: var(--doubt-bg); box-shadow: inset 3px 0 0 var(--doubt-bar); }
+.card.expanded .card-line { background: var(--raised); }
+.card.dubbio.expanded .card-line { background: #fff3c2; }
 .work.cards-view > .panel { max-width: 920px; }
 .card-exp { display: grid; gap: 14px; padding: 14px var(--card-pad) 16px; }
 .card-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
@@ -299,6 +338,14 @@ kbd { font: 11px/16px var(--mono); padding: 0 4px; border: 1px solid var(--borde
   .canvas { padding: 20px; }
 }
 @media (max-width: 1099px) { .card-row .line2, .help { font-size: 13px; line-height: 18px; } .proto .st { display: none; } }
+@media (max-width: 1099px) {
+  .steps-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .doubts { grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 0 10px; padding: 10px 16px; }
+  .doubts .val { margin-top: 0; font-size: 18px; line-height: 24px; }
+  .doubts .sub { margin-top: 0; }
+  .doubts .go { grid-column: auto; grid-row: auto; }
+  .doubts.none:not([aria-selected="true"]) { display: none; }
+}
 @media (max-width: 760px) {
   .canvas { padding: 16px; }
   .title-row h1 { font-size: 22px; line-height: 28px; }
@@ -339,6 +386,12 @@ kbd { font: 11px/16px var(--mono); padding: 0 4px; border: 1px solid var(--borde
   .card-fields { grid-template-columns: minmax(0, 1fr); }
   .card-exp { padding: 12px 16px 16px; }
   .card-actions .btn.primary { flex: 1 0 100%; height: 44px; order: 3; }
+  .rb, .rb-ph { width: 40px; height: 40px; }
+  .card-line .rbs { padding-right: 16px; }
+  .card-line .card-row { padding-left: 16px; }
+  /* sul telefono la riga dice lo stato con la seconda riga, la tinta e i bottoni: la pill resta solo per i confermati */
+  .card-line .right2 .pill:not(.pos) { display: none; }
+  .card-line .rb-ph { display: none; }
   .pair .arrow { transform: rotate(90deg); justify-self: center; }
   .proto .st { display: none; }
 }
@@ -412,7 +465,7 @@ const BASE = [
 ];
 let M;
 function reset() {
-  M = BASE.map(b => ({ ...b, giro: b.giro ? { ...b.giro } : undefined, stato: b.fonte === 'nessuna' ? 'da classificare' : 'proposto', sel: b.p ? { ...b.p } : { tip: '', ini: '', soc: '' }, dubbio: false, ai: b.ai, aiStato: 'mai', giust: '' }));
+  M = BASE.map(b => ({ ...b, giro: b.giro ? { ...b.giro } : undefined, stato: b.fonte === 'nessuna' ? 'da classificare' : 'proposto', sel: b.p ? { ...b.p } : { tip: '', ini: '', soc: '' }, dubbio: b.id === 15, ai: b.ai, aiStato: 'mai', giust: '' }));
 }
 reset();
 const cents = v => Math.round(v * 100);
@@ -448,7 +501,7 @@ function statusPill(m) {
   return '<span class="pill">Da classificare</span>';
 }
 const canConfirm = m => m.stato !== 'confermato' && (isGiro(m) || !!m.sel.tip);
-function confirm(m) { if (!canConfirm(m)) return; if (isGiro(m) && m.giro.stato === 'da creare') m.giro.stato = 'creato'; m.stato = 'confermato'; }
+function confirm(m) { if (!canConfirm(m)) return; if (isGiro(m) && m.giro.stato === 'da creare') m.giro.stato = 'creato'; m.stato = 'confermato'; m.dubbio = false; }
 const pronte = () => M.filter(m => m.stato === 'proposto' && (m.fonte === 'regola' || m.fonte === 'storico'));
 const senzaProposta = () => M.filter(m => m.fonte === 'nessuna' && m.aiStato !== 'ok' && m.stato === 'da classificare');
 
@@ -459,6 +512,8 @@ const STEPS = {
     help: 'Raggruppate per tipologia e iniziativa. Controlla ogni gruppo e confermalo in un colpo; se un movimento è sbagliato, aprilo e correggilo prima.', empty: 'Nessuna proposta da confermare.' },
   decidere: { short: 'Da decidere', lbl: 'Da decidere', sub: 'senza precedenti', f: m => m.fonte === 'nessuna',
     help: 'Apri ogni movimento e scegli tipologia e iniziativa. Se non sai, chiedi un suggerimento all’AI o segna il movimento come dubbio: resta in elenco per il commercialista.', empty: 'Niente da decidere: tutti i movimenti hanno una proposta.' },
+  dubbi: { short: 'Dubbi', lbl: 'In dubbio', sub: 'segnati per il commercialista', f: m => m.dubbio,
+    help: 'Movimenti segnati con il punto interrogativo. Restano evidenziati in tutti gli elenchi finché qualcuno non li conferma (la conferma scioglie il dubbio) o toglie il segno; il commercialista li ritrova qui.', empty: 'Nessun movimento in dubbio. Per segnarne uno usa il punto interrogativo sulla riga.' },
   tutti: { short: 'Tutti', lbl: 'Tutti', sub: 'l’intero import', f: () => true, help: 'Tutti i movimenti dell’import, nell’ordine dell’estratto.', empty: 'L’import è vuoto.' },
 };
 const aperti = k => M.filter(STEPS[k].f).filter(m => m.stato !== 'confermato');
@@ -477,6 +532,8 @@ const ICONS = {
   ini: '<path d="M4 14V2M4 3h8l-2 3 2 3H4"/>', reg: '<path d="M2 4h12M2 8h12M2 12h12"/><circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="8" r="1.5"/><circle cx="7" cy="12" r="1.5"/>',
   modd: '<path d="M4 2h6l3 3v9H4zM10 2v3h3M6 8h5M6 11h5"/>', test: '<path d="M3 8l3 3 7-7"/>',
   imp: '<circle cx="8" cy="8" r="2.5"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/>',
+  ok: '<path d="M3 8.5l3.2 3L13 4.5"/>',
+  dub: '<circle cx="8" cy="8" r="6.2"/><path d="M6.2 6.3a1.9 1.9 0 1 1 2.6 1.8c-.5.2-.8.6-.8 1.1v.5"/><path d="M8 11.6v.1"/>',
   table: '<path d="M2 3h12v10H2zM2 6.5h12M2 10h12M6 3v10"/>', cards: '<rect x="2" y="2.5" width="12" height="4" rx="1"/><rect x="2" y="9.5" width="12" height="4" rx="1"/>',
 };
 const svg = k => `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg>`;
@@ -501,6 +558,8 @@ function finding() {
   const parts = [];
   if (nd) parts.push(nd + (nd === 1 ? ' movimento da decidere' : ' movimenti da decidere'));
   if (np) parts.push(np + (np === 1 ? ' proposta pronta' : ' proposte pronte'));
+  const ndub = aperti('dubbi').length;
+  if (ndub) parts.push(ndub + ' in dubbio');
   if (giroDaCreare) parts.push(giroDaCreare === 1 ? '1 prelievo da registrare in cassa' : giroDaCreare + ' prelievi da registrare in cassa');
   const left = M.filter(m => m.stato !== 'confermato').length;
   return '<span class="hide-phone">Saldo uguale all’estratto. </span>' + (left ? 'Restano ' + parts.join(', ').replace(/, ([^,]*)$/, ' e $1') + '.' : 'Tutti i movimenti sono confermati.');
@@ -531,10 +590,14 @@ function ledger() {
   </section>`;
 }
 function steps() {
-  return `<div class="steps" role="tablist" aria-label="Cosa resta da fare">${Object.keys(STEPS).map(k => {
+  return `<div class="steps-row" role="tablist" aria-label="Cosa resta da fare"><div class="steps">${Object.keys(STEPS).filter(k => k !== 'dubbi').map(k => {
     const n = k === 'tutti' ? M.length : aperti(k).length; const sel = UI.step === k;
     const val = k !== 'tutti' && n === 0 ? '<div class="done">Fatto</div>' : `<div class="val">${n}</div>`;
-    return `<button class="step" role="tab" aria-selected="${sel}" data-act="step" data-k="${k}"><div class="lbl"><span class="l-long">${STEPS[k].lbl}</span><span class="l-short">${STEPS[k].short}</span></div>${val}<div class="sub">${k !== 'tutti' && n === 0 ? 'niente da confermare' : STEPS[k].sub}</div></button>`; }).join('')}</div>`;
+    return `<button class="step" role="tab" aria-selected="${sel}" data-act="step" data-k="${k}"><div class="lbl"><span class="l-long">${STEPS[k].lbl}</span><span class="l-short">${STEPS[k].short}</span></div>${val}<div class="sub">${k !== 'tutti' && n === 0 ? 'niente da confermare' : STEPS[k].sub}</div></button>`; }).join('')}</div>${doubtsCard()}</div>`;
+}
+function doubtsCard() {
+  const n = aperti('dubbi').length;
+  return `<button class="doubts ${n ? 'has' : 'none'}" role="tab" aria-selected="${UI.step === 'dubbi'}" data-act="step" data-k="dubbi"><span class="lbl">${svg('dub')}In dubbio</span><span class="val">${n}</span><span class="sub">${n ? STEPS.dubbi.sub : 'nessun movimento segnato'}</span><span class="go" aria-hidden="true">›</span></button>`;
 }
 function panelHead(rows) {
   const k = UI.step, sp = senzaProposta().filter(STEPS[k].f), loading = UI.aiLoading.size > 0;
@@ -545,24 +608,33 @@ function panelHead(rows) {
     ${UI.aiFail ? `<div class="notice" role="status"><span>L’AI non ha risposto (ultimo tentativo alle 17:42). Puoi classificare a mano o riprovare.</span><button class="link" data-act="ai-all">Riprova</button></div>` : ''}`;
 }
 
+/* ---------- conferma e dubbio sulla riga ---------- */
+function rowActs(m) {
+  if (m.stato === 'confermato') return '';
+  const lab = isGiro(m) && m.giro.stato === 'da creare' ? 'Registra e conferma' : 'Conferma';
+  const ok = canConfirm(m) ? `<button class="rb ok" data-act="confirm" data-id="${m.id}" aria-label="${lab}: ${m.breve}" title="${lab}">${svg('ok')}</button>` : '<span class="rb-ph" title="Scegli la tipologia per confermare"></span>';
+  const q = m.dubbio ? 'Togli il dubbio' : 'Segna come dubbio';
+  return `<span class="rbs">${ok}<button class="rb q" data-act="dubbio" data-id="${m.id}" aria-pressed="${m.dubbio}" aria-label="${q}: ${m.breve}" title="${q}">${svg('dub')}</button></span>`;
+}
+
 /* ---------- vista Tabella ---------- */
 function rowHTML(m) {
   const open = UI.open !== null, giro = isGiro(m), loading = UI.aiLoading.has(m.id);
   const tipCell = loading ? '<span class="skeleton" style="width:80%"></span>' : giro ? `<span class="sub" style="color:var(--text)">Giroconto ${m.imp < 0 ? '→' : '←'} ${m.giro.verso}</span>` : `<select class="${m.sel.tip ? '' : 'unset'}" data-f="tip" data-id="${m.id}" aria-label="Tipologia">${tipOptions(m)}</select><select class="ini-inline" data-f="ini" data-id="${m.id}" aria-label="Iniziativa">${iniOptions(m)}</select>`;
   const iniCell = loading ? '<span class="skeleton" style="width:70%"></span>' : giro ? '' : `<select data-f="ini" data-id="${m.id}" aria-label="Iniziativa">${iniOptions(m)}</select>`;
-  return `<tr class="mov ${m.stato === 'confermato' ? 'done' : ''}" aria-selected="${UI.open === m.id}" data-act="open" data-id="${m.id}">
+  return `<tr class="mov ${m.stato === 'confermato' ? 'done' : ''} ${m.dubbio ? 'dubbio' : ''}" aria-selected="${UI.open === m.id}" data-act="open" data-id="${m.id}">
     <td><input type="checkbox" class="cb" data-act="check" data-id="${m.id}" ${UI.sel.has(m.id) ? 'checked' : ''} aria-label="Seleziona ${m.breve}"></td>
     <td class="num muted">${m.data}</td>
     <td><span class="id">${m.breve}</span><span class="sub">${m.causale}${open || fonte(m).tag === '—' ? '' : ' · ' + fonte(m).tag}</span></td>
     <td class="n money">${signed(m.imp)}</td>
     ${open ? '' : `<td>${tipCell}</td><td class="col-ini">${iniCell}</td>`}
     <td>${voceCell(m)}</td>
-    <td class="n"><div class="act">${open ? '' : statusPill(m)}${m.stato === 'confermato' ? (open ? statusPill(m) : '') : canConfirm(m) ? `<button class="btn sm" data-act="confirm" data-id="${m.id}">Conferma</button>` : (open ? statusPill(m) : '')}</div></td>
+    <td class="n"><div class="act">${open ? '' : statusPill(m)}${m.stato === 'confermato' ? (open ? statusPill(m) : '') : rowActs(m)}</div></td>
   </tr>`;
 }
 function colgroup() {
   const open = UI.open !== null;
-  return `<colgroup><col style="width:52px"><col style="width:64px"><col><col style="width:120px">${open ? '' : '<col style="width:200px"><col class="col-ini" style="width:170px">'}<col style="width:64px"><col style="width:${open ? 120 : 236}px"></colgroup>`;
+  return `<colgroup><col style="width:52px"><col style="width:64px"><col><col style="width:120px">${open ? '' : '<col style="width:200px"><col class="col-ini" style="width:170px">'}<col style="width:64px"><col style="width:${open ? 112 : 216}px"></colgroup>`;
 }
 function headRow() {
   const open = UI.open !== null;
@@ -587,10 +659,10 @@ function cardHTML(m) {
   const t = TIPOLOGIE[m.sel.tip];
   const line2 = isGiro(m) ? `Giroconto ${m.imp < 0 ? '→' : '←'} ${m.giro.verso}` : t ? t.nome + (m.sel.ini ? ' · ' + INIZIATIVE[m.sel.ini].nome : '') + ' · ' + voceCode(m) : 'Tipologia da scegliere';
   const exp = UI.open === m.id;
-  return `<div class="card ${exp ? 'expanded' : ''}" id="card-${m.id}"><button class="card-row ${m.stato === 'confermato' ? 'done' : ''}" data-act="open" data-id="${m.id}" aria-expanded="${exp}" aria-controls="exp-${m.id}">
+  return `<div class="card ${exp ? 'expanded' : ''} ${m.dubbio ? 'dubbio' : ''}" id="card-${m.id}"><div class="card-line"><button class="card-row ${m.stato === 'confermato' ? 'done' : ''}" data-act="open" data-id="${m.id}" aria-expanded="${exp}" aria-controls="exp-${m.id}">
     <span class="id">${m.breve}</span><span class="money">${signed(m.imp)}</span>
     <span class="line2"><span class="num">${m.data}</span><span class="txt">${UI.aiLoading.has(m.id) ? 'Sto chiedendo all’AI…' : line2}</span></span><span class="right2">${statusPill(m)}</span>
-  </button>${exp ? cardExpand(m) : ''}</div>`;
+  </button>${rowActs(m)}</div>${exp ? cardExpand(m) : ''}</div>`;
 }
 function cardExpand(m) {
   return `<div class="card-exp" id="exp-${m.id}">
@@ -638,7 +710,7 @@ function detailInner(m, list) {
   return `<div class="detail-head"><div class="grow"><div class="small muted"><span class="num">${m.data}/2026</span> · ${m.causale}</div><div class="amt">${signed(m.imp)} €</div><div>${m.breve}</div><div style="margin-top:8px">${statusPill(m)}</div></div>
       ${isPhoneSheet() ? '' : '<button class="icon-btn" data-act="close" aria-label="Chiudi il dettaglio"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l10 10M14 4L4 14"/></svg></button>'}</div>
     <div class="detail-body"><div class="orig">${m.desc}</div>${editorHTML(m)}</div>
-    ${isPhoneSheet() ? '' : '<p class="keys"><kbd>J</kbd> <kbd>K</kbd> per spostarti · <kbd>Invio</kbd> per confermare · <kbd>Esc</kbd> per chiudere</p>'}
+    ${isPhoneSheet() ? '' : '<p class="keys"><kbd>J</kbd> <kbd>K</kbd> per spostarti · <kbd>Invio</kbd> per confermare · <kbd>D</kbd> dubbio · <kbd>Esc</kbd> per chiudere</p>'}
     <div class="detail-foot">
       <button class="btn ${isPhoneSheet() ? '' : 'sm'}" data-act="prev" ${i <= 0 ? 'disabled' : ''} aria-label="Movimento precedente">‹</button>
       <button class="btn ${isPhoneSheet() ? '' : 'sm'}" data-act="next" ${i >= list.length - 1 ? 'disabled' : ''} aria-label="Movimento successivo">›</button>
@@ -736,6 +808,7 @@ document.addEventListener('keydown', e => {
   const rows = M.filter(STEPS[UI.step].f), i = rows.findIndex(x => x.id === UI.open);
   if (e.key === 'j' && rows[i + 1]) { UI.open = rows[i + 1].id; render(); }
   if (e.key === 'k' && rows[i - 1]) { UI.open = rows[i - 1].id; render(); }
+  if (e.key === 'd') { const m = byId(UI.open); if (m.stato !== 'confermato') { m.dubbio = !m.dubbio; render(); } }
   if (e.key === 'Enter') { const m = byId(UI.open); if (canConfirm(m)) { confirm(m); const nx = nextOpenFrom(m.id); UI.open = nx === m.id ? null : nx; render(); scrollToOpen(); } }
 });
 let lastW = window.innerWidth;
