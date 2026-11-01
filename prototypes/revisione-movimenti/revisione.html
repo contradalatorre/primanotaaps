@@ -14,6 +14,7 @@
     e sull'unica azione primaria; tutto il resto in nero e grigi neutri. Mai rosso.
   - Dubbi: card propria accanto ai passi (striscia sotto i passi su tablet e telefono), righe in tinta gialla,
     e su ogni riga due bottoni, spunta (conferma) e punto interrogativo (dubbio), al posto di "Conferma".
+    Senza tipologia la conferma resta visibile ma spenta, con un popover che spiega cosa manca.
   - Elemento proprio del prodotto: la "catena del saldo" (saldo iniziale + entrate − uscite = saldo finale = estratto).
   - Stile: achromatic-ledger, seed 1164265756, con il giallo della contrada al posto del blu dei grafici;
     cifre in Geist Mono come decisione di stile (registro contabile).
@@ -193,7 +194,6 @@ tr.mov.dubbio[aria-selected="true"] td { background: #fff3c2; }
 .rb.ok:hover { background: var(--yellow); border-color: var(--text); }
 .rb.q:hover { background: var(--raised); }
 .rb.q[aria-pressed="true"] { background: #fff3c2; border-color: var(--doubt-bar); color: var(--pill-warn-ink); }
-.rb-ph { width: 32px; height: 32px; flex: none; }
 .id { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .sub { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--fs-small); line-height: 16px; color: var(--muted); }
 td select { width: 100%; height: 32px; padding: 0 8px; border: 1px solid var(--control); border-radius: var(--radius-control); background: var(--surface); text-overflow: ellipsis; }
@@ -220,9 +220,12 @@ tr.group + tr td { }
 /* voce con descrizione */
 .vp { position: relative; display: inline-block; }
 .vp > button { padding: 0; border: 0; border-bottom: 1px dotted var(--faint); background: none; font: 400 13px/18px var(--mono); cursor: help; }
-.vp .tip { display: none; position: absolute; z-index: 30; right: -8px; top: calc(100% + 8px); width: 280px; padding: 10px 12px; border-radius: var(--radius-control); background: #161615; color: #fff; font-size: var(--fs-small); line-height: 17px; box-shadow: 0 6px 20px rgba(0,0,0,.18); text-align: left; white-space: normal; }
-.vp .tip b { display: block; margin-bottom: 2px; color: var(--yellow); font-weight: 500; }
-.vp:hover .tip, .vp:focus-within .tip { display: block; }
+.vp .tip, .rbw .tip { display: none; position: absolute; z-index: 30; right: -8px; top: calc(100% + 8px); width: 280px; padding: 10px 12px; border-radius: var(--radius-control); background: #161615; color: #fff; font-size: var(--fs-small); line-height: 17px; box-shadow: 0 6px 20px rgba(0,0,0,.18); text-align: left; white-space: normal; }
+.vp .tip b, .rbw .tip b { display: block; margin-bottom: 2px; color: var(--yellow); font-weight: 500; }
+.vp:hover .tip, .vp:focus-within .tip, .rbw:hover .tip, .rbw:focus-within .tip { display: block; }
+.rbw { position: relative; display: inline-flex; }
+.rb[aria-disabled="true"], .btn[aria-disabled="true"] { background: var(--raised); color: var(--faint); border-color: var(--border); cursor: help; }
+.rb.ok[aria-disabled="true"]:hover, .btn[aria-disabled="true"]:hover { background: var(--raised); border-color: var(--border); }
 
 /* pannello di dettaglio */
 .detail { position: sticky; top: 16px; max-height: calc(100svh - 32px); overflow: auto; }
@@ -251,6 +254,7 @@ tr.group + tr td { }
 .pair .arrow { color: var(--faint); }
 .detail-foot { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px var(--card-pad); border-top: 1px solid var(--border); background: var(--surface); }
 .detail-foot .spacer { flex: 1; }
+.detail-foot .rbw .tip { top: auto; bottom: calc(100% + 8px); }
 .keys { padding: 0 var(--card-pad) 14px; font-size: var(--fs-small); color: var(--faint); }
 kbd { font: 11px/16px var(--mono); padding: 0 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--raised); }
 
@@ -386,12 +390,13 @@ kbd { font: 11px/16px var(--mono); padding: 0 4px; border: 1px solid var(--borde
   .card-fields { grid-template-columns: minmax(0, 1fr); }
   .card-exp { padding: 12px 16px 16px; }
   .card-actions .btn.primary { flex: 1 0 100%; height: 44px; order: 3; }
-  .rb, .rb-ph { width: 40px; height: 40px; }
+  .rb { width: 40px; height: 40px; }
+  .card-actions .rbw { flex: 1 0 100%; order: 3; }
+  .card-actions .rbw .btn { width: 100%; height: 44px; }
   .card-line .rbs { padding-right: 16px; }
   .card-line .card-row { padding-left: 16px; }
   /* sul telefono la riga dice lo stato con la seconda riga, la tinta e i bottoni: la pill resta solo per i confermati */
   .card-line .right2 .pill:not(.pos) { display: none; }
-  .card-line .rb-ph { display: none; }
   .pair .arrow { transform: rotate(90deg); justify-self: center; }
   .proto .st { display: none; }
 }
@@ -609,10 +614,12 @@ function panelHead(rows) {
 }
 
 /* ---------- conferma e dubbio sulla riga ---------- */
+const tipNeeded = id => `<span class="tip" role="tooltip" id="${id}"><b>Manca la tipologia</b>Scegli la tipologia per poter confermare il movimento.</span>`;
+const confOff = (id, cls) => `<span class="rbw"><button type="button" class="btn primary ${cls}" aria-disabled="true" data-act="noop" aria-describedby="${id}">Conferma</button>${tipNeeded(id)}</span>`;
 function rowActs(m) {
   if (m.stato === 'confermato') return '';
   const lab = isGiro(m) && m.giro.stato === 'da creare' ? 'Registra e conferma' : 'Conferma';
-  const ok = canConfirm(m) ? `<button class="rb ok" data-act="confirm" data-id="${m.id}" aria-label="${lab}: ${m.breve}" title="${lab}">${svg('ok')}</button>` : '<span class="rb-ph" title="Scegli la tipologia per confermare"></span>';
+  const ok = canConfirm(m) ? `<button class="rb ok" data-act="confirm" data-id="${m.id}" aria-label="${lab}: ${m.breve}" title="${lab}">${svg('ok')}</button>` : `<span class="rbw"><button type="button" class="rb ok" aria-disabled="true" data-act="noop" aria-label="Conferma: ${m.breve}" aria-describedby="tr-${m.id}">${svg('ok')}</button>${tipNeeded('tr-' + m.id)}</span>`;
   const q = m.dubbio ? 'Togli il dubbio' : 'Segna come dubbio';
   return `<span class="rbs">${ok}<button class="rb q" data-act="dubbio" data-id="${m.id}" aria-pressed="${m.dubbio}" aria-label="${q}: ${m.breve}" title="${q}">${svg('dub')}</button></span>`;
 }
@@ -672,7 +679,7 @@ function cardExpand(m) {
       <button class="btn ghost sm" data-act="dubbio" data-id="${m.id}">${m.dubbio ? 'Togli dubbio' : 'Segna dubbio'}</button>
       <button class="btn ghost sm" data-act="close">Chiudi</button>
       <span class="spacer"></span>
-      ${m.stato === 'confermato' ? statusPill(m) : !canConfirm(m) ? '<span class="small muted">Scegli la tipologia per confermare</span>' : `<button class="btn primary" data-act="confirm" data-id="${m.id}">${isGiro(m) && m.giro.stato === 'da creare' ? 'Registra e conferma' : 'Conferma'}</button>`}
+      ${m.stato === 'confermato' ? statusPill(m) : !canConfirm(m) ? confOff('tc-' + m.id, '') : `<button class="btn primary" data-act="confirm" data-id="${m.id}">${isGiro(m) && m.giro.stato === 'da creare' ? 'Registra e conferma' : 'Conferma'}</button>`}
     </div></div>`;
 }
 function cardsView(rows) {
@@ -716,7 +723,7 @@ function detailInner(m, list) {
       <button class="btn ${isPhoneSheet() ? '' : 'sm'}" data-act="next" ${i >= list.length - 1 ? 'disabled' : ''} aria-label="Movimento successivo">›</button>
       <button class="btn ghost ${isPhoneSheet() ? '' : 'sm'}" data-act="dubbio" data-id="${m.id}">${m.dubbio ? 'Togli dubbio' : 'Segna dubbio'}</button>
       <span class="spacer"></span>
-      ${m.stato === 'confermato' ? statusPill(m) : !canConfirm(m) ? '<span class="small muted">Scegli la tipologia per confermare</span>' : `<button class="btn primary ${isPhoneSheet() ? '' : 'sm'}" data-act="confirm" data-id="${m.id}">${isGiro(m) && m.giro.stato === 'da creare' ? 'Registra e conferma' : 'Conferma'}</button>`}
+      ${m.stato === 'confermato' ? statusPill(m) : !canConfirm(m) ? confOff('td-' + m.id, 'sm') : `<button class="btn primary ${isPhoneSheet() ? '' : 'sm'}" data-act="confirm" data-id="${m.id}">${isGiro(m) && m.giro.stato === 'da creare' ? 'Registra e conferma' : 'Conferma'}</button>`}
     </div>`;
 }
 
