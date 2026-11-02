@@ -86,6 +86,22 @@ _Avoid_: anno contabile, annualità
 Le informazioni di un esercizio che non derivano dai movimenti, come i costi e proventi figurativi, il numero di dipendenti o il criterio scelto per il test di secondarietà.
 _Avoid_: dati extra, parametri
 
+**Esercizio storico**:
+Un esercizio precedente all'avvio dell'app di cui si conoscono solo gli importi per voce Modello D e i saldi finali, senza movimenti; serve a riempire la colonna dell'esercizio precedente nel Modello D.
+_Avoid_: anno precedente, esercizio importato
+
+**Rendiconto per l'assemblea**:
+Il prospetto dell'esercizio per area, attività, iniziativa e tipologia, con una colonna per conto, che il tesoriere presenta all'assemblea accanto al Modello D.
+_Avoid_: rendiconto Easy, rendiconto interno
+
+**Destinazione dell'avanzo**:
+L'impiego dell'avanzo dell'esercizio proposto all'assemblea, in righe con descrizione e importo; compare solo nel rendiconto per l'assemblea.
+_Avoid_: utilizzo dell'avanzo, piano spese
+
+**Raccolta fondi occasionale**:
+Un'iniziativa dell'area C svolta in occasione di una celebrazione, ricorrenza o campagna di sensibilizzazione, che ha un proprio rendiconto con relazione illustrativa, allegato al rendiconto dell'esercizio e depositato con esso.
+_Avoid_: raccolta pubblica, evento di raccolta
+
 **Approvazione**:
 La delibera dell'assemblea che approva il rendiconto di un esercizio.
 _Avoid_: chiusura
