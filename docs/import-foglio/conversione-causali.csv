@@ -1,0 +1,63 @@
+causale,verso,tipologia,area,attivita,iniziativa,tag,voce,voce_mappatura_2026,controllo,nota
+"Palio e Corteo materiali, accessori",uscita,Materiali e beni di consumo,A,f,Palio e Corteo,,A1,A1,,
+Palio e Corteo altre spese,uscita,Materiali e beni di consumo,A,f,Palio e Corteo,,A1,A1,verificare la tipologia,"""altre spese"" è generico: la tipologia dipende dalla spesa"
+Acquisto libri,uscita,Libri e pubblicazioni,A,,,,A1,A1,,
+Materiale di consumo,uscita,Materiali e beni di consumo,E,,,,E1,A1,,spesa generale in area E (#12)
+"Materiale ""La Casa""",uscita,Materiali e beni di consumo,E,,La Casa,,E1,A1,,La Casa in area E (#19)
+Strumenti e attrezzature,uscita,Strumenti e attrezzature,A,,,,A1,A1,oltre 516.46 euro: investimento,#8 caso 11
+"Carnevale, org",uscita,Materiali e beni di consumo,A,i,Carnevale,,A1,A1,verificare la tipologia,
+"Carnevale, gruppo clt",uscita,Materiali e beni di consumo,A,i,Carnevale,Gruppo CLT,A1,A1,verificare la tipologia,la distinzione tra organizzazione e gruppo resta come tag
+Infiorata,uscita,Materiali e beni di consumo,A,i,Infiorata,,A1,A1,verificare la tipologia,
+"Rappresentanza: materie prime, di consumo, ecc.",uscita,Spese di rappresentanza,E,,,,E5,A1,,una sola tipologia per la rappresentanza; spesa generale in area E (#12)
+"Festa della Torre, somministrazione",uscita,Acquisti per la somministrazione,A,i,Festa della Torre,,A1,A1,,Festa in A7 per decisione del tesoriere (#8)
+"Festa della Torre, altre spese",uscita,Materiali e beni di consumo,A,i,Festa della Torre,,A1,A1,verificare la tipologia,
+Si può fare NO,uscita,,A,,Si può fare,,,A1,da chiarire,significato della causale da chiarire con il tesoriere
+Attività natalizie,uscita,Materiali e beni di consumo,A,i,Attività natalizie,,A1,A1,verificare la tipologia,
+Uscite aggregazione e convivialità,uscita,Acquisti per la somministrazione,A,i,Aggregazione e convivialità,,A1,A1,,
+Materiale di comunicazione,uscita,Materiale di comunicazione,A,,,,A1,A1,,
+Strumenti e materiali Si può fare,uscita,Strumenti e attrezzature,A,,Si può fare,,A1,A1,oltre 516.46 euro: investimento,#8 caso 11
+Strumenti e materiali MICROPROG Si può fare,uscita,Strumenti e attrezzature,A,,Si può fare,Microprogetto,A1,A1,oltre 516.46 euro: investimento,#8 caso 11
+Servizi professionali per att int gen,uscita,Servizi professionali,A,,,,A2,A2,,
+Servizi internet,uscita,Servizi internet e software,E,,,,E2,A2,,spesa generale in area E (#12)
+Assicurazioni,uscita,Assicurazioni,E,,,,E2,A2,,spesa generale in area E (#12)
+Formazione volontari,uscita,Formazione dei volontari,A,,,,A2,A2,,
+"Utenze ""La Casa""",uscita,Utenze,E,,La Casa,,E2,A2,,La Casa in area E (#19)
+"Servizi ""La Casa""",uscita,Servizi vari,E,,La Casa,,E2,A2,,La Casa in area E (#19)
+"Festa della Torre, servizi",uscita,Servizi vari,A,i,Festa della Torre,,A2,A2,,
+Servizi vari Si può fare,uscita,Servizi vari,A,,Si può fare,,A2,A2,,
+Servizi MICROPROG Si può fare,uscita,Servizi vari,A,,Si può fare,Microprogetto,A2,A2,,
+"Affitto ""La Casa""",uscita,Affitti e noleggi,E,,La Casa,,E3,A3,,La Casa in area E (#19)
+Prestazioni d'opera Si può fare,uscita,Prestazioni occasionali,A,,Si può fare,,A2,A4,,"#8: ""Personale"" solo per il lavoro contrattualizzato"
+Rimborsi spese Si può fare,uscita,Rimborsi spese ai volontari,A,,Si può fare,,A5,A4,,#8: i rimborsi ai volontari non vanno mai in Personale
+Quota adesione magistrato,uscita,Quote associative ad altri enti,A,f,,,A5,A5,,
+Erogazioni liberali ad altri enti,uscita,Erogazioni liberali ad altri enti,A,,,,A5,A5,,
+Altre spese di rappresentanza,uscita,Spese di rappresentanza,E,,,,E5,A5,,spesa generale in area E (#12)
+Imposta di bollo c/c,uscita,Imposte e tasse,E,,,,E5,A5,,spesa generale in area E (#12); esenzione art. 82 c. 5 CTS da verificare con la banca (#8)
+Imposte festa della Torre,uscita,Imposte e tasse,A,i,Festa della Torre,,A5,A5,,
+Imposte Si può fare,uscita,Imposte e tasse,A,,Si può fare,,A5,A5,,
+"Imposte varie ""La Casa""",uscita,Imposte e tasse,E,,La Casa,,E5,A5,,La Casa in area E (#19)
+IVA,uscita,IVA,B,,,,B5,A5,,"#8: B5 o riga ""Imposte"", da confermare con il commercialista"
+Altre imposte,uscita,Imposte e tasse,E,,,,E5,A5,,spesa generale in area E (#12)
+Materiale pubblicitario c/sponsor,uscita,Materiale di comunicazione,B,Sponsorizzazioni e pubblicità,,,B1,B1,,
+Provvigioni raccolta pubb,uscita,Provvigioni,B,Sponsorizzazioni e pubblicità,,,B2,B4,,"#8: ""Personale"" solo per il lavoro contrattualizzato"
+Ritenuta d'acc raccolta pubb,uscita,Provvigioni,B,Sponsorizzazioni e pubblicità,,,B2,B4,,#8 caso 10b: stessa tipologia del compenso
+Canoni e commissioni bancarie,uscita,Commissioni e oneri bancari,D,,,,D1,D1,,
+Tesseramento ord,entrata,Quote associative,A,,,,A1,A1,,
+Entrate aggregazione e convivialità,entrata,Corrispettivi dei soci per attività,A,i,Aggregazione e convivialità,,A2,A2,,natura commerciale dei pasti ai soci (art. 85 c. 3 CTS) da verificare (#8)
+2) Entrate dagli associati per attività mutuali,entrata,Corrispettivi dei soci per attività,A,,,,A2,,indicare l'iniziativa,nel foglio 2026 una riga usa come causale l'intestazione della voce
+Gadget a soci,entrata,Cessioni ai soci,A,,,,A3,A3,,#8 propone B1 commerciale (art. 85 c. 3 CTS)
+Vendita bandiere,entrata,Cessioni ai soci,A,,,,A3,A3,,come Gadget a soci
+Erogazioni liberali,entrata,Erogazioni liberali,A,,,,A4,A4,,"quote pagate come ""donazione"" PayPal: Quote associative (#8)"
+Entrata 5 per mille,entrata,5 per mille,A,,,,A5,A5,,
+"Palio e corteo, contrib. Magistrato",entrata,Contributi da privati,A,f,Palio e Corteo,,A6,A6,,
+"Festa della Torre, entrate somministrazione",entrata,Somministrazione,A,i,Festa della Torre,,A7,A7,,"decisione del tesoriere, da confermare con il commercialista (#8)"
+Contributo Carnevale da comune,entrata,Contributi da enti pubblici,A,i,Carnevale,,A8,A8,,
+Contributo Si può fare da comune,entrata,Contributi da enti pubblici,A,,Si può fare,,A8,A8,,
+Contributo Si può fare da ministero,entrata,Contributi da enti pubblici,A,,Si può fare,,A8,A8,,
+Altre entrate,entrata,Altre entrate,A,,,,A10,A10,,
+Entrate MICROPROG Si può fare,entrata,Altre entrate,A,,Si può fare,Microprogetto,A10,A10,verificare la provenienza,#8: A8 se da ente pubblico; A6 se da privato
+Pubblicità e sponsorizzazioni,entrata,Sponsorizzazioni e pubblicità,B,Sponsorizzazioni e pubblicità,,,B3,B3,,
+Collaborazione Locanda,entrata,Corrispettivi da terzi,B,Collaborazioni con esercizi commerciali,,,B3,B3,,
+Competenze e interessi c/c,entrata,Interessi attivi,D,,,,D1,D1,,
+Prelievo,giroconto,,,,,,,Movimenti tra conti,,giroconto con il c/c bancario (#19)
+Versamento,giroconto,,,,,,,Movimenti tra conti,,giroconto con il c/c bancario (#19)
