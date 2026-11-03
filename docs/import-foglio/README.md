@@ -56,7 +56,7 @@ La voce Modello D è la riga indicata, nella sezione dell'area dell'imputazione.
 | Erogazioni liberali ad altri enti | 5 | |
 | Spese di rappresentanza | 5 | |
 | Imposte e tasse | 5 | |
-| IVA | B5 | Oppure la riga "Imposte": da confermare con il commercialista (#8) |
+| IVA | Imposte | La riga "Imposte" del Modello D, dopo l'avanzo prima delle imposte (verificato sul notebook) |
 | Commissioni e oneri bancari | D1 | Comprende le commissioni PayPal e Satispay (#8) |
 
 **Entrate**
@@ -99,18 +99,19 @@ Nessuna causale attuale va in area C. Le raccolte fondi useranno le stesse tipol
   - le prestazioni d'opera passano da A4 ad A2;
   - i rimborsi spese passano da A4 ad A5.
 - **Raccolta pubblicitaria**: provvigioni e ritenute passano da B4 a B2.
-- **IVA**: passa da A5 a B5, in attesa del commercialista.
+- **IVA**: passa da A5 alla riga "Imposte" (verificato sul notebook).
 - **Rappresentanza**: una sola tipologia invece di due righe diverse (A1 e A5).
+- **Gadget a soci**: la causale viene tolta. Se ricompare nel foglio, la riga arriva come dubbio.
 
-## Domande per la revisione
+## Decise in revisione (3/11/2026)
 
-1. **Spese generali in area E.** Spostarle cambia il confronto con il rendiconto 2025. Nel test dell'art. 79 queste spese contano per l'area A solo pro quota (#12). Confermi lo spostamento, o le teniamo in A come nel foglio?
-2. **Si può fare.**
-   - Quale lettera dell'art. 5 gli corrisponde?
-   - Che cosa indica la causale "Si può fare NO"?
-   - Il microprogetto va bene come tag, o serve un'iniziativa a parte con il suo preventivo?
-   - Da dove arrivano le "Entrate MICROPROG": da un ente pubblico o da un privato?
-3. **Gadget e bandiere.** Restano in A3, o passano in B1 come commerciali (art. 85 c. 3 CTS, #8)?
-4. **Lettere dell'art. 5.** Confermi f per Palio e Corteo e i per le altre iniziative? L'Infiorata potrebbe stare anche in f.
-5. **Causali generiche** ("altre spese", Carnevale, Infiorata, Attività natalizie). Proposta: tipologia "Materiali e beni di consumo", con l'indicazione di verificarla in revisione. Va bene?
-6. **Nomi delle attività diverse.** "Sponsorizzazioni e pubblicità" e "Collaborazioni con esercizi commerciali" vanno bene?
+- **Si può fare**: l'iniziativa non si è ripetuta e le sue righe servono solo per gli esempi 2025. "Si può fare NO" non ha tipologia e non diventa un esempio.
+- **Causali generiche**: tipologia "Materiali e beni di consumo", da verificare in revisione.
+- **Attività diverse**: i nomi proposti vanno bene.
+- **Bollo sul c/c**: esente dalla fine del 2025, quindi la causale resta solo per gli esempi 2025.
+
+## Domande ancora aperte
+
+1. **Spese generali in area E.** Lo spostamento tocca soltanto il test dell'art. 79 c. 2-bis, e solo in parte: secondo la Circolare 1/E § 2.2.1, una quota dei costi generali torna all'area A in proporzione ai ricavi.
+2. **Vendita bandiere.** Il tesoriere la indica come attività di interesse generale svolta in forma commerciale (area A). Secondo il notebook, invece, la vendita di beni non rientra in nessuna lettera dell'art. 5: diventa un'attività diversa (area B) oppure una raccolta fondi.
+3. **Lettera di Palio e Corteo.** Il notebook indica i, con f come alternativa. La tabella usa f perché lo statuto (art. 5 c. 2 lett. a) lega il Palio alla tutela del patrimonio storico-culturale. Sotto i 300.000 euro le attività di interesse generale si considerano come una sola, quindi la lettera non cambia i test. Per le altre iniziative il notebook conferma i.
