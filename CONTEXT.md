@@ -86,6 +86,10 @@ _Avoid_: anno contabile, annualità
 Le informazioni di un esercizio che non derivano dai movimenti, come i costi e proventi figurativi, il numero di dipendenti o il criterio scelto per il test di secondarietà.
 _Avoid_: dati extra, parametri
 
+**Esito del test**:
+Il risultato di un test previsto dal Codice del Terzo Settore in un esercizio: rispettato, vicino alla soglia o non rispettato, con il margine rispetto alla soglia; "superata" si dice solo della soglia.
+_Avoid_: test superato, test non superato, test passato
+
 **Approvazione**:
 La delibera dell'assemblea che approva il rendiconto di un esercizio.
 _Avoid_: chiusura
