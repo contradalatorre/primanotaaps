@@ -4,6 +4,11 @@ Proposta di tabella per l'import iniziale dal foglio di calcolo (#19). Traduce o
 
 La tabella è in [`conversione-causali.csv`](conversione-causali.csv). Contiene solo le etichette delle causali, nessun dato reale. Parte dalla Mappatura del foglio 2026 e dalle correzioni proposte in #8. Il tesoriere la rivede una volta.
 
+Questo file è solo la **tabella di partenza**. L'app la carica all'avvio e da lì la tabella si modifica in una pagina dell'app, finché il foglio è in uso (#19):
+- una riga cambiata si riapplica alle righe importate *da classificare* o *proposte*;
+- quelle *confermate* restano come sono, ma l'app le elenca per correggerle in blocco;
+- alla data di passaggio la tabella si chiude insieme all'import.
+
 ## Come si legge
 
 Una riga per causale, comprese quelle mai usate. Il confronto con la causale ignora il prefisso "->" o "→" e gli spazi finali.
