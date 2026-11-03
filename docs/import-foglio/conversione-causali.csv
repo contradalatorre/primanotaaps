@@ -1,6 +1,6 @@
 causale,verso,tipologia,area,attivita,iniziativa,tag,voce,voce_mappatura_2026,controllo,nota
-"Palio e Corteo materiali, accessori",uscita,Materiali e beni di consumo,A,f,Palio e Corteo,,A1,A1,,
-Palio e Corteo altre spese,uscita,Materiali e beni di consumo,A,f,Palio e Corteo,,A1,A1,verificare la tipologia,"""altre spese"" è generico: la tipologia dipende dalla spesa"
+"Palio e Corteo materiali, accessori",uscita,Materiali e beni di consumo,A,i,Palio e Corteo,,A1,A1,,lettera i come indicato dal notebook; alternativa f
+Palio e Corteo altre spese,uscita,Materiali e beni di consumo,A,i,Palio e Corteo,,A1,A1,verificare la tipologia,"""altre spese"" è generico: la tipologia dipende dalla spesa; lettera i come indicato dal notebook; alternativa f"
 Acquisto libri,uscita,Libri e pubblicazioni,A,,,,A1,A1,,
 Materiale di consumo,uscita,Materiali e beni di consumo,E,,,,E1,A1,,spesa generale in area E (#12)
 "Materiale ""La Casa""",uscita,Materiali e beni di consumo,E,,La Casa,,E1,A1,,La Casa in area E (#19)
@@ -29,7 +29,7 @@ Servizi MICROPROG Si può fare,uscita,Servizi vari,A,,Si può fare,Microprogetto
 "Affitto ""La Casa""",uscita,Affitti e noleggi,E,,La Casa,,E3,A3,,La Casa in area E (#19)
 Prestazioni d'opera Si può fare,uscita,Prestazioni occasionali,A,,Si può fare,,A2,A4,,"#8: ""Personale"" solo per il lavoro contrattualizzato"
 Rimborsi spese Si può fare,uscita,Rimborsi spese ai volontari,A,,Si può fare,,A5,A4,,#8: i rimborsi ai volontari non vanno mai in Personale
-Quota adesione magistrato,uscita,Quote associative ad altri enti,A,f,,,A5,A5,,
+Quota adesione magistrato,uscita,Quote associative ad altri enti,A,i,,,A5,A5,,lettera i come indicato dal notebook; alternativa f
 Erogazioni liberali ad altri enti,uscita,Erogazioni liberali ad altri enti,A,,,,A5,A5,,
 Altre spese di rappresentanza,uscita,Spese di rappresentanza,E,,,,E5,A5,,spesa generale in area E (#12)
 Imposta di bollo c/c,uscita,Imposte e tasse,E,,,,E5,A5,,spesa generale in area E (#12); esente dalla fine del 2025 (art. 82 c. 5 CTS): resta per gli esempi 2025
@@ -43,12 +43,12 @@ Provvigioni raccolta pubb,uscita,Provvigioni,B,Sponsorizzazioni e pubblicità,,,
 Ritenuta d'acc raccolta pubb,uscita,Provvigioni,B,Sponsorizzazioni e pubblicità,,,B2,B4,,#8 caso 10b: stessa tipologia del compenso
 Canoni e commissioni bancarie,uscita,Commissioni e oneri bancari,D,,,,D1,D1,,
 Tesseramento ord,entrata,Quote associative,A,,,,A1,A1,,
-Entrate aggregazione e convivialità,entrata,Corrispettivi dei soci per attività,A,i,Aggregazione e convivialità,,A2,A2,,natura commerciale dei pasti ai soci (art. 85 c. 3 CTS) da verificare (#8)
+Entrate aggregazione e convivialità,entrata,Somministrazione ai soci,A,i,Aggregazione e convivialità,,A2,A2,,"ipotesi prudente: pasti ai soci commerciali (art. 85 c. 3 CTS), da confermare con i consulenti"
 2) Entrate dagli associati per attività mutuali,entrata,Corrispettivi dei soci per attività,A,,,,A2,,indicare l'iniziativa,nel foglio 2026 una riga usa come causale l'intestazione della voce
-Vendita bandiere,entrata,Cessioni ai soci,A,,,,A3,A3,,da decidere: AIG in forma commerciale (A) o attività diversa (B)
+Vendita bandiere,entrata,Cessioni ai soci,B,Vendita di beni,,,B1,A3,,ipotesi prudente: attività diversa commerciale; le vendite a terzi vanno in B3 (Corrispettivi da terzi)
 Erogazioni liberali,entrata,Erogazioni liberali,A,,,,A4,A4,,"quote pagate come ""donazione"" PayPal: Quote associative (#8)"
 Entrata 5 per mille,entrata,5 per mille,A,,,,A5,A5,,
-"Palio e corteo, contrib. Magistrato",entrata,Contributi da privati,A,f,Palio e Corteo,,A6,A6,,
+"Palio e corteo, contrib. Magistrato",entrata,Contributi da privati,A,i,Palio e Corteo,,A6,A6,,lettera i come indicato dal notebook; alternativa f
 "Festa della Torre, entrate somministrazione",entrata,Somministrazione,A,i,Festa della Torre,,A7,A7,,"decisione del tesoriere, da confermare con il commercialista (#8)"
 Contributo Carnevale da comune,entrata,Contributi da enti pubblici,A,i,Carnevale,,A8,A8,,
 Contributo Si può fare da comune,entrata,Contributi da enti pubblici,A,,Si può fare,,A8,A8,,iniziativa non ripetuta: serve solo per gli esempi 2025

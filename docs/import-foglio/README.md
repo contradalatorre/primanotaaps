@@ -65,7 +65,8 @@ La voce Modello D è la riga indicata, nella sezione dell'area dell'imputazione.
 |---|---|---|
 | Quote associative | A1 | |
 | Corrispettivi dei soci per attività | A2 | |
-| Cessioni ai soci | A3 | |
+| Cessioni ai soci | A3, B1 | Beni nuovi prodotti per la vendita: commerciali (art. 85 c. 3 CTS) |
+| Somministrazione ai soci | A2, B1 | Esclusa dalla decommercializzazione (art. 85 c. 3 CTS) |
 | Erogazioni liberali | A4 | Liberalità |
 | 5 per mille | A5 | |
 | Contributi da privati | A6, B2 | |
@@ -81,9 +82,8 @@ Nessuna causale attuale va in area C. Le raccolte fondi useranno le stesse tipol
 ## Attività
 
 - **Area A**: lettere dell'art. 5 c. 1 CTS previste dallo statuto (art. 5): f, i, k, l, w, z. Nella tabella compaiono:
-  - **f**, tutela e valorizzazione del patrimonio culturale: Palio e Corteo, perché lo statuto lo indica come riferimento primario;
-  - **i**, attività culturali, artistiche o ricreative di interesse sociale: Festa della Torre, Carnevale, Infiorata, Attività natalizie, Aggregazione e convivialità.
-- **Area B**: lo statuto non elenca le attività diverse (art. 5 c. 6), quindi i nomi sono proposti qui: "Sponsorizzazioni e pubblicità" e "Collaborazioni con esercizi commerciali".
+  - **i**, attività culturali, artistiche o ricreative di interesse sociale: tutte le iniziative, come indicato dal notebook. Per Palio e Corteo l'alternativa è **f** (tutela del patrimonio culturale), perché lo statuto, all'art. 5 c. 2 lett. a, lo lega a quel tema. Sotto i 300.000 euro la lettera non cambia i test.
+- **Area B**: lo statuto non elenca le attività diverse (art. 5 c. 6), quindi i nomi sono proposti qui: "Sponsorizzazioni e pubblicità", "Collaborazioni con esercizi commerciali" e "Vendita di beni".
 
 ## Iniziative e tag
 
@@ -101,6 +101,7 @@ Nessuna causale attuale va in area C. Le raccolte fondi useranno le stesse tipol
 - **Raccolta pubblicitaria**: provvigioni e ritenute passano da B4 a B2.
 - **IVA**: passa da A5 alla riga "Imposte" (verificato sul notebook).
 - **Rappresentanza**: una sola tipologia invece di due righe diverse (A1 e A5).
+- **Vendita bandiere**: passa da A3 a B1 (ipotesi prudente).
 - **Gadget a soci**: la causale viene tolta. Se ricompare nel foglio, la riga arriva come dubbio.
 
 ## Decise in revisione (3/11/2026)
@@ -110,8 +111,13 @@ Nessuna causale attuale va in area C. Le raccolte fondi useranno le stesse tipol
 - **Attività diverse**: i nomi proposti vanno bene.
 - **Bollo sul c/c**: esente dalla fine del 2025, quindi la causale resta solo per gli esempi 2025.
 
-## Domande ancora aperte
+## Ipotesi prudenti in attesa dei consulenti
 
-1. **Spese generali in area E.** Lo spostamento tocca soltanto il test dell'art. 79 c. 2-bis, e solo in parte: secondo la Circolare 1/E § 2.2.1, una quota dei costi generali torna all'area A in proporzione ai ricavi.
-2. **Vendita bandiere.** Il tesoriere la indica come attività di interesse generale svolta in forma commerciale (area A). Secondo il notebook, invece, la vendita di beni non rientra in nessuna lettera dell'art. 5: diventa un'attività diversa (area B) oppure una raccolta fondi.
-3. **Lettera di Palio e Corteo.** Il notebook indica i, con f come alternativa. La tabella usa f perché lo statuto (art. 5 c. 2 lett. a) lega il Palio alla tutela del patrimonio storico-culturale. Sotto i 300.000 euro le attività di interesse generale si considerano come una sola, quindi la lettera non cambia i test. Per le altre iniziative il notebook conferma i.
+Il tesoriere ha scelto le ipotesi prudenti per i punti ancora aperti (3/11/2026). Ognuna si potrà cambiare nell'app, anche in blocco (#12, #19).
+
+- **Spese generali in area E.** Nel test dell'art. 79 c. 2-bis contano per l'area A solo in quota, in proporzione ai ricavi (Circolare 1/E § 2.2.1). Sul 2025 questo porta i costi dell'area A da circa 43.900 a circa 41.200 euro. Gli altri test non cambiano.
+- **Vendita bandiere**: attività diversa commerciale, in area B, perché il notebook esclude la vendita di beni dalle lettere dell'art. 5. Il tesoriere la considera un'attività di interesse generale svolta in forma commerciale.
+- **Cene sociali**: somministrazione commerciale (art. 85 c. 3 CTS). Le fonti non chiariscono se il test dell'art. 79 possa renderla non commerciale.
+- **Palio e Corteo**: lettera i.
+
+Restano decisioni già prese e da confermare con il commercialista: la Festa della Torre in A7 (#8), con la somministrazione comunque commerciale per l'art. 85 c. 3, e l'IVA nella riga "Imposte".
