@@ -23,8 +23,8 @@ L'etichetta breve con cui il fornitore del conto indica il tipo di operazione (e
 _Avoid_: tipo operazione, codice
 
 **Descrizione**:
-Il testo libero che accompagna un movimento nell'estratto conto, scritto dal fornitore del conto.
-_Avoid_: dettaglio, note
+Il testo libero che accompagna un movimento nell'estratto conto, scritto dal fornitore del conto; non va confusa con la nota, scritta da un utente.
+_Avoid_: dettaglio
 
 **Controparte**:
 Chi paga o riceve il denaro di un movimento, come risulta dall'estratto o dichiarato da chi registra il movimento.
@@ -102,6 +102,10 @@ _Avoid_: utilizzo dell'avanzo, piano spese
 Un'iniziativa dell'area C svolta in occasione di una celebrazione, ricorrenza o campagna di sensibilizzazione, che ha un proprio rendiconto con relazione illustrativa, allegato al rendiconto dell'esercizio e depositato con esso.
 _Avoid_: raccolta pubblica, evento di raccolta
 
+**Esito del test**:
+Il risultato di un test previsto dal Codice del Terzo Settore in un esercizio: rispettato, vicino alla soglia o non rispettato, con il margine rispetto alla soglia; "superata" si dice solo della soglia.
+_Avoid_: test superato, test non superato, test passato
+
 **Approvazione**:
 La delibera dell'assemblea che approva il rendiconto di un esercizio.
 _Avoid_: chiusura
@@ -113,3 +117,33 @@ _Avoid_: invio, pubblicazione
 **Preventivo**:
 Le entrate e le uscite previste per un'iniziativa in un esercizio, da confrontare con quelle effettive.
 _Avoid_: budget, bilancio di previsione
+
+### Accesso e comunicazione
+
+**Ruolo**:
+Un insieme di permessi con un nome (es. Tesoriere, Consigliere), creato e modificato dall'Amministratore.
+_Avoid_: profilo, gruppo
+
+**Permesso**:
+Una singola cosa che l'app consente di fare (es. inserire movimenti di cassa, approvare l'esercizio), scelta da un elenco fisso.
+_Avoid_: diritto, autorizzazione
+
+**Assegnazione**:
+Un ruolo dato a una persona, con un ambito e una scadenza facoltativi; una persona può avere più assegnazioni e i loro permessi si sommano.
+_Avoid_: abilitazione
+
+**Ambito**:
+I conti su cui valgono i permessi di un'assegnazione (es. solo la "Cassa Festa"); limita ciò che si può scrivere o proporre, non ciò che si vede.
+_Avoid_: perimetro, scope
+
+**Nota**:
+Un messaggio breve di un utente su un movimento, con autore e data, senza effetto sul Modello D, sui test o sulla classificazione.
+_Avoid_: commento, annotazione
+
+**Menzione**:
+Il richiamo `@utente` o `@ruolo` dentro una nota, che chiede l'attenzione di qualcuno finché non lo segna come fatto; non va confuso con il tag.
+_Avoid_: tag, notifica
+
+**Dubbio**:
+Una nota contrassegnata che segnala un movimento da verificare; il movimento resta in dubbio finché la nota è aperta, e la conferma la chiude.
+_Avoid_: sospeso, da verificare
