@@ -148,6 +148,26 @@ _Avoid_: tag, notifica
 Una nota contrassegnata che segnala un movimento da verificare; il movimento resta in dubbio finché la nota è aperta, e la conferma la chiude.
 _Avoid_: sospeso, da verificare
 
+**Tesoriere in carica**:
+La persona che risponde della tesoreria in un dato momento, una sola alla volta; è distinta dal ruolo Tesoriere, che più persone possono avere, e cambia solo con un passaggio di consegne.
+_Avoid_: tesoriere attivo, tesoriere principale
+
+**Passaggio di consegne**:
+Il trasferimento della tesoreria dal tesoriere in carica al successivo, avviato da un Amministratore, firmato dall'uscente alla consegna e dal nuovo alla presa in carico, e fissato in un'istantanea alla data della consegna.
+_Avoid_: cambio tesoriere, handover, consegna
+
+**Riserva**:
+Un punto del passaggio di consegne che il nuovo tesoriere non accetta così com'è e che resta aperto finché non lo scioglie.
+_Avoid_: eccezione, nota, contestazione
+
+**Lettera di consegna**:
+Il testo libero con cui il tesoriere uscente spiega al successore ciò che i dati non dicono, allegato al passaggio di consegne.
+_Avoid_: note di consegna, promemoria
+
+**Elemento esterno**:
+Una cosa fuori dall'app da passare al nuovo tesoriere (es. firma sul conto, accesso a PayPal, cassa fisica), di cui l'app registra solo lo stato e mai le credenziali.
+_Avoid_: accesso, credenziale
+
 ### Onboarding
 
 **Missione**:
