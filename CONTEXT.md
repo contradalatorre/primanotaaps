@@ -147,3 +147,17 @@ _Avoid_: tag, notifica
 **Dubbio**:
 Una nota contrassegnata che segnala un movimento da verificare; il movimento resta in dubbio finché la nota è aperta, e la conferma la chiude.
 _Avoid_: sospeso, da verificare
+
+### Dati personali
+
+**Anonimizzazione**:
+La rimozione dei dati personali da un esercizio dieci anni dopo la sua fine, che ne tiene importi e classificazione e sostituisce le persone con il loro tipo ("Socio", "Privato"); la propone l'app e la conferma l'Amministratore.
+_Avoid_: cancellazione, pulizia, scadenza
+
+**Registro degli accessi**:
+L'elenco di chi è entrato nell'app, quando e da dove, e di ogni esportazione fatta; serve a ricostruire un incidente e si conserva dodici mesi. Non va confuso con il registro delle modifiche.
+_Avoid_: log, registro attività
+
+**Versione senza nomi**:
+Un'esportazione dei movimenti in cui le controparti persone fisiche sono sostituite dal loro tipo e mancano note e descrizione.
+_Avoid_: versione anonima, export anonimizzato
