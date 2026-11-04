@@ -147,3 +147,29 @@ _Avoid_: tag, notifica
 **Dubbio**:
 Una nota contrassegnata che segnala un movimento da verificare; il movimento resta in dubbio finché la nota è aperta, e la conferma la chiude.
 _Avoid_: sospeso, da verificare
+
+### Onboarding
+
+**Missione**:
+Un breve esercizio guidato sulle schermate vere dell'app, svolto nello spazio di prova, che insegna una cosa sola e richiede i permessi di quella cosa.
+_Avoid_: lezione, tutorial, livello
+
+**Percorso**:
+Un elenco ordinato di missioni pensato per chi ha un certo ruolo (es. il percorso del Tesoriere); raggruppa le missioni ma non decide chi può farle.
+_Avoid_: corso, livello, ruolo
+
+**Spazio di prova**:
+L'insieme personale di dati finti di un utente, separato dai dati veri, in cui si svolgono le missioni; non entra mai nei report, nei test, nei backup o nel registro.
+_Avoid_: sandbox, demo, esercizio di prova
+
+**Scenario**:
+La situazione di partenza di una missione, con conti, movimenti ed estratti inventati, da cui lo spazio di prova riparte a ogni avvio.
+_Avoid_: dati di esempio, fixture
+
+**Timbro**:
+Il segno che un utente riceve completando una missione; una missione saltata non lo dà.
+_Avoid_: badge, premio, punti
+
+**Sigillo**:
+Il segno che un utente riceve completando tutte le missioni di un percorso.
+_Avoid_: badge, trofeo
