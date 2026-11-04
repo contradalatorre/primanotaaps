@@ -173,6 +173,7 @@ _Avoid_: badge, premio, punti
 **Sigillo**:
 Il segno che un utente riceve completando tutte le missioni di un percorso.
 _Avoid_: badge, trofeo
+
 ### Dati personali
 
 **Anonimizzazione**:
