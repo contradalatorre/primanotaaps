@@ -1,0 +1,17 @@
+{
+  "advisorModel": "opus",
+  "permissions": {
+    "deny": [
+      "Bash(git push origin main*)",
+      "Bash(git push origin master*)",
+      "Bash(git push --force*)",
+      "Bash(git push * --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push * -f*)",
+      "Bash(gh pr merge *)",
+      "Bash(gh workflow run *)",
+      "Read(.env)",
+      "Read(.env.*)"
+    ]
+  }
+}
