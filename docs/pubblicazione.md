@@ -1,0 +1,36 @@
+# Pubblicazione su Aruba
+
+`main` va in produzione (cartella `contabilita/`), il branch `prova` nell'ambiente di prova (`contabilita-test/`, con un database a parte). Nessun altro branch pubblica. Lo fa `.github/workflows/pubblica.yml`: lancia i test, costruisce dipendenze e stili, scrive il `.env` dai segreti, carica via FTPS e controlla che configurazione, codice, `storage`, log e backup non siano raggiungibili dal web (`scripts/controlla-pubblicazione.sh`).
+
+La pubblicazione reale aspetta il passaggio del sito a PHP 8.x (ADR 0001).
+
+## Da preparare una volta, per ciascun ambiente
+
+In Settings > Environments crea `produzione` e `prova` (su `produzione` conviene chiedere l'approvazione di una persona). In ciascuno:
+
+| Tipo | Nome | Contenuto |
+| --- | --- | --- |
+| Segreto | `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD` | accesso FTPS di Aruba |
+| Segreto | `APP_KEY` | chiave dell'app, diversa per ogni ambiente (`php artisan key:generate --show`) |
+| Segreto | `DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | database MySQL dell'ambiente: **quello di prova ha un database diverso da quello di produzione** |
+| Segreto | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | credenziali OAuth di Google |
+| Segreto | `AMMINISTRATORI` | email degli Amministratori, separate da virgola (provvisorio, finché i ruoli non esistono) |
+| Segreto | `MIGRAZIONI_TOKEN` | stringa lunga e casuale, per la prima installazione |
+| Variabile | `SITO_URL` | indirizzo dell'app senza barra finale, es. `https://sito.example/contabilita` |
+| Variabile | `GOOGLE_WORKSPACE_DOMAIN` | dominio del Workspace |
+| Variabile | `FTP_CARTELLA` | `contabilita/` oppure `contabilita-test/` |
+
+Nessun valore va scritto nel repo. I valori non possono contenere l'apice singolo `'`.
+
+## Migrazioni
+
+- **Aggiornamenti**: dopo una pubblicazione con cambiamenti allo schema, un Amministratore apre *Migrazioni* nel menu e preme "Avvia le migrazioni".
+- **Prima installazione**: a database vuoto nessuno può ancora entrare, perché mancano le tabelle degli utenti e delle sessioni. Si avvia una volta sola con il token (funziona solo finché la tabella `migrations` non esiste):
+
+  ```
+  curl -X POST -H "Authorization: Bearer <MIGRAZIONI_TOKEN>" <SITO_URL>/manutenzione/migrazioni/prima-installazione
+  ```
+
+## Prove a secco
+
+Il workflow non si lancia a mano. Si prova in locale con Docker: `sh scripts/prova-scrivi-env.sh` per il `.env`, e `docker compose up -d --wait web` seguito da `sh scripts/controlla-pubblicazione.sh http://localhost:8080/contabilita` per il controllo di raggiungibilità.

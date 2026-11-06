@@ -1,0 +1,76 @@
+name: Pubblica
+
+# main va in produzione (contabilita/), prova nell'ambiente di prova (contabilita-test/, database a parte).
+# Nessun altro branch pubblica: né integrazione né ticket/*. Nessun avvio a mano.
+# Credenziali e configurazione stanno nei segreti degli ambienti GitHub "produzione" e "prova"
+# (Settings > Environments), mai nel repo. Elenco e prima installazione: docs/pubblicazione.md.
+on:
+  push:
+    branches: [main, prova]
+
+# Una pubblicazione alla volta per ambiente, senza interromperne una già iniziata a metà.
+concurrency:
+  group: pubblica-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  pubblica:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'produzione' || 'prova' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Solo dipendenze di produzione, senza config:cache: salverebbe i percorsi assoluti del runner.
+      - name: Dipendenze e stili
+        run: docker compose run --rm tools sh -c "composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist && npm ci && npm run build"
+
+      # Il .env nasce qui dai segreti dell'ambiente e viaggia solo nel canale FTPS.
+      - name: Configurazione dell'ambiente
+        env:
+          APP_URL: ${{ vars.SITO_URL }}
+          APP_KEY: ${{ secrets.APP_KEY }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_WORKSPACE_DOMAIN: ${{ vars.GOOGLE_WORKSPACE_DOMAIN }}
+          AMMINISTRATORI: ${{ secrets.AMMINISTRATORI }}
+          MIGRAZIONI_TOKEN: ${{ secrets.MIGRAZIONI_TOKEN }}
+        run: sh scripts/scrivi-env.sh > .env
+
+      # Storage: sul runner contiene solo i segnaposto del repo, e l'azione cancella dal server soltanto
+      # ciò che aveva caricato lei (file di stato): log, sessioni e backup del server non si toccano.
+      # Azione fissata al commit della v4.4.0 (SamKirkland/FTP-Deploy-Action): è l'unico modo di caricare
+      # via FTPS cancellando solo i file già pubblicati da lei; la sua alternativa sarebbe uno script lftp scritto qui.
+      - name: Carica via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          server-dir: ${{ vars.FTP_CARTELLA }}
+          state-name: storage/.ftp-deploy-sync-state.json
+          exclude: |
+            .git/**
+            .github/**
+            node_modules/**
+            tests/**
+            docker/**
+            docs/**
+            orchestrazione/**
+            scripts/**
+            docker-compose.yml
+            **/*.log
+
+      - name: Raggiungibilità vietata di configurazione, storage e log
+        run: sh scripts/controlla-pubblicazione.sh "${{ vars.SITO_URL }}"
