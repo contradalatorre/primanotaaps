@@ -98,6 +98,11 @@ return [
 
     'cipher' => 'AES-256-CBC',
 
+    /*
+    | Token della prima installazione: vedi MigrazioniController. Arriva dai segreti del repo, mai dal codice.
+    */
+    'token_migrazioni' => env('MIGRAZIONI_TOKEN'),
+
     'key' => env('APP_KEY'),
 
     'previous_keys' => [

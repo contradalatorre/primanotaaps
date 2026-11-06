@@ -1,10 +1,14 @@
 <?php
 
 use App\Http\Controllers\AccessoController;
+use App\Http\Controllers\MigrazioniController;
 use App\Http\Controllers\RuoliController;
 use App\Http\Controllers\UtentiController;
 use App\Http\Middleware\VerificaAccountGoogle;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 Route::middleware('guest')->group(function () {
     Route::get('/accesso', [AccessoController::class, 'pagina'])->name('accesso');
@@ -29,5 +33,13 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
         Route::post('/ruoli', [RuoliController::class, 'crea'])->name('ruoli.crea');
         Route::get('/ruoli/{ruolo}', [RuoliController::class, 'modifica'])->name('ruoli.modifica');
         Route::put('/ruoli/{ruolo}', [RuoliController::class, 'salva'])->name('ruoli.salva');
+
+        // Aggiornamento dello schema senza riga di comando (ADR 0001), riservato a chi gestisce gli utenti (#37).
+        Route::get('/manutenzione/migrazioni', [MigrazioniController::class, 'pagina'])->name('migrazioni');
+        Route::post('/manutenzione/migrazioni', [MigrazioniController::class, 'avvia'])->name('migrazioni.avvia');
     });
 });
+
+// Prima installazione: il database è vuoto, quindi niente sessione (la tabella `sessions` non c'è) né CSRF.
+Route::post('/manutenzione/migrazioni/prima-installazione', [MigrazioniController::class, 'primaInstallazione'])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class]);

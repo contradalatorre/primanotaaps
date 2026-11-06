@@ -213,15 +213,27 @@ class AccessoTest extends TestCase
         $this->assertFalse(User::firstWhere('google_id', '1001')->puo(Permesso::Vedere));
     }
 
-    public function test_un_amministratore_con_assegnazione_scaduta_non_impedisce_il_primo_accesso(): void
+    public function test_con_tutti_gli_amministratori_scaduti_l_elenco_iniziale_non_riscatta_in_silenzio(): void
     {
+        // Il recupero senza Amministratori attivi è dell'account di emergenza (#36), con registro ed email.
         config(['prima_nota.amministratori_iniziali' => ['maria.rossi@associazione.example']]);
         $this->utenteCon('Amministratore', ['scade_il' => now()->subDay()->toDateString()]);
         $this->googleCome();
 
         $this->entra();
 
-        $this->assertTrue(User::firstWhere('google_id', '1001')->puo(Permesso::GestireUtenti));
+        $this->assertFalse(User::firstWhere('google_id', '1001')->puo(Permesso::GestireUtenti));
+    }
+
+    public function test_un_indirizzo_aggiunto_senza_google_id_che_collide_e_rifiutato_senza_errore(): void
+    {
+        User::factory()->create(['google_id' => null, 'email' => 'maria.rossi@associazione.example']);
+        $this->googleCome();
+
+        $this->followingRedirects()->entra()->assertSee('rivolgiti a un Amministratore');
+
+        $this->assertGuest();
+        $this->assertDatabaseCount('users', 1);
     }
 
     public function test_chi_non_e_nell_elenco_iniziale_non_diventa_amministratore(): void

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Assegnazione;
 use App\Models\Ruolo;
 use App\Models\User;
 use App\Permesso;
@@ -55,7 +56,7 @@ class AccessoController extends Controller
         if ($this->delWorkspace($google)) {
             // Mai ereditare la riga di un altro: un google_id nuovo (account ricreato) o un'email aggiornata
             // già in uso da un'altra riga li risolve un Amministratore.
-            if (User::where('email', $google->getEmail())->where('google_id', '!=', $google->getId())->exists()) {
+            if (User::where('email', $google->getEmail())->where(fn ($q) => $q->whereNull('google_id')->orWhere('google_id', '!=', $google->getId()))->exists()) {
                 return $this->rifiuta('Questo indirizzo risulta già associato a un altro accesso: rivolgiti a un Amministratore.');
             }
 
@@ -115,17 +116,24 @@ class AccessoController extends Controller
                 : null);
     }
 
-    /** Avvio a freddo: vedi config/prima_nota.php. Con un Amministratore attivo non fa niente. */
+    /**
+     * Avvio a freddo: vedi config/prima_nota.php. Vale una volta sola, finché nessuno ha mai avuto un ruolo con la
+     * gestione utenti (scadenza ignorata). Se poi gli Amministratori scadono tutti, il recupero è dell'account di
+     * emergenza (#36), che lascia traccia nel registro e avvisa gli Amministratori: non di questo elenco, in silenzio.
+     */
     private function assegnaAmministratoreIniziale(User $utente): void
     {
-        if ($utente->esterno
-            || ! in_array(strtolower($utente->email), config('prima_nota.amministratori_iniziali'), true)
-            || User::amministratoriAttivi()->exists()) {
+        if ($utente->esterno || ! in_array(strtolower($utente->email), config('prima_nota.amministratori_iniziali'), true)) {
             return;
         }
 
         // Il ruolo si sceglie dal permesso, non dal nome: l'Amministratore può averlo rinominato.
-        $ruolo = Ruolo::whereJsonContains('permessi', Permesso::GestireUtenti->value)->orderBy('id')->first();
+        $conGestioneUtenti = fn ($ruoli) => $ruoli->whereJsonContains('permessi', Permesso::GestireUtenti->value);
+        if (Assegnazione::whereHas('ruolo', $conGestioneUtenti)->exists()) {
+            return;
+        }
+
+        $ruolo = $conGestioneUtenti(Ruolo::query())->orderBy('id')->first();
         $ruolo && $utente->assegnazioni()->create(['ruolo_id' => $ruolo->id]);
     }
 

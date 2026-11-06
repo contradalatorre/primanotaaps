@@ -23,6 +23,10 @@
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>
                     <span class="voce-testo">Ruoli</span>
                 </a>
+                <a href="{{ route('migrazioni') }}" class="voce" @if (request()->routeIs('migrazioni*')) aria-current="page" @endif>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/></svg>
+                    <span class="voce-testo">Migrazioni</span>
+                </a>
             @endcan
         </nav>
         <form method="POST" action="{{ route('esci') }}" class="menu-utente">
@@ -36,10 +40,11 @@
     </aside>
     <main class="contenuto">
         @can('gestire_utenti')
-            @if (\App\Models\User::amministratoriAttivi(true)->count() === 1)
+            @php($stabili = \App\Models\User::amministratoriAttivi(true)->count())
+            @if ($stabili <= 1)
                 <p class="avviso" role="status">
                     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l10 18H2zM12 10v5M12 18h.01"/></svg>
-                    <span>C’è un solo Amministratore senza scadenza: se perde l’accesso nessuno potrà più gestire utenti e ruoli. Assegna il ruolo a un’altra persona.</span>
+                    <span>{{ $stabili === 1 ? 'C’è un solo Amministratore senza scadenza: se perde l’accesso' : 'Nessun Amministratore è senza scadenza: quando le loro assegnazioni scadranno' }} nessuno potrà più gestire utenti e ruoli. Assegna il ruolo, senza scadenza, a un’altra persona.</span>
                 </p>
             @endif
         @endcan

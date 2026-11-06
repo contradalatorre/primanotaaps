@@ -234,6 +234,17 @@ class GestioneUtentiTest extends TestCase
         $this->actingAs($admin)->get('/utenti')->assertDontSee('un solo Amministratore');
     }
 
+    public function test_l_app_segnala_anche_se_nessun_amministratore_e_senza_scadenza(): void
+    {
+        $fra1mese = ['scade_il' => now()->addMonth()->toDateString()];
+        $unico = $this->utenteCon('Amministratore', $fra1mese);
+
+        $this->actingAs($unico)->get(route('home'))->assertSee('Nessun Amministratore è senza scadenza');
+
+        $this->utenteCon('Amministratore', $fra1mese);
+        $this->actingAs($unico)->get(route('home'))->assertSee('Nessun Amministratore è senza scadenza');
+    }
+
     public function test_l_avviso_dell_unico_amministratore_non_si_vede_agli_altri(): void
     {
         $this->amministratore();
