@@ -14,6 +14,16 @@
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg>
                 <span class="voce-testo">Home</span>
             </a>
+            @can('gestire_utenti')
+                <a href="{{ route('utenti') }}" class="voce" @if (request()->routeIs('utenti*')) aria-current="page" @endif>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 20v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2M9.5 10a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM21 20v-2a4 4 0 00-3-3.9M16 3.1a3.5 3.5 0 010 6.8"/></svg>
+                    <span class="voce-testo">Utenti</span>
+                </a>
+                <a href="{{ route('ruoli') }}" class="voce" @if (request()->routeIs('ruoli*')) aria-current="page" @endif>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>
+                    <span class="voce-testo">Ruoli</span>
+                </a>
+            @endcan
         </nav>
         <form method="POST" action="{{ route('esci') }}" class="menu-utente">
             @csrf
@@ -25,6 +35,23 @@
         </form>
     </aside>
     <main class="contenuto">
+        @can('gestire_utenti')
+            @if (\App\Models\User::amministratoriAttivi()->count() === 1)
+                <p class="avviso" role="status">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l10 18H2zM12 10v5M12 18h.01"/></svg>
+                    <span>C’è un solo Amministratore: se perde l’accesso nessuno potrà più gestire utenti e ruoli. Assegna il ruolo a un’altra persona.</span>
+                </p>
+            @endif
+        @endcan
+        @if (session('ok'))
+            <p class="avviso" role="status">{{ session('ok') }}</p>
+        @endif
+        @if ($errors->any())
+            <div class="avviso" role="alert">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l10 18H2zM12 10v5M12 18h.01"/></svg>
+                <ul>@foreach ($errors->all() as $errore)<li>{{ $errore }}</li>@endforeach</ul>
+            </div>
+        @endif
         @yield('contenuto')
     </main>
 </div>

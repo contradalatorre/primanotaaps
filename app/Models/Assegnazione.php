@@ -34,6 +34,16 @@ class Assegnazione extends Model
         $query->where(fn (Builder $q) => $q->whereNull('scade_il')->orWhere('scade_il', '>=', today()));
     }
 
+    public function ambito(): string
+    {
+        if ($this->tutti_i_conti) {
+            return 'Tutti i conti';
+        }
+        $n = DB::table('assegnazione_conto')->where('assegnazione_id', $this->id)->count();
+
+        return $n === 1 ? '1 conto' : $n.' conti';
+    }
+
     /** Su un conto preciso, o (senza conto) su almeno uno: un'assegnazione rimasta senza conti non vale su niente. */
     public function valeSuConto(?int $contoId = null): bool
     {

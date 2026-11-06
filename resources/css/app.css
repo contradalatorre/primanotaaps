@@ -137,6 +137,72 @@
         @apply text-sm text-neutral-600;
     }
 
+    h2 {
+        @apply mb-2 mt-8 text-xl font-bold;
+    }
+
+    .contenuto > * + * {
+        @apply mt-4;
+    }
+
+    .tabella-scorrevole {
+        @apply overflow-x-auto;
+    }
+
+    .tabella {
+        @apply w-full border-collapse text-left;
+    }
+
+    .tabella th,
+    .tabella td {
+        @apply border-b border-neutral-300 p-3 align-top;
+    }
+
+    .tabella thead th {
+        @apply bg-giallo;
+    }
+
+    .etichetta {
+        @apply rounded border border-nero px-1.5 py-0.5 text-xs font-semibold;
+    }
+
+    .link {
+        @apply underline hover:no-underline;
+    }
+
+    .riga-assegnazione {
+        @apply flex items-start justify-between gap-3 py-1;
+    }
+
+    .modulo,
+    .modulo-in-riga {
+        @apply flex flex-col items-start gap-3;
+    }
+
+    .modulo label,
+    .modulo-in-riga label {
+        @apply flex flex-col gap-1 text-sm font-semibold;
+    }
+
+    input[type='text'],
+    input[type='email'],
+    input[type='date'],
+    select {
+        @apply rounded border-2 border-nero bg-white px-2 py-1 font-normal;
+    }
+
+    .spunta {
+        @apply flex-row items-start gap-2 font-normal;
+    }
+
+    fieldset {
+        @apply flex flex-col gap-2 rounded border-2 border-nero p-3;
+    }
+
+    .elenco-ruoli li {
+        @apply flex items-baseline gap-3 border-b border-neutral-300 py-2;
+    }
+
     :focus-visible {
         @apply outline-2 outline-offset-2 outline-nero;
     }
