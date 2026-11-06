@@ -21,7 +21,9 @@ Segui le istruzioni del file `C:\Users\andre\.claude\skills\implement\SKILL.md`:
 - costruisci con la skill `tdd` (un comportamento alla volta, rosso → verde) alle seam già concordate nel ticket e negli ADR;
 - lancia spesso typecheck/analisi statica e i singoli file di test, la suite completa una volta alla fine;
 - chiudi con la skill `code-review` e correggi quello che trova;
-- committa sul tuo branch `ticket/<numero>`.
+- committa sul tuo branch `ticket/<numero>` a ogni passo verde, non solo alla fine: se la sessione si interrompe, chi riprende parte dall'ultimo commit.
+
+Se il branch `ticket/<numero>` esiste già, riparti da lì: un implementatore precedente ha lavorato prima di te.
 
 Consulta l'**advisor** prima di ogni scelta di struttura (nuove tabelle, nuove classi di servizio, nuovi pacchetti) e prima di dichiarare il ticket finito.
 
