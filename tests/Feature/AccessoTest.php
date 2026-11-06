@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Permesso;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\InvalidStateException;
@@ -186,5 +187,157 @@ class AccessoTest extends TestCase
             ->post(route('esci'))->assertRedirect(route('accesso'));
 
         $this->assertGuest();
+    }
+
+    // Primo Amministratore: l'app parte senza nessuno e su Aruba non c'è una riga di comando per crearlo.
+    // Solo avvio a freddo: il recupero quando non resta nessun Amministratore è dell'account di emergenza (#36).
+
+    public function test_chi_e_nell_elenco_iniziale_diventa_amministratore_se_non_ce_ne_sono(): void
+    {
+        config(['prima_nota.amministratori_iniziali' => ['maria.rossi@associazione.example']]);
+        $this->googleCome();
+
+        $this->entra();
+
+        $this->assertTrue(User::firstWhere('google_id', '1001')->puo(Permesso::GestireUtenti));
+    }
+
+    public function test_l_elenco_iniziale_non_vale_se_un_amministratore_c_e_gia(): void
+    {
+        config(['prima_nota.amministratori_iniziali' => ['maria.rossi@associazione.example']]);
+        $this->utenteCon('Amministratore');
+        $this->googleCome();
+
+        $this->entra();
+
+        $this->assertFalse(User::firstWhere('google_id', '1001')->puo(Permesso::Vedere));
+    }
+
+    public function test_un_amministratore_con_assegnazione_scaduta_non_impedisce_il_primo_accesso(): void
+    {
+        config(['prima_nota.amministratori_iniziali' => ['maria.rossi@associazione.example']]);
+        $this->utenteCon('Amministratore', ['scade_il' => now()->subDay()->toDateString()]);
+        $this->googleCome();
+
+        $this->entra();
+
+        $this->assertTrue(User::firstWhere('google_id', '1001')->puo(Permesso::GestireUtenti));
+    }
+
+    public function test_chi_non_e_nell_elenco_iniziale_non_diventa_amministratore(): void
+    {
+        config(['prima_nota.amministratori_iniziali' => ['altro@associazione.example']]);
+        $this->googleCome();
+
+        $this->entra();
+
+        $this->assertFalse(User::firstWhere('google_id', '1001')->puo(Permesso::Vedere));
+    }
+
+    // Account esterni (commercialista, revisore): aggiunti dall'Amministratore, entrano con un Google personale.
+
+    private function esternoInvitato(array $attributi = []): User
+    {
+        return $this->utenteCon('Lettore esterno', ['scade_il' => now()->addMonth()->toDateString()], $attributi + [
+            'esterno' => true, 'google_id' => null, 'name' => 'Paolo Verdi', 'email' => 'paolo@studio.example',
+        ]);
+    }
+
+    private function googleEsterno(array $attributi = []): void
+    {
+        $this->googleCome($attributi + ['id' => '2002', 'name' => 'Paolo V.', 'email' => 'paolo@studio.example', 'hd' => null]);
+    }
+
+    public function test_un_esterno_aggiunto_entra_con_il_suo_account_personale_e_il_google_id_si_lega(): void
+    {
+        $this->esternoInvitato();
+        $this->googleEsterno();
+
+        $this->entra()->assertRedirect(route('home'));
+
+        $this->assertDatabaseCount('users', 1);
+        $this->assertDatabaseHas('users', ['email' => 'paolo@studio.example', 'google_id' => '2002', 'esterno' => true, 'name' => 'Paolo Verdi']);
+        $this->get(route('home'))->assertOk();
+    }
+
+    public function test_un_esterno_che_rientra_e_riconosciuto_dal_google_id(): void
+    {
+        $this->esternoInvitato(['google_id' => '2002']);
+        $this->googleEsterno();
+
+        $this->entra()->assertRedirect(route('home'));
+        $this->assertAuthenticated();
+    }
+
+    public function test_un_altro_account_con_lo_stesso_indirizzo_non_prende_il_posto_dell_esterno(): void
+    {
+        $this->esternoInvitato(['google_id' => '2002']);
+        $this->googleEsterno(['id' => '9999']);
+
+        $this->entra()->assertRedirect(route('accesso'));
+        $this->assertGuest();
+    }
+
+    public function test_un_esterno_con_la_nomina_scaduta_non_entra(): void
+    {
+        $esterno = $this->esternoInvitato();
+        $esterno->assegnazioni()->update(['scade_il' => now()->subDay()->toDateString()]);
+        $this->googleEsterno();
+
+        $this->followingRedirects()->entra()->assertSee('nomina');
+
+        $this->assertGuest();
+        $this->assertDatabaseHas('users', ['email' => 'paolo@studio.example', 'google_id' => null]);
+    }
+
+    public function test_un_esterno_con_email_non_verificata_non_entra(): void
+    {
+        $this->esternoInvitato();
+        $this->googleEsterno(['email_verified' => false]);
+
+        $this->entra()->assertRedirect(route('accesso'));
+        $this->assertGuest();
+    }
+
+    public function test_un_indirizzo_non_aggiunto_come_esterno_resta_rifiutato(): void
+    {
+        $this->esternoInvitato();
+        $this->googleEsterno(['email' => 'altro@studio.example']);
+
+        $this->entra()->assertRedirect(route('accesso'));
+        $this->assertGuest();
+        $this->assertDatabaseCount('users', 1);
+    }
+
+    public function test_un_utente_interno_non_entra_con_un_account_personale(): void
+    {
+        User::factory()->create(['google_id' => null, 'email' => 'paolo@studio.example']);
+        $this->googleEsterno();
+
+        $this->entra()->assertRedirect(route('accesso'));
+        $this->assertGuest();
+    }
+
+    public function test_un_esterno_non_diventa_amministratore_dall_elenco_iniziale(): void
+    {
+        config(['prima_nota.amministratori_iniziali' => ['paolo@studio.example']]);
+        $this->esternoInvitato();
+        $this->googleEsterno();
+
+        $this->entra();
+
+        $this->assertFalse(User::firstWhere('email', 'paolo@studio.example')->puo(Permesso::GestireUtenti));
+    }
+
+    public function test_l_accesso_per_esterni_non_restringe_la_scelta_al_dominio_del_workspace(): void
+    {
+        $this->assertStringContainsString('hd=associazione.example', $this->get(route('accesso.google'))->headers->get('Location'));
+        $this->assertStringNotContainsString('hd=', $this->get(route('accesso.google', ['esterno' => 1]))->headers->get('Location'));
+        $this->get(route('accesso'))->assertSee(route('accesso.google', ['esterno' => 1]), false);
+    }
+
+    public function test_l_elenco_iniziale_e_vuoto_di_serie(): void
+    {
+        $this->assertSame([], config('prima_nota.amministratori_iniziali'));
     }
 }

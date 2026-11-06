@@ -140,6 +140,11 @@ class PermessiTest extends TestCase
         $this->assertTrue($utente->puo(Permesso::InserireMovimentiCassa));
     }
 
+    public function test_un_assegnazione_senza_conti_non_da_il_permesso_nemmeno_senza_chiedere_un_conto(): void
+    {
+        $this->assertFalse($this->utenteCon('Consigliere', ['conti' => []])->puo(Permesso::InserireMovimentiCassa));
+    }
+
     public function test_l_ambito_non_limita_la_lettura(): void
     {
         $utente = $this->utenteCon('Consigliere', ['conti' => [7]]);

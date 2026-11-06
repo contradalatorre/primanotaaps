@@ -3,7 +3,11 @@
 namespace App\Models;
 
 use App\Permesso;
+use Closure;
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -24,6 +28,35 @@ class User extends Authenticatable
             'google_verificato_il' => 'datetime',
             'esterno' => 'boolean',
         ];
+    }
+
+    /**
+     * Gli Amministratori attivi: utenti interni con un'assegnazione attiva il cui ruolo dà la gestione utenti.
+     * Si riconoscono dal permesso e non dal nome del ruolo, che l'Amministratore può cambiare. Stesse regole di `puo()`.
+     */
+    public static function amministratoriAttivi(): Builder
+    {
+        return static::where('esterno', false)->whereHas('assegnazioniAttive', fn (Builder $a) => $a->whereHas(
+            'ruolo', fn (Builder $r) => $r->whereJsonContains('permessi', Permesso::GestireUtenti->value),
+        ));
+    }
+
+    /**
+     * Esegue una modifica a ruoli o assegnazioni e la annulla se toglie la gestione utenti all'ultimo Amministratore.
+     * Con zero Amministratori (avvio a freddo) non blocca niente.
+     */
+    public static function proteggendoUltimoAmministratore(Closure $modifica): mixed
+    {
+        return DB::transaction(function () use ($modifica) {
+            $prima = static::amministratoriAttivi()->count();
+            $risultato = $modifica();
+
+            if ($prima > 0 && static::amministratoriAttivi()->count() === 0) {
+                throw ValidationException::withMessages(['amministratori' => 'Deve restare almeno un Amministratore con la gestione utenti: la modifica non è stata fatta.']);
+            }
+
+            return $risultato;
+        });
     }
 
     public function assegnazioni(): HasMany
@@ -49,7 +82,7 @@ class User extends Authenticatable
 
         return $this->loadMissing('assegnazioniAttive.ruolo')->assegnazioniAttive->contains(
             fn (Assegnazione $a) => $a->ruolo->haPermesso($permesso)
-                && (! $permesso->haAmbito() || $contoId === null || $a->valeSuConto($contoId)),
+                && (! $permesso->haAmbito() || $a->valeSuConto($contoId)),
         );
     }
 }

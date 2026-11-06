@@ -18,5 +18,6 @@
     @if ($dominio)
         <p class="nota">Serve l’account {{ '@'.$dominio }} del Workspace dell’associazione.</p>
     @endif
+    <p class="nota">Sei un consulente esterno (commercialista, revisore)? <a href="{{ route('accesso.google', ['esterno' => 1]) }}" class="link">Entra con il tuo account Google</a>: l’Amministratore deve averti già aggiunto.</p>
 </main>
 @endsection
