@@ -18,7 +18,7 @@ class AccessoController extends Controller
 {
     public function pagina()
     {
-        return view('accesso', ['dominio' => $this->dominio()]);
+        return view('accesso', ['dominio' => $this->dominio(), 'emergenza' => EmergenzaController::attivo()]);
     }
 
     /** Chi è già dentro ci passa solo per rifare l'accesso (`?riautentica=1`, vedi `riautentica()`). */

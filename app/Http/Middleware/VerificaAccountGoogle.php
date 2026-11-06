@@ -21,6 +21,19 @@ class VerificaAccountGoogle
     {
         $utente = $request->user();
 
+        // L'account di emergenza non ha un account Google da controllare; in cambio la sua sessione dura quanto
+        // la validità di un accesso per le azioni delicate (un'ora), non 30 giorni.
+        if ($utente->emergenza) {
+            if (now()->unix() - $request->session()->get('auth.password_confirmed_at', 0) <= config('auth.password_timeout')) {
+                return $next($request);
+            }
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('accesso.emergenza')->with('errore', 'La sessione di emergenza è scaduta: rientra con password e codice.');
+        }
+
         if ($utente->google_verificato_il?->gt(now()->subHour())) {
             return $next($request);
         }

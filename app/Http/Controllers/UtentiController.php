@@ -20,13 +20,15 @@ class UtentiController extends Controller
     public function index()
     {
         return view('utenti', [
-            'utenti' => User::with('assegnazioni.ruolo')->orderBy('esterno')->orderBy('name')->get(),
+            'utenti' => User::where('emergenza', false)->with('assegnazioni.ruolo')->orderBy('esterno')->orderBy('name')->get(),
             'ruoli' => Ruolo::orderBy('nome')->get(),
         ]);
     }
 
     public function assegna(Request $request, User $utente): RedirectResponse
     {
+        abort_if($utente->emergenza, 404); // l'account di emergenza non ha ruoli: ha i permessi di un Amministratore e basta
+
         $dati = $request->validate([
             'ruolo_id' => ['required', 'exists:ruoli,id'],
             // La scadenza è facoltativa per chi è dell'associazione, obbligatoria per un esterno.

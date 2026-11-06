@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccessoController;
+use App\Http\Controllers\EmergenzaController;
 use App\Http\Controllers\MigrazioniController;
 use App\Http\Controllers\RuoliController;
 use App\Http\Controllers\UtentiController;
@@ -10,7 +11,12 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
-Route::get('/accesso', [AccessoController::class, 'pagina'])->name('accesso')->middleware('guest');
+Route::middleware('guest')->group(function () {
+    Route::get('/accesso', [AccessoController::class, 'pagina'])->name('accesso');
+    Route::get('/accesso/emergenza', [EmergenzaController::class, 'pagina'])->name('accesso.emergenza');
+    // 5 tentativi ogni 10 minuti per indirizzo: password lunga e TOTP reggono, ma il registro non si riempia di prove.
+    Route::post('/accesso/emergenza', [EmergenzaController::class, 'entra'])->middleware('throttle:5,10');
+});
 
 // Fuori da `guest`: chi è già dentro ci passa per rifare l'accesso (#36); il controller rimanda a casa chi arriva
 // senza averlo chiesto.

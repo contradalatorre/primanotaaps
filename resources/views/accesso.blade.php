@@ -19,5 +19,8 @@
         <p class="nota">Serve l’account {{ '@'.$dominio }} del Workspace dell’associazione.</p>
     @endif
     <p class="nota">Sei un consulente esterno (commercialista, revisore)? <a href="{{ route('accesso.google', ['esterno' => 1]) }}" class="link">Entra con il tuo account Google</a>: l’Amministratore deve averti già aggiunto.</p>
+    @if ($emergenza)
+        <p class="nota">Google non funziona o non c’è più nessun Amministratore? <a href="{{ route('accesso.emergenza') }}" class="link">Accesso di emergenza</a>.</p>
+    @endif
 </main>
 @endsection

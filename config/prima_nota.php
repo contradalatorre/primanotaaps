@@ -12,4 +12,14 @@ return [
         explode(',', (string) env('AMMINISTRATORI_INIZIALI', '')),
     ))),
 
+    /*
+    | Account di emergenza (#36): password lunga (hash bcrypt) e segreto TOTP (base32), che l'associazione
+    | conserva fuori dall'app. Si generano con `php artisan emergenza:credenziali`. Se manca uno dei due,
+    | l'accesso di emergenza è spento.
+    */
+    'emergenza' => [
+        'password_hash' => env('EMERGENZA_PASSWORD_HASH'),
+        'totp_secret' => env('EMERGENZA_TOTP_SECRET'),
+    ],
+
 ];
