@@ -4,9 +4,11 @@ namespace Tests\Feature;
 
 use App\Http\Middleware\VerificaAccountGoogle;
 use App\Models\Ruolo;
+use App\Models\User;
 use App\Permesso;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class PermessiTest extends TestCase
@@ -62,7 +64,7 @@ class PermessiTest extends TestCase
         $this->assertEqualsCanonicalizing(array_column(Permesso::cases(), 'value'), self::PREDEFINITI['Amministratore'], 'l’Amministratore ha tutti i permessi');
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('permessi')]
+    #[DataProvider('permessi')]
     public function test_chi_ha_il_permesso_passa(Permesso $permesso): void
     {
         $ruolo = Ruolo::create(['nome' => 'Prova', 'permessi' => [$permesso->value]]);
@@ -70,7 +72,7 @@ class PermessiTest extends TestCase
         $this->actingAs($this->utenteCon($ruolo))->get('/prova/'.$permesso->value)->assertOk();
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('permessi')]
+    #[DataProvider('permessi')]
     public function test_chi_non_ha_il_permesso_e_respinto(Permesso $permesso): void
     {
         $altri = array_values(array_diff(array_column(Permesso::cases(), 'value'), [$permesso->value]));
@@ -79,19 +81,19 @@ class PermessiTest extends TestCase
         $this->actingAs($this->utenteCon($ruolo))->get('/prova/'.$permesso->value)->assertForbidden();
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('permessi')]
+    #[DataProvider('permessi')]
     public function test_chi_non_ha_assegnazioni_e_respinto(Permesso $permesso): void
     {
-        $this->actingAs(\App\Models\User::factory()->create())->get('/prova/'.$permesso->value)->assertForbidden();
+        $this->actingAs(User::factory()->create())->get('/prova/'.$permesso->value)->assertForbidden();
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('permessi')]
+    #[DataProvider('permessi')]
     public function test_un_ospite_va_all_accesso(Permesso $permesso): void
     {
         $this->get('/prova/'.$permesso->value)->assertRedirect(route('accesso'));
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('permessi')]
+    #[DataProvider('permessi')]
     public function test_un_assegnazione_scaduta_non_da_piu_permessi(Permesso $permesso): void
     {
         $ruolo = Ruolo::create(['nome' => 'Prova', 'permessi' => [$permesso->value]]);
