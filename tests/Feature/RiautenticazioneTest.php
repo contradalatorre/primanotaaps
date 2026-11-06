@@ -80,7 +80,7 @@ class RiautenticazioneTest extends TestCase
             ->assertRedirect()->headers->get('Location');
 
         parse_str(parse_url($url, PHP_URL_QUERY), $query);
-        $this->assertSame('login', $query['prompt']);
+        $this->assertSame('select_account', $query['prompt']);
         $this->assertSame('anna.bianchi@associazione.example', $query['login_hint']);
     }
 

@@ -35,8 +35,9 @@ class AccessoController extends Controller
         // (serve a VerificaAccountGoogle per accorgersi di un account sospeso).
         $parametri = ['prompt' => 'select_account consent', 'access_type' => 'offline'];
         if ($riautentica) {
-            // `login`: Google richiede di nuovo le credenziali anche se la sessione Google è ancora aperta.
-            $parametri = ['prompt' => 'login', 'login_hint' => Auth::user()->email];
+            // Si ripassa dal flusso OAuth scegliendo l'account (`login` non è un valore documentato da Google);
+            // il controllo che sia lo stesso è sul `google_id` al ritorno.
+            $parametri = ['prompt' => 'select_account', 'login_hint' => Auth::user()->email];
             $request->session()->put('riautenticazione', true);
         }
         if (! $request->boolean('esterno') && ! ($riautentica && Auth::user()->esterno)) {
