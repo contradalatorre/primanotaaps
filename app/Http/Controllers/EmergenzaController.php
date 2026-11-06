@@ -42,13 +42,13 @@ class EmergenzaController extends Controller
         $passwordGiusta = Hash::check((string) $request->input('password'), config('prima_nota.emergenza.password_hash'));
         $passo = Totp::verifica(config('prima_nota.emergenza.totp_secret'), (string) $request->input('codice'), now()->unix());
 
-        // Un codice già usato (o più vecchio dell'ultimo usato) non vale: chi lo ha sbirciato non può riusarlo.
-        if (! $passwordGiusta || $passo === null || $passo <= Cache::get('emergenza.ultimo_passo', 0)) {
+        // Ogni codice vale una volta: `Cache::add` è atomico, quindi due richieste insieme non lo usano entrambe.
+        // Il TTL copre la finestra di tolleranza del TOTP; `short-circuit: un codice non si brucia con la password sbagliata.
+        if (! $passwordGiusta || $passo === null || ! Cache::add("emergenza.passo.$passo", true, 300)) {
             RegistroAccesso::registra('emergenza.fallita', $request);
 
             return redirect()->route('accesso.emergenza')->with('errore', 'Password o codice non validi.');
         }
-        Cache::forever('emergenza.ultimo_passo', $passo);
 
         $utente = User::firstWhere('emergenza', true) ?? tap((new User)->forceFill([
             'name' => 'Account di emergenza',

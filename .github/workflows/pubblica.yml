@@ -47,6 +47,12 @@ jobs:
           EMERGENZA_PASSWORD_HASH: ${{ secrets.EMERGENZA_PASSWORD_HASH }}
           EMERGENZA_TOTP_SECRET: ${{ secrets.EMERGENZA_TOTP_SECRET }}
           MIGRAZIONI_TOKEN: ${{ secrets.MIGRAZIONI_TOKEN }}
+          MAIL_MAILER: ${{ vars.MAIL_MAILER }}
+          MAIL_HOST: ${{ vars.MAIL_HOST }}
+          MAIL_PORT: ${{ vars.MAIL_PORT }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_FROM_ADDRESS: ${{ vars.MAIL_FROM_ADDRESS }}
         run: sh scripts/scrivi-env.sh > .env
 
       # Storage: sul runner contiene solo i segnaposto del repo, e l'azione cancella dal server soltanto
