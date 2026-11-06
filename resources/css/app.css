@@ -103,9 +103,13 @@
         }
 
         [data-menu='compresso'] .marchio,
-        [data-menu='compresso'] .voce-testo,
         [data-menu='compresso'] .utente-nome {
             @apply hidden;
+        }
+
+        /* il testo resta per i lettori di schermo: senza, le icone non hanno nome */
+        [data-menu='compresso'] .voce-testo {
+            @apply sr-only;
         }
 
         [data-menu='compresso'] .menu-testa {

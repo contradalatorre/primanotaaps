@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Contracts\User as GoogleUser;
 use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\InvalidStateException;
 use Throwable;
 
 class AccessoController extends Controller
@@ -29,6 +30,9 @@ class AccessoController extends Controller
     {
         try {
             $google = Socialite::driver('google')->user();
+        } catch (InvalidStateException) {
+            // Sessione scaduta o doppio clic: non c'entra l'account.
+            return $this->rifiuta('La richiesta di accesso è scaduta. Riprova a entrare con Google.');
         } catch (Throwable $e) {
             // Google non rilascia l'accesso a un account sospeso o eliminato; l'app resta in piedi.
             report($e);

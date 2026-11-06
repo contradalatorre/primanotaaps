@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\InvalidStateException;
 use Laravel\Socialite\Two\User as GoogleUser;
 use RuntimeException;
 use Tests\TestCase;
@@ -129,6 +130,17 @@ class AccessoTest extends TestCase
 
         $this->assertGuest();
         $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_una_richiesta_di_accesso_scaduta_non_accusa_l_account(): void
+    {
+        Socialite::fake('google', fn () => throw new InvalidStateException);
+
+        $this->followingRedirects()->entra()
+            ->assertSee('Riprova')
+            ->assertDontSee('sospeso o eliminato');
+
+        $this->assertGuest();
     }
 
     public function test_la_sessione_dura_30_giorni_sul_dispositivo(): void
