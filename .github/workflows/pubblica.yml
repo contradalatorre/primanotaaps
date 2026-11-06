@@ -75,13 +75,14 @@ jobs:
 
       # Solo la prima volta fa qualcosa (database vuoto): senza tabelle l'app risponde 500 e il controllo sotto
       # fallirebbe. Poi risponde 409 e le migrazioni le avvia l'Amministratore dalla pagina Migrazioni.
-      # Se le migrazioni falliscono risponde 424: il passo diventa rosso e curl non lo ripete.
+      # Se le migrazioni falliscono risponde 424 e il passo diventa rosso. Nessun --retry: la chiamata non si ripete
+      # mai, perché dopo un errore non catturabile (tempo massimo di PHP) la seconda riceverebbe 409 con lo schema a metà.
       - name: Prima installazione del database
         env:
           SITO_URL: ${{ vars.SITO_URL }}
           MIGRAZIONI_TOKEN: ${{ secrets.MIGRAZIONI_TOKEN }}
         run: |
-          codice=$(curl -s --retry 10 --retry-delay 2 --retry-connrefused -o /dev/null -w '%{http_code}'             -X POST -H "Authorization: Bearer $MIGRAZIONI_TOKEN" "$SITO_URL/manutenzione/migrazioni/prima-installazione")
+          codice=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $MIGRAZIONI_TOKEN" "$SITO_URL/manutenzione/migrazioni/prima-installazione")
           echo "prima-installazione -> $codice"
           test "$codice" = 200 -o "$codice" = 409
 

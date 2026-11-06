@@ -115,7 +115,7 @@ class MigrazioniTest extends TestCase
         $this->postJson(self::PRIMA_INSTALLAZIONE, [], ['Authorization' => 'Bearer '])->assertForbidden();
     }
 
-    /** curl --retry ripete solo 408, 429 e 5xx: il 424 non viene ripetuto e il passo del workflow (200 o 409) diventa rosso. */
+    /** Il passo del workflow accetta solo 200 e 409: un'installazione fallita deve rispondere altro. */
     public function test_la_prima_installazione_che_fallisce_risponde_424_senza_il_messaggio_dell_eccezione(): void
     {
         Artisan::call('db:wipe', ['--force' => true]);

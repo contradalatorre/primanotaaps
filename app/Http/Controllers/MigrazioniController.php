@@ -28,8 +28,8 @@ class MigrazioniController extends Controller
      * Su un database vuoto non esistono né `users` né `sessions`: nessun accesso è possibile, quindi la
      * pagina protetta non si può usare. Questa chiamata, fuori da sessione e CSRF, vale solo finché la
      * tabella `migrations` non esiste o è vuota, e solo con il token dei segreti del repo.
-     * Se le migrazioni falliscono risponde 424: il workflow non lo accetta e `curl --retry` non lo ripete
-     * (ripete solo 408, 429 e 5xx), così un'installazione a metà non diventa un 409 "già installato".
+     * Se le migrazioni falliscono risponde 424, che il workflow non accetta. Il workflow non ripete mai la
+     * chiamata: una seconda riceverebbe 409 e un'installazione a metà passerebbe per "già installato".
      */
     public function primaInstallazione(Request $request): JsonResponse
     {
