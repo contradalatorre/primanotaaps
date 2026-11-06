@@ -1,0 +1,143 @@
+@import 'tailwindcss';
+
+@source '../views';
+
+/* Colori della contrada: giallo, nero e bianco. Mai il rosso, nemmeno per gli errori:
+   gli stati si leggono dal testo e dall'icona, non dal colore. */
+@theme {
+    --color-giallo: #ffd900;
+    --color-nero: #111111;
+    --font-sans: ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+@layer components {
+    body {
+        @apply bg-white font-sans text-nero antialiased;
+    }
+
+    h1 {
+        @apply mb-2 text-2xl font-bold;
+    }
+
+    /* Sopra i 1100 px il menu è una colonna a sinistra; sotto diventa una barra in alto. */
+    .shell {
+        @apply min-h-screen;
+    }
+
+    .menu {
+        @apply flex flex-wrap items-center gap-2 bg-nero px-4 py-2 text-white;
+    }
+
+    .menu-testa {
+        @apply flex items-center gap-2;
+    }
+
+    .marchio {
+        @apply rounded bg-giallo px-2 py-1 font-bold text-nero;
+    }
+
+    .menu-comprimi {
+        @apply hidden rounded p-1 hover:bg-white/10;
+    }
+
+    .menu-voci {
+        @apply flex flex-1 gap-1;
+    }
+
+    .menu-utente {
+        @apply flex items-center gap-2;
+    }
+
+    .utente-nome {
+        @apply hidden text-sm text-white/80 sm:inline;
+    }
+
+    .voce {
+        @apply flex items-center gap-3 rounded px-3 py-2 text-white hover:bg-white/10;
+    }
+
+    .voce[aria-current='page'] {
+        @apply bg-giallo font-semibold text-nero;
+    }
+
+    .contenuto {
+        @apply p-6;
+    }
+
+    .vuoto {
+        @apply text-neutral-600;
+    }
+
+    @media (min-width: 1100px) {
+        .shell {
+            @apply grid grid-cols-[16rem_1fr];
+        }
+
+        .menu {
+            @apply sticky top-0 h-screen flex-col items-stretch gap-4 p-4;
+        }
+
+        .menu-testa {
+            @apply justify-between;
+        }
+
+        .menu-comprimi {
+            @apply block;
+        }
+
+        .menu-voci {
+            @apply flex-col;
+        }
+
+        .menu-utente {
+            @apply flex-col items-stretch;
+        }
+
+        .utente-nome {
+            @apply inline px-3;
+        }
+
+        /* Menu compresso: solo le icone */
+        [data-menu='compresso'] .shell {
+            @apply grid-cols-[4.5rem_1fr];
+        }
+
+        [data-menu='compresso'] .marchio,
+        [data-menu='compresso'] .voce-testo,
+        [data-menu='compresso'] .utente-nome {
+            @apply hidden;
+        }
+
+        [data-menu='compresso'] .menu-testa {
+            @apply justify-center;
+        }
+
+        [data-menu='compresso'] .menu-comprimi svg {
+            @apply rotate-180;
+        }
+    }
+
+    .accesso {
+        @apply mx-auto flex max-w-md flex-col items-start gap-4 px-6 py-16;
+    }
+
+    .bottone {
+        @apply rounded bg-giallo px-5 py-3 font-semibold text-nero ring-2 ring-nero hover:bg-nero hover:text-giallo;
+    }
+
+    .avviso {
+        @apply flex items-start gap-3 rounded border-2 border-nero bg-giallo/30 p-3;
+    }
+
+    .nota {
+        @apply text-sm text-neutral-600;
+    }
+
+    :focus-visible {
+        @apply outline-2 outline-offset-2 outline-nero;
+    }
+
+    .menu :focus-visible {
+        @apply outline-giallo;
+    }
+}
