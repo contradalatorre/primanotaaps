@@ -16,7 +16,8 @@ if (-not (Test-Path $Fabbrica)) {
     git -C $Repo fetch origin
     $esiste = git -C $Repo ls-remote --heads origin integrazione
     if ($esiste) { git -C $Repo worktree add $Fabbrica integrazione }
-    else         { git -C $Repo worktree add -b integrazione $Fabbrica origin/main }
+    # --no-track: integrazione non deve seguire origin/main, o un "git push" senza argomenti punterebbe a main.
+    else         { git -C $Repo worktree add --no-track -b integrazione $Fabbrica origin/main }
 }
 New-Item -ItemType Directory -Force $Stato | Out-Null
 
@@ -51,22 +52,34 @@ try {
     # In PowerShell 5.1 lo stderr di un eseguibile rediretto diventa errore: con Stop interromperebbe lo script.
     $ErrorActionPreference = "Continue"
 
+    # Il goal si ripassa anche in ripresa: un errore (es. autenticazione) lo cancella e --resume non lo ripristina.
+    $goal ="/goal Seguendo le istruzioni del system prompt, nell'ultimo turno stampi l'output di due comandi ed entrambi valgono 0: " +
+                "``gh api repos/contradalatorre/primanotaaps/milestones?state=open --jq length`` e " +
+                "``gh issue list --state open --limit 200 --search=-label:ready-for-human --json number --jq 'map(select(.number!=33))|length'``; " +
+                "inoltre esiste il file .scratch/orchestrazione/FATTO. Oppure fermati dopo 300 turni. " +
+                "Se stai riprendendo, prima riconcilia STATO.md con GitHub."
+    $inizio = 0; if (Test-Path $Jsonl) { $inizio = [System.IO.File]::ReadAllText($Jsonl).Length }
+
     if (-not (Test-Path $FileId)) {
         $id = [guid]::NewGuid().ToString()
         Set-Content -Path $FileId -Value $id
-        $goal = "/goal Seguendo le istruzioni del system prompt, nell'ultimo turno stampi l'output di due comandi ed entrambi valgono 0: " +
-                "``gh api repos/contradalatorre/primanotaaps/milestones?state=open --jq length`` e " +
-                "``gh issue list --state open --limit 200 --search=-label:ready-for-human --json number --jq 'map(select(.number!=33))|length'``; " +
-                "inoltre esiste il file .scratch/orchestrazione/FATTO. Oppure fermati dopo 300 turni."
         Scrivi "avvio nuova sessione $id"
         & claude @comuni --session-id $id --append-system-prompt-file (Join-Path $Fabbrica "orchestrazione\PROMPT.md") $goal 2>&1 | Out-File -FilePath $Jsonl -Append -Encoding utf8
     } else {
         $id = (Get-Content $FileId).Trim()
         Scrivi "ripresa sessione $id"
-        & claude @comuni --resume $id "Riprendi: riconcilia STATO.md con GitHub e continua verso l'obiettivo." 2>&1 | Out-File -FilePath $Jsonl -Append -Encoding utf8
+        & claude @comuni --resume $id $goal 2>&1 | Out-File -FilePath $Jsonl -Append -Encoding utf8
     }
     $codice = $LASTEXITCODE
     Scrivi "claude terminato con codice $codice"
+
+    # Errori che un nuovo tentativo non risolve: ci si ferma invece di riprovare ogni ora.
+    $nuovo = [System.IO.File]::ReadAllText($Jsonl).Substring($inizio)
+    if ($nuovo -match 'authentication failed|exhausted credits|model unavailable') {
+        Set-Content -Path (Join-Path $Stato "FERMO") -Value "errore non recuperabile: $($Matches[0])"
+        Scrivi "FERMO: $($Matches[0])"
+        exit 1
+    }
 
     # Uscita pulita senza FATTO: obiettivo dichiarato impossibile o senza progressi. Dopo 3 volte di fila ci si ferma.
     $Vuote = Join-Path $Stato "uscite-senza-fine.txt"
