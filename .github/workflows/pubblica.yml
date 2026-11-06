@@ -52,6 +52,7 @@ jobs:
       # Azione fissata al commit della v4.4.0 (SamKirkland/FTP-Deploy-Action): è l'unico modo di caricare
       # via FTPS cancellando solo i file già pubblicati da lei; la sua alternativa sarebbe uno script lftp scritto qui.
       - name: Carica via FTPS
+        id: caricamento
         uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -74,6 +75,7 @@ jobs:
 
       # Solo la prima volta fa qualcosa (database vuoto): senza tabelle l'app risponde 500 e il controllo sotto
       # fallirebbe. Poi risponde 409 e le migrazioni le avvia l'Amministratore dalla pagina Migrazioni.
+      # Se le migrazioni falliscono risponde 424: il passo diventa rosso e curl non lo ripete.
       - name: Prima installazione del database
         env:
           SITO_URL: ${{ vars.SITO_URL }}
@@ -83,7 +85,9 @@ jobs:
           echo "prima-installazione -> $codice"
           test "$codice" = 200 -o "$codice" = 409
 
+      # Anche se un passo dopo il caricamento è fallito: i file sono comunque sul server.
       - name: Raggiungibilità vietata di configurazione, storage e log
+        if: ${{ !cancelled() && steps.caricamento.outcome == 'success' }}
         env:
           SITO_URL: ${{ vars.SITO_URL }}
         run: sh scripts/controlla-pubblicazione.sh "$SITO_URL"

@@ -25,7 +25,8 @@ Nessun valore va scritto nel repo. I valori non possono contenere l'apice singol
 ## Migrazioni
 
 - **Aggiornamenti**: dopo una pubblicazione con cambiamenti allo schema, un Amministratore apre *Migrazioni* nel menu e preme "Avvia le migrazioni".
-- **Prima installazione**: a database vuoto nessuno può ancora entrare, perché mancano le tabelle degli utenti e delle sessioni. Ci pensa il workflow: dopo il caricamento chiama `<SITO_URL>/manutenzione/migrazioni/prima-installazione` con il `MIGRAZIONI_TOKEN`. La chiamata funziona solo finché la tabella `migrations` non esiste; dopo risponde 409 e non fa nulla.
+- **Prima installazione**: a database vuoto nessuno può ancora entrare, perché mancano le tabelle degli utenti e delle sessioni. Ci pensa il workflow: dopo il caricamento chiama `<SITO_URL>/manutenzione/migrazioni/prima-installazione` con il `MIGRAZIONI_TOKEN`. La chiamata funziona solo finché la tabella `migrations` non esiste o è vuota; dopo risponde 409 e non fa nulla (scelta registrata nell'ADR 0002). Se le migrazioni falliscono risponde 424 e il passo del workflow diventa rosso.
+- **Prima installazione fallita**: il database resta migrato a metà, e rilanciando il workflow la chiamata risponderebbe 409 (verde, ma senza le tabelle mancanti). Si ripristina a mano: dal pannello Aruba (phpMyAdmin) si cancellano tutte le tabelle del database dell'ambiente, si legge il motivo nel log dell'app (`storage/logs`, via FTPS) e si rilancia la pubblicazione. L'endpoint non cancella mai tabelle da solo.
 
 ## Prove a secco
 

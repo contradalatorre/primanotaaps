@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
@@ -19,13 +20,16 @@ class MigrazioniController extends Controller
 
     public function avvia(Request $request): RedirectResponse
     {
-        return redirect()->route('migrazioni')->with('esito_migrazioni', $this->esegui());
+        // --isolated: un doppio clic non fa partire due migrazioni insieme (e non duplica i dati che inseriscono).
+        return redirect()->route('migrazioni')->with('esito_migrazioni', $this->esegui(['--isolated' => true])['esito']);
     }
 
     /**
      * Su un database vuoto non esistono né `users` né `sessions`: nessun accesso è possibile, quindi la
      * pagina protetta non si può usare. Questa chiamata, fuori da sessione e CSRF, vale solo finché la
-     * tabella `migrations` non esiste, e solo con il token dei segreti del repo.
+     * tabella `migrations` non esiste o è vuota, e solo con il token dei segreti del repo.
+     * Se le migrazioni falliscono risponde 424: il workflow non lo accetta e `curl --retry` non lo ripete
+     * (ripete solo 408, 429 e 5xx), così un'installazione a metà non diventa un 409 "già installato".
      */
     public function primaInstallazione(Request $request): JsonResponse
     {
@@ -35,24 +39,27 @@ class MigrazioniController extends Controller
             return response()->json(['errore' => 'Token non valido.'], 403);
         }
 
-        if (Schema::hasTable('migrations')) {
+        if (Schema::hasTable('migrations') && DB::table('migrations')->exists()) {
             return response()->json(['errore' => 'Il database è già installato: usa la pagina Migrazioni.'], 409);
         }
 
-        return response()->json(['esito' => $this->esegui()]);
+        $risultato = $this->esegui();
+
+        return response()->json(['esito' => $risultato['esito']], $risultato['riuscite'] ? 200 : 424);
     }
 
-    private function esegui(): string
+    /** @return array{riuscite: bool, esito: string} */
+    private function esegui(array $opzioni = []): array
     {
         try {
-            Artisan::call('migrate', ['--force' => true]);
+            Artisan::call('migrate', ['--force' => true] + $opzioni);
 
-            return trim(Artisan::output());
+            return ['riuscite' => true, 'esito' => trim(Artisan::output())];
         } catch (Throwable $e) {
             report($e);
 
             // Il messaggio dell'eccezione può contenere host e utente del database: resta nel log.
-            return 'Le migrazioni non sono andate a buon fine. Il dettaglio è nel log dell’app.';
+            return ['riuscite' => false, 'esito' => 'Le migrazioni non sono andate a buon fine. Il dettaglio è nel log dell’app.'];
         }
     }
 }
