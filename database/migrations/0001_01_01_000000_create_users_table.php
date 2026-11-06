@@ -13,6 +13,9 @@ return new class extends Migration
             $table->string('name');
             $table->string('email')->unique();
             $table->string('google_id')->unique(); // stabile: l'email può cambiare nel Workspace
+            // Cifrato dal modello (testo lungo); serve a chiedere a Google se l'account è ancora valido.
+            $table->text('google_refresh_token')->nullable();
+            $table->timestamp('google_verificato_il')->nullable();
             $table->timestamps();
         });
 

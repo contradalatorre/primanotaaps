@@ -12,4 +12,14 @@ class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory;
+
+    protected $hidden = ['google_refresh_token'];
+
+    protected function casts(): array
+    {
+        return [
+            'google_refresh_token' => 'encrypted',
+            'google_verificato_il' => 'datetime',
+        ];
+    }
 }

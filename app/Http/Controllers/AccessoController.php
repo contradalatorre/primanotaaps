@@ -21,8 +21,10 @@ class AccessoController extends Controller
     public function vaiAGoogle()
     {
         // `hd` e `prompt` guidano solo la scelta dell'account; il controllo vero è al ritorno.
+        // `offline` + `consent`: Google rilascia il refresh token a ogni accesso, non solo al primo
+        // (serve a VerificaAccountGoogle per accorgersi di un account sospeso).
         return Socialite::driver('google')
-            ->with(['hd' => $this->dominio(), 'prompt' => 'select_account'])
+            ->with(['hd' => $this->dominio(), 'prompt' => 'select_account consent', 'access_type' => 'offline'])
             ->redirect();
     }
 
@@ -55,10 +57,20 @@ class AccessoController extends Controller
         }
 
         $utente = User::firstWhere('google_id', $google->getId()) ?? new User;
+
+        // Senza refresh token non si potrà più chiedere a Google se l'account è valido: meglio non far entrare.
+        $refreshToken = $google->refreshToken ?: $utente->google_refresh_token;
+        if (! $refreshToken) {
+            return $this->rifiuta('Google non ha completato l’autorizzazione. Riprova a entrare e conferma l’accesso.');
+        }
+
         $utente->fill([
             'google_id' => $google->getId(),
             'name' => $google->getName() ?: $google->getEmail(),
             'email' => $google->getEmail(),
+        ])->forceFill([
+            'google_refresh_token' => $refreshToken,
+            'google_verificato_il' => now(),
         ])->save();
 
         Auth::login($utente);
