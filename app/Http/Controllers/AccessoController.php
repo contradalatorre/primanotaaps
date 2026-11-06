@@ -40,10 +40,15 @@ class AccessoController extends Controller
             return $this->rifiuta('Questo account non fa parte del Workspace dell’associazione. Entra con il tuo account @'.$this->dominio().'.');
         }
 
-        $utente = User::updateOrCreate(
-            ['google_id' => $google->getId()],
-            ['name' => $google->getName() ?: $google->getEmail(), 'email' => $google->getEmail()],
-        );
+        // Un account ricreato nel Workspace con la stessa email ha un altro id Google: è la stessa persona.
+        $utente = User::firstWhere('google_id', $google->getId())
+            ?? User::firstWhere('email', $google->getEmail())
+            ?? new User;
+        $utente->fill([
+            'google_id' => $google->getId(),
+            'name' => $google->getName() ?: $google->getEmail(),
+            'email' => $google->getEmail(),
+        ])->save();
 
         Auth::login($utente);
         $request->session()->regenerate();
