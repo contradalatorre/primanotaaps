@@ -14,6 +14,8 @@ env_scritto=$(sh ./scrivi-env.sh)
 verifica 'echo "$env_scritto" | grep -qxF "DB_PASSWORD='"'"'p#a\$s\"w'"'"'"' "la password con # \$ e \" è scritta alla lettera"
 verifica 'echo "$env_scritto" | grep -qxF "GOOGLE_REDIRECT_URI='"'"'https://sito.example/contabilita/accesso/google/ritorno'"'"'"' "il redirect di Google segue APP_URL"
 verifica '! (DB_PASSWORD="a'"'"'b" sh ./scrivi-env.sh >/dev/null 2>&1)' "un apice singolo in un valore è rifiutato"
+verifica '! (DB_PASSWORD="$(printf "a\nb")" sh ./scrivi-env.sh >/dev/null 2>&1)' "un a capo in un valore è rifiutato"
+verifica 'APP_URL=https://sito.example/contabilita/ sh ./scrivi-env.sh | grep -qxF "GOOGLE_REDIRECT_URI='"'"'https://sito.example/contabilita/accesso/google/ritorno'"'"'"' "la barra finale di APP_URL non finisce nel redirect"
 verifica '! (DB_HOST= sh ./scrivi-env.sh >/dev/null 2>&1)' "un segreto mancante è rifiutato"
 
 exit "$fallimenti"

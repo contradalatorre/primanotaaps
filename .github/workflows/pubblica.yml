@@ -73,4 +73,6 @@ jobs:
             **/*.log
 
       - name: Raggiungibilità vietata di configurazione, storage e log
-        run: sh scripts/controlla-pubblicazione.sh "${{ vars.SITO_URL }}"
+        env:
+          SITO_URL: ${{ vars.SITO_URL }}
+        run: sh scripts/controlla-pubblicazione.sh "$SITO_URL"

@@ -84,6 +84,8 @@ class MigrazioniTest extends TestCase
     public function test_la_prima_installazione_con_il_token_crea_lo_schema_su_un_database_vuoto(): void
     {
         Artisan::call('db:wipe', ['--force' => true]);
+        // Come in produzione: sessioni su database, e la tabella `sessions` non c'è ancora.
+        config(['session.driver' => 'database']);
 
         $this->postJson(self::PRIMA_INSTALLAZIONE, [], self::TOKEN)->assertOk();
 

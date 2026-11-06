@@ -6,7 +6,7 @@ La pubblicazione reale aspetta il passaggio del sito a PHP 8.x (ADR 0001).
 
 ## Da preparare una volta, per ciascun ambiente
 
-In Settings > Environments crea `produzione` e `prova` (su `produzione` conviene chiedere l'approvazione di una persona). In ciascuno:
+In Settings > Environments crea `produzione` e `prova`. Su ciascuno imposta *Deployment branches* su un solo branch (`produzione` solo `main`, `prova` solo `prova`): senza, un branch qualunque con un workflow modificato leggerebbe i segreti di produzione. Su `produzione` conviene anche chiedere l'approvazione di una persona. In ciascuno:
 
 | Tipo | Nome | Contenuto |
 | --- | --- | --- |
