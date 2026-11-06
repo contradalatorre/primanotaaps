@@ -26,7 +26,7 @@ class EmergenzaCredenziali extends Command
         $this->line('EMERGENZA_PASSWORD_HASH='.Hash::make($password));
         $this->line('EMERGENZA_TOTP_SECRET='.$segreto);
         $this->newLine();
-        $this->line('Da aggiungere all’app di autenticazione (inquadrando il QR di questo indirizzo, o digitando il segreto):');
+        $this->line('Da aggiungere all’app di autenticazione (digitando il segreto a mano, o con questo indirizzo se l’app lo accetta):');
         $this->line('otpauth://totp/Prima%20nota:emergenza?issuer=Prima%20nota&secret='.$segreto);
 
         return self::SUCCESS;

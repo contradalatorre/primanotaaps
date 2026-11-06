@@ -15,12 +15,19 @@ In Settings > Environments crea `produzione` e `prova`. Su ciascuno imposta *Dep
 | Segreto | `DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | database MySQL dell'ambiente: **quello di prova ha un database diverso da quello di produzione** |
 | Segreto | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | credenziali OAuth di Google |
 | Segreto | `AMMINISTRATORI_INIZIALI` | email di chi diventa Amministratore al primo accesso, separate da virgola: vale solo finché nell'app non è mai stato assegnato il ruolo di Amministratore (#35) |
+| Segreto | `EMERGENZA_PASSWORD_HASH`, `EMERGENZA_TOTP_SECRET` | hash della password e segreto TOTP dell'account di emergenza (#36), diversi per ogni ambiente: si generano con `docker compose run --rm tools php artisan emergenza:credenziali` (vedi sotto) |
 | Segreto | `MIGRAZIONI_TOKEN` | stringa lunga e casuale, per la prima installazione |
 | Variabile | `SITO_URL` | indirizzo dell'app senza barra finale, es. `https://sito.example/contabilita` |
 | Variabile | `GOOGLE_WORKSPACE_DOMAIN` | dominio del Workspace |
 | Variabile | `FTP_CARTELLA` | `contabilita/` oppure `contabilita-test/` |
 
 Nessun valore va scritto nel repo. I valori non possono contenere l'apice singolo `'`.
+
+## Account di emergenza
+
+Serve quando Google non funziona o non resta nessun Amministratore (`/accesso/emergenza`). Il comando `emergenza:credenziali`, da lanciare in locale e mai sul server, stampa una password lunga, il suo hash e il segreto TOTP. La password e il segreto (da aggiungere a un'app di autenticazione) restano all'associazione, per esempio in una busta chiusa; sui segreti di GitHub vanno solo l'hash e il segreto TOTP. Se si perdono o si temono compromessi, si rigenerano e si ripubblica.
+
+Ogni uso, riuscito o fallito, finisce nel registro degli accessi e quelli riusciti avvisano per email gli Amministratori; la sessione di emergenza dura un'ora. L'app non può sapere se Google è davvero fuori uso: il controllo è l'avviso agli Amministratori.
 
 ## Migrazioni
 

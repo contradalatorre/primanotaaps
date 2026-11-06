@@ -44,6 +44,8 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_WORKSPACE_DOMAIN: ${{ vars.GOOGLE_WORKSPACE_DOMAIN }}
           AMMINISTRATORI_INIZIALI: ${{ secrets.AMMINISTRATORI_INIZIALI }}
+          EMERGENZA_PASSWORD_HASH: ${{ secrets.EMERGENZA_PASSWORD_HASH }}
+          EMERGENZA_TOTP_SECRET: ${{ secrets.EMERGENZA_TOTP_SECRET }}
           MIGRAZIONI_TOKEN: ${{ secrets.MIGRAZIONI_TOKEN }}
         run: sh scripts/scrivi-env.sh > .env
 
