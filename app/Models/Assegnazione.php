@@ -34,7 +34,8 @@ class Assegnazione extends Model
         $query->where(fn (Builder $q) => $q->whereNull('scade_il')->orWhere('scade_il', '>=', today()));
     }
 
-    public function ambito(): string
+    /** L'ambito come testo per le liste; l'elenco dei nomi dei conti arriva con i conti (#38). */
+    public function descrizioneAmbito(): string
     {
         if ($this->tutti_i_conti) {
             return 'Tutti i conti';

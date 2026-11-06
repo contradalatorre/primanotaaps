@@ -25,7 +25,7 @@
                 <tr>
                     <td>{{ $a->user->name }}<br><span class="nota">{{ $a->user->email }}{{ $a->user->esterno ? ' · esterno, sola lettura' : '' }}</span></td>
                     <td>{{ $a->ruolo->nome }}</td>
-                    <td>{{ $a->ambito() }}</td>
+                    <td>{{ $a->descrizioneAmbito() }}</td>
                     <td>{{ $a->scade_il?->format('d/m/Y') ?? 'nessuna' }}</td>
                     <td>{{ $a->nomina_firmata_il?->format('d/m/Y') ?? '–' }}</td>
                 </tr>

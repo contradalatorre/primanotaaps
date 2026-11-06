@@ -178,6 +178,26 @@ class PermessiTest extends TestCase
         $this->actingAs($utente)->get('/prova/inserire_movimenti_cassa/7')->assertForbidden();
     }
 
+    #[DataProvider('permessi')]
+    public function test_un_esterno_con_il_ruolo_di_amministratore_ha_solo_i_permessi_di_lettura(Permesso $permesso): void
+    {
+        $esterno = $this->utenteCon('Amministratore', ['scade_il' => now()->addMonth()->toDateString()], ['esterno' => true]);
+
+        $risposta = $this->actingAs($esterno)->get('/prova/'.$permesso->value);
+
+        $permesso->valePerEsterni() ? $risposta->assertOk() : $risposta->assertForbidden();
+    }
+
+    public function test_l_esterno_vede_registro_e_storia_ma_non_scrive(): void
+    {
+        $esterno = $this->utenteCon('Amministratore', ['scade_il' => now()->addMonth()->toDateString()], ['esterno' => true]);
+
+        $this->assertEqualsCanonicalizing(
+            [Permesso::Vedere, Permesso::Note, Permesso::VedereRegistroModifiche, Permesso::VedereStoriaMovimento],
+            array_values(array_filter(Permesso::cases(), fn (Permesso $p) => $esterno->puo($p))),
+        );
+    }
+
     public function test_un_esterno_resta_in_sola_lettura_anche_con_un_ruolo_da_tesoriere(): void
     {
         $esterno = $this->utenteCon('Amministratore', ['scade_il' => now()->addMonth()->toDateString()], ['esterno' => true]);

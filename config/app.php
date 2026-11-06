@@ -65,7 +65,8 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // Le scadenze delle assegnazioni sono date: devono cambiare a mezzanotte italiana, non alle 1-2 della notte.
+    'timezone' => env('APP_TIMEZONE', 'Europe/Rome'),
 
     /*
     |--------------------------------------------------------------------------

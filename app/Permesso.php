@@ -56,10 +56,11 @@ enum Permesso: string
 
     /**
      * Quello che un account esterno può avere, qualunque ruolo gli si dia: lettura, note (anche il Lettore
-     * esterno di #16 le scrive) e il registro, che #16 concede a un esterno come il revisore «salvo permesso dato al suo ruolo».
+     * esterno di #16 le scrive) e registro e storia dei movimenti, che #16 concede a un esterno come il revisore
+     * «salvo permesso dato al suo ruolo».
      */
     public function valePerEsterni(): bool
     {
-        return in_array($this, [self::Vedere, self::Note, self::VedereRegistroModifiche], true);
+        return in_array($this, [self::Vedere, self::Note, self::VedereRegistroModifiche, self::VedereStoriaMovimento], true);
     }
 }

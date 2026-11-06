@@ -189,6 +189,18 @@ class GestioneUtentiTest extends TestCase
         $this->actingAs($admin)->delete('/assegnazioni/'.$admin->assegnazioni()->value('id'))->assertSessionHasErrors('amministratori');
     }
 
+    public function test_una_scadenza_a_oggi_non_aggira_la_guardia_sull_ultimo_amministratore(): void
+    {
+        $admin = $this->amministratore();
+        $permanente = $admin->assegnazioni()->firstOrFail();
+        $this->assegna($admin, 'Amministratore', ['scade_il' => now()->toDateString()]);
+
+        $this->actingAs($admin)->delete("/assegnazioni/{$permanente->id}")->assertSessionHasErrors('amministratori');
+
+        $this->assertDatabaseHas('assegnazioni', ['id' => $permanente->id]);
+        $this->get('/utenti')->assertSee('un solo Amministratore');
+    }
+
     public function test_un_ruolo_rinominato_che_ha_la_gestione_utenti_resta_il_ruolo_dell_amministratore(): void
     {
         $admin = $this->amministratore();

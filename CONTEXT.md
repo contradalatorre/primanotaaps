@@ -133,7 +133,7 @@ Un ruolo dato a una persona, con un ambito e una scadenza facoltativi; una perso
 _Avoid_: abilitazione
 
 **Account esterno**:
-Un account Google personale (non del Workspace), aggiunto uno per uno dall'Amministratore a un consulente come il commercialista o il revisore. Resta in sola lettura qualunque ruolo abbia, ha sempre una scadenza e la data della nomina firmata.
+Un account Google personale (non del Workspace), aggiunto uno per uno dall'Amministratore a un consulente come il commercialista o il revisore. Resta in sola lettura qualunque ruolo abbia (vede, scrive note e, se il ruolo lo prevede, consulta registro e storia dei movimenti), ha sempre una scadenza e, quando c'è, la data della nomina firmata.
 _Avoid_: ospite, utente esterno
 
 **Elenco degli autorizzati**:

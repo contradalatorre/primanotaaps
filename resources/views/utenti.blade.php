@@ -27,7 +27,7 @@
                                 <form method="POST" action="{{ route('assegnazioni.revoca', $assegnazione) }}" class="riga-assegnazione">
                                     @csrf @method('DELETE')
                                     <span>
-                                        <strong>{{ $assegnazione->ruolo->nome }}</strong> · {{ $assegnazione->ambito() }}
+                                        <strong>{{ $assegnazione->ruolo->nome }}</strong> · {{ $assegnazione->descrizioneAmbito() }}
                                         @if ($assegnazione->scade_il)
                                             · fino al {{ $assegnazione->scade_il->format('d/m/Y') }}
                                             @if ($assegnazione->scade_il->isPast() && ! $assegnazione->scade_il->isToday()) <span class="etichetta">scaduta</span> @endif
@@ -70,7 +70,7 @@
         <label>Indirizzo Google <input type="email" name="email" value="{{ old('email') }}" required></label>
         <label>Ruolo
             <select name="ruolo_id" required>
-                @foreach ($ruoli as $ruolo) <option value="{{ $ruolo->id }}" @selected(old('ruolo_id') == $ruolo->id || $ruolo->nome === 'Lettore esterno')>{{ $ruolo->nome }}</option> @endforeach
+                @foreach ($ruoli as $ruolo) <option value="{{ $ruolo->id }}" @selected(old('ruolo_id', $ruoli->firstWhere('nome', 'Lettore esterno')?->id) == $ruolo->id)>{{ $ruolo->nome }}</option> @endforeach
             </select>
         </label>
         <label>Scade il (obbligatorio) <input type="date" name="scade_il" value="{{ old('scade_il') }}" min="{{ today()->toDateString() }}" required></label>

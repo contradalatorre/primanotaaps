@@ -36,10 +36,10 @@
     </aside>
     <main class="contenuto">
         @can('gestire_utenti')
-            @if (\App\Models\User::amministratoriAttivi()->count() === 1)
+            @if (\App\Models\User::amministratoriAttivi(true)->count() === 1)
                 <p class="avviso" role="status">
                     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l10 18H2zM12 10v5M12 18h.01"/></svg>
-                    <span>C’è un solo Amministratore: se perde l’accesso nessuno potrà più gestire utenti e ruoli. Assegna il ruolo a un’altra persona.</span>
+                    <span>C’è un solo Amministratore senza scadenza: se perde l’accesso nessuno potrà più gestire utenti e ruoli. Assegna il ruolo a un’altra persona.</span>
                 </p>
             @endif
         @endcan

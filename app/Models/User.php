@@ -33,26 +33,30 @@ class User extends Authenticatable
     /**
      * Gli Amministratori attivi: utenti interni con un'assegnazione attiva il cui ruolo dà la gestione utenti.
      * Si riconoscono dal permesso e non dal nome del ruolo, che l'Amministratore può cambiare. Stesse regole di `puo()`.
+     * Con `$senzaScadenza` contano solo le assegnazioni senza scadenza: sono le uniche che domani ci saranno ancora,
+     * e la guardia sull'ultimo Amministratore non deve potersi aggirare con una scadenza a oggi.
      */
-    public static function amministratoriAttivi(): Builder
+    public static function amministratoriAttivi(bool $senzaScadenza = false): Builder
     {
-        return static::where('esterno', false)->whereHas('assegnazioniAttive', fn (Builder $a) => $a->whereHas(
-            'ruolo', fn (Builder $r) => $r->whereJsonContains('permessi', Permesso::GestireUtenti->value),
-        ));
+        return static::where('esterno', false)->whereHas('assegnazioniAttive', fn (Builder $a) => $a
+            ->when($senzaScadenza, fn (Builder $a) => $a->whereNull('scade_il'))
+            ->whereHas('ruolo', fn (Builder $r) => $r->whereJsonContains('permessi', Permesso::GestireUtenti->value)));
     }
 
     /**
-     * Esegue una modifica a ruoli o assegnazioni e la annulla se toglie la gestione utenti all'ultimo Amministratore.
-     * Con zero Amministratori (avvio a freddo) non blocca niente.
+     * Esegue una modifica a ruoli o assegnazioni e la annulla se toglie la gestione utenti all'ultimo Amministratore
+     * (senza scadenza: vedi `amministratoriAttivi`). Con zero Amministratori (avvio a freddo) non blocca niente.
      */
     public static function proteggendoUltimoAmministratore(Closure $modifica): mixed
     {
         return DB::transaction(function () use ($modifica) {
-            $prima = static::amministratoriAttivi()->count();
+            // Il lock serializza due modifiche contemporanee: senza, due Amministratori che si revocano a vicenda
+            // contano ciascuno 2 nella propria istantanea e restano a 0.
+            $prima = static::amministratoriAttivi(true)->lockForUpdate()->pluck('id')->count();
             $risultato = $modifica();
 
-            if ($prima > 0 && static::amministratoriAttivi()->count() === 0) {
-                throw ValidationException::withMessages(['amministratori' => 'Deve restare almeno un Amministratore con la gestione utenti: la modifica non è stata fatta.']);
+            if ($prima > 0 && static::amministratoriAttivi(true)->count() === 0) {
+                throw ValidationException::withMessages(['amministratori' => 'Deve restare almeno un Amministratore senza scadenza con la gestione utenti: la modifica non è stata fatta.']);
             }
 
             return $risultato;
