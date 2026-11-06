@@ -201,6 +201,20 @@ class GestioneUtentiTest extends TestCase
         $this->get('/utenti')->assertSee('un solo Amministratore');
     }
 
+    public function test_la_guardia_vale_anche_se_tutti_gli_amministratori_hanno_una_scadenza(): void
+    {
+        $fra1mese = ['scade_il' => now()->addMonth()->toDateString()];
+        $primo = $this->utenteCon('Amministratore', $fra1mese);
+        $secondo = $this->utenteCon('Amministratore', $fra1mese);
+        $ruolo = $this->ruolo('Amministratore');
+
+        $this->actingAs($primo)->put('/ruoli/'.$ruolo->id, ['nome' => 'Amministratore', 'permessi' => ['vedere']])->assertSessionHasErrors('amministratori');
+        $this->assertContains('gestire_utenti', $ruolo->fresh()->permessi);
+
+        $this->delete('/assegnazioni/'.$primo->assegnazioni()->value('id'))->assertRedirect(route('utenti')); // ne resta uno
+        $this->actingAs($secondo)->delete('/assegnazioni/'.$secondo->assegnazioni()->value('id'))->assertSessionHasErrors('amministratori');
+    }
+
     public function test_un_ruolo_rinominato_che_ha_la_gestione_utenti_resta_il_ruolo_dell_amministratore(): void
     {
         $admin = $this->amministratore();

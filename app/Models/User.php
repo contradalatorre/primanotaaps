@@ -52,11 +52,14 @@ class User extends Authenticatable
         return DB::transaction(function () use ($modifica) {
             // Il lock serializza due modifiche contemporanee: senza, due Amministratori che si revocano a vicenda
             // contano ciascuno 2 nella propria istantanea e restano a 0.
-            $prima = static::amministratoriAttivi(true)->lockForUpdate()->pluck('id')->count();
+            $primaAttivi = static::amministratoriAttivi()->lockForUpdate()->pluck('id')->count();
+            $primaStabili = static::amministratoriAttivi(true)->count();
             $risultato = $modifica();
 
-            if ($prima > 0 && static::amministratoriAttivi(true)->count() === 0) {
-                throw ValidationException::withMessages(['amministratori' => 'Deve restare almeno un Amministratore senza scadenza con la gestione utenti: la modifica non è stata fatta.']);
+            // Nessuno dei due gruppi può svuotarsi: né chi è Amministratore oggi, né chi lo è senza scadenza.
+            if (($primaAttivi > 0 && static::amministratoriAttivi()->count() === 0)
+                || ($primaStabili > 0 && static::amministratoriAttivi(true)->count() === 0)) {
+                throw ValidationException::withMessages(['amministratori' => 'Deve restare almeno un Amministratore con la gestione utenti, e se ce n’è uno senza scadenza deve restarne uno: la modifica non è stata fatta.']);
             }
 
             return $risultato;
