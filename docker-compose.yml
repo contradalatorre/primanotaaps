@@ -1,0 +1,56 @@
+# Ambiente locale che riproduce Aruba Easy. Nessun container_name e nessuna porta per i test:
+# ogni worktree ha il suo progetto Compose (nome della cartella), quindi più copie girano in parallelo.
+# La password del database vale solo in locale (db in tmpfs, senza porte sull'host): DB_PASSWORD la sostituisce.
+x-db-env: &db-env
+  DB_CONNECTION: mysql
+  DB_HOST: db
+  DB_DATABASE: contabilita
+  DB_USERNAME: contabilita
+  DB_PASSWORD: ${DB_PASSWORD:-segreto-locale}
+
+services:
+  web:
+    build: docker/web
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:80" # solo per aprire l'app nel browser (docker compose up web)
+    volumes:
+      - .:/var/www/html/contabilita
+    environment: *db-env
+    # Apache gira come www-data: gli serve scrivere in storage e bootstrap/cache del repo montato
+    command: sh -c "chmod -R a+rwX storage bootstrap/cache && exec apache2-foreground"
+    working_dir: /var/www/html/contabilita
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-segreto-locale}
+      MYSQL_DATABASE: contabilita
+      MYSQL_USER: contabilita
+      MYSQL_PASSWORD: ${DB_PASSWORD:-segreto-locale}
+    volumes:
+      - ./docker/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      # su TCP: il server temporaneo di inizializzazione risponde solo sul socket
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p\"$$MYSQL_ROOT_PASSWORD\""]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+
+  tools:
+    build: docker/tools
+    working_dir: /app
+    volumes:
+      - .:/app
+      - composer-cache:/root/.composer/cache
+    environment: *db-env
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  composer-cache:

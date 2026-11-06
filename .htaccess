@@ -1,0 +1,10 @@
+# Radice dell'app nella cartella contabilita/ dello spazio Aruba (ADR 0001):
+# ogni richiesta passa da public/, quindi configurazione, codice, storage e backup non sono raggiungibili.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+# Senza mod_rewrite niente passa da public/: meglio tutto chiuso che .env e storage serviti in chiaro.
+<IfModule !mod_rewrite.c>
+    Require all denied
+</IfModule>

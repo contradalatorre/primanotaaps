@@ -1,0 +1,33 @@
+name: Test
+
+# Stesso percorso del locale: i test girano nei contenitori di docker-compose.yml.
+on: push
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dipendenze e stili
+        run: docker compose run --rm tools sh -c "composer install --no-interaction --prefer-dist && npm ci && npm run build"
+
+      - name: Test
+        run: docker compose run --rm tools composer test
+
+      # Apache con .htaccess sotto /contabilita: la home reindirizza all'accesso, il resto del repo non si raggiunge.
+      - name: Apache sotto /contabilita
+        run: |
+          docker compose run --rm tools sh -c "cp .env.example .env && php artisan key:generate && php artisan migrate --force"
+          docker compose up -d --wait web
+          base=http://localhost:8080/contabilita
+          test "$(curl -s --retry 10 --retry-delay 2 --retry-connrefused -o /dev/null -w '%{http_code}' $base/accesso)" = 200
+          test "$(curl -s -o /dev/null -w '%{redirect_url}' $base/)" = "$base/accesso"
+          for percorso in .env composer.json storage/logs/laravel.log vendor/autoload.php; do
+            codice=$(curl -s -o /dev/null -w '%{http_code}' "$base/$percorso")
+            echo "$percorso -> $codice"
+            test "$codice" = 404 -o "$codice" = 403
+          done
