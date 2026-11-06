@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Ruolo;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -33,7 +34,7 @@ class RiautenticazioneTest extends TestCase
 
     private function ruoloId(string $nome): int
     {
-        return \App\Models\Ruolo::where('nome', $nome)->value('id');
+        return Ruolo::where('nome', $nome)->value('id');
     }
 
     public function test_dopo_un_accesso_google_si_gestiscono_gli_utenti_ma_non_dopo_un_ora(): void

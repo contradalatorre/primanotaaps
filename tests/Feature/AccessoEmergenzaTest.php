@@ -6,6 +6,7 @@ use App\Mail\AccessoDiEmergenza;
 use App\Models\RegistroAccesso;
 use App\Models\Ruolo;
 use App\Models\User;
+use App\Permesso;
 use App\Totp;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -167,7 +168,7 @@ class AccessoEmergenzaTest extends TestCase
         $this->post("/utenti/{$persona->id}/assegnazioni", ['ruolo_id' => Ruolo::where('nome', 'Amministratore')->value('id')])
             ->assertRedirect(route('utenti'));
 
-        $this->assertTrue($persona->fresh()->puo(\App\Permesso::GestireUtenti));
+        $this->assertTrue($persona->fresh()->puo(Permesso::GestireUtenti));
     }
 
     public function test_l_account_di_emergenza_non_e_un_amministratore_ne_una_persona_da_gestire(): void
