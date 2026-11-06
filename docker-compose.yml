@@ -12,7 +12,7 @@ services:
   web:
     build: docker/web
     ports:
-      - "${APP_PORT:-8080}:80" # solo per aprire l'app nel browser (docker compose up web)
+      - "127.0.0.1:${APP_PORT:-8080}:80" # solo per aprire l'app nel browser (docker compose up web)
     volumes:
       - .:/var/www/html/contabilita
     environment: *db-env

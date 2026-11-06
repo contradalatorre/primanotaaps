@@ -64,6 +64,17 @@ class AccessoTest extends TestCase
         $this->assertDatabaseHas('users', ['google_id' => '1001', 'email' => 'maria.rossi@associazione.example', 'name' => 'Maria Rossi']);
     }
 
+    public function test_un_account_ricreato_con_la_stessa_email_ma_un_altro_id_google_entra_sullo_stesso_utente(): void
+    {
+        $esistente = User::factory()->create(['google_id' => 'vecchio', 'email' => 'maria.rossi@associazione.example']);
+        $this->googleCome();
+
+        $this->entra()->assertRedirect(route('home'));
+
+        $this->assertDatabaseCount('users', 1);
+        $this->assertDatabaseHas('users', ['id' => $esistente->id, 'google_id' => '1001']);
+    }
+
     public function test_un_account_di_un_altro_dominio_e_rifiutato_con_un_messaggio_chiaro(): void
     {
         $this->googleCome(['email' => 'maria@gmail.com', 'hd' => null]);
