@@ -43,7 +43,7 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_WORKSPACE_DOMAIN: ${{ vars.GOOGLE_WORKSPACE_DOMAIN }}
-          AMMINISTRATORI: ${{ secrets.AMMINISTRATORI }}
+          AMMINISTRATORI_INIZIALI: ${{ secrets.AMMINISTRATORI_INIZIALI }}
           MIGRAZIONI_TOKEN: ${{ secrets.MIGRAZIONI_TOKEN }}
         run: sh scripts/scrivi-env.sh > .env
 

@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Permesso;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -21,12 +23,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Provvisorio: finché i ruoli non esistono (#35), gli Amministratori sono un elenco di email nei
-        // segreti. #35 sostituisce questo controllo con il permesso del ruolo.
-        Gate::define('avviare-migrazioni', fn (User $utente) => in_array(
-            strtolower($utente->email),
-            array_map('strtolower', config('app.amministratori')),
-            true,
-        ));
+        // Un'abilità per permesso: `can:gestire_utenti` nelle rotte, `@can('note')` nelle viste. Per i permessi
+        // con ambito si passa il conto (id o modello) come secondo argomento: `can:inserire_movimenti_cassa,conto`.
+        foreach (Permesso::cases() as $permesso) {
+            Gate::define($permesso->value, fn (User $utente, int|string|Model|null $conto = null) => $utente->puo(
+                $permesso,
+                $conto instanceof Model ? $conto->getKey() : ($conto === null ? null : (int) $conto),
+            ));
+        }
     }
 }

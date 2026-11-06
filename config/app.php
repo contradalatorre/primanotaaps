@@ -65,7 +65,8 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // Le scadenze delle assegnazioni sono date: devono cambiare a mezzanotte italiana, non alle 1-2 della notte.
+    'timezone' => env('APP_TIMEZONE', 'Europe/Rome'),
 
     /*
     |--------------------------------------------------------------------------
@@ -98,11 +99,8 @@ return [
     'cipher' => 'AES-256-CBC',
 
     /*
-    | Amministratori provvisori (email separate da virgola) e token della prima installazione:
-    | vedi MigrazioniController. Entrambi arrivano dai segreti del repo, mai dal codice.
+    | Token della prima installazione: vedi MigrazioniController. Arriva dai segreti del repo, mai dal codice.
     */
-    'amministratori' => array_filter(array_map('trim', explode(',', (string) env('AMMINISTRATORI', '')))),
-
     'token_migrazioni' => env('MIGRAZIONI_TOKEN'),
 
     'key' => env('APP_KEY'),

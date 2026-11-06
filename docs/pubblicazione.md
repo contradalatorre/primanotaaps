@@ -14,7 +14,7 @@ In Settings > Environments crea `produzione` e `prova`. Su ciascuno imposta *Dep
 | Segreto | `APP_KEY` | chiave dell'app, diversa per ogni ambiente (`php artisan key:generate --show`) |
 | Segreto | `DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | database MySQL dell'ambiente: **quello di prova ha un database diverso da quello di produzione** |
 | Segreto | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | credenziali OAuth di Google |
-| Segreto | `AMMINISTRATORI` | email degli Amministratori, separate da virgola (provvisorio, finché i ruoli non esistono) |
+| Segreto | `AMMINISTRATORI_INIZIALI` | email di chi diventa Amministratore al primo accesso, separate da virgola: vale solo finché nell'app non è mai stato assegnato il ruolo di Amministratore (#35) |
 | Segreto | `MIGRAZIONI_TOKEN` | stringa lunga e casuale, per la prima installazione |
 | Variabile | `SITO_URL` | indirizzo dell'app senza barra finale, es. `https://sito.example/contabilita` |
 | Variabile | `GOOGLE_WORKSPACE_DOMAIN` | dominio del Workspace |

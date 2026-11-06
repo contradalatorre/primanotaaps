@@ -132,6 +132,14 @@ _Avoid_: diritto, autorizzazione
 Un ruolo dato a una persona, con un ambito e una scadenza facoltativi; una persona può avere più assegnazioni e i loro permessi si sommano.
 _Avoid_: abilitazione
 
+**Account esterno**:
+Un account Google personale (non del Workspace), aggiunto uno per uno dall'Amministratore a un consulente come il commercialista o il revisore. Resta in sola lettura qualunque ruolo abbia (vede, scrive note e, se il ruolo lo prevede, consulta registro e storia dei movimenti), ha sempre una scadenza e, quando c'è, la data della nomina firmata.
+_Avoid_: ospite, utente esterno
+
+**Elenco degli autorizzati**:
+Le assegnazioni in corso (persona, ruolo, conti, scadenza, nomina firmata), esportate in PDF datato come elenco di chi può trattare i dati personali; non include le assegnazioni scadute.
+_Avoid_: elenco utenti
+
 **Ambito**:
 I conti su cui valgono i permessi di un'assegnazione (es. solo la "Cassa Festa"); limita ciò che si può scrivere o proporre, non ciò che si vede.
 _Avoid_: perimetro, scope

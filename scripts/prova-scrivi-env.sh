@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 
 export APP_URL=https://sito.example/contabilita APP_KEY=base64:abc DB_HOST=db DB_DATABASE=d DB_USERNAME=u
 export DB_PASSWORD='p#a$s"w' GOOGLE_CLIENT_ID=i GOOGLE_CLIENT_SECRET=s GOOGLE_WORKSPACE_DOMAIN=associazione.example
-export AMMINISTRATORI=maria@associazione.example MIGRAZIONI_TOKEN=t
+export AMMINISTRATORI_INIZIALI=maria@associazione.example MIGRAZIONI_TOKEN=t
 
 fallimenti=0
 verifica() { if ! eval "$1"; then echo "FALLITO: $2" >&2; fallimenti=1; fi; }

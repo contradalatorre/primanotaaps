@@ -22,7 +22,7 @@ class MigrazioniTest extends TestCase
     {
         parent::setUp();
 
-        config(['app.amministratori' => ['maria.rossi@associazione.example'], 'app.token_migrazioni' => 'token-di-prova-lunghissimo']);
+        config(['app.token_migrazioni' => 'token-di-prova-lunghissimo']);
     }
 
     protected function tearDown(): void
@@ -34,9 +34,9 @@ class MigrazioniTest extends TestCase
         parent::tearDown();
     }
 
-    private function utente(string $email): User
+    private function utente(string $ruolo): User
     {
-        $utente = User::factory()->create(['email' => $email]);
+        $utente = $this->utenteCon($ruolo);
         $this->actingAs($utente);
 
         return $utente;
@@ -57,9 +57,9 @@ class MigrazioniTest extends TestCase
         $this->post(route('migrazioni.avvia'))->assertRedirect(route('accesso'));
     }
 
-    public function test_chi_non_e_amministratore_riceve_403(): void
+    public function test_chi_non_ha_la_gestione_utenti_riceve_403(): void
     {
-        $this->utente('mario.bianchi@associazione.example');
+        $this->utente('Tesoriere');
 
         $this->get(route('migrazioni'))->assertForbidden();
         $this->post(route('migrazioni.avvia'))->assertForbidden();
@@ -67,28 +67,20 @@ class MigrazioniTest extends TestCase
 
     public function test_l_amministratore_vede_la_pagina(): void
     {
-        $this->utente('maria.rossi@associazione.example');
+        $this->utente('Amministratore');
 
         $this->get(route('migrazioni'))->assertOk()->assertSee('Migrazioni del database');
     }
 
     public function test_l_amministratore_avvia_le_migrazioni_e_ne_legge_l_esito(): void
     {
-        $this->utente('maria.rossi@associazione.example');
+        $this->utente('Amministratore');
         $this->schemaIndietroDiUna();
 
         $this->post(route('migrazioni.avvia'))->assertRedirect(route('migrazioni'));
 
         $this->assertTrue(Schema::hasTable('jobs'));
         $this->get(route('migrazioni'))->assertSee('create_jobs_table');
-    }
-
-    public function test_senza_amministratori_configurati_nessuno_entra(): void
-    {
-        config(['app.amministratori' => []]);
-        $this->utente('maria.rossi@associazione.example');
-
-        $this->get(route('migrazioni'))->assertForbidden();
     }
 
     public function test_la_prima_installazione_con_il_token_crea_lo_schema_su_un_database_vuoto(): void
@@ -157,7 +149,7 @@ class MigrazioniTest extends TestCase
 
     public function test_l_avvio_dalla_pagina_e_isolato(): void
     {
-        $this->utente('maria.rossi@associazione.example');
+        $this->utente('Amministratore');
         $this->schemaIndietroDiUna();
         $lock = Cache::lock('framework' . DIRECTORY_SEPARATOR . 'command-migrate', 60);
         $lock->get();
