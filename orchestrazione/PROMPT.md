@@ -31,13 +31,15 @@ Ticket aperti della milestone, con tutti i `blockedBy` chiusi, senza label `in-l
 
 ### 2. Implementazione
 
-Per ogni ticket della frontiera: label `in-lavorazione`, poi un subagent `implementatore` in background con un messaggio di poche righe: numero del ticket, branch di integrazione, eventuali note da `STATO.md`. Niente altro: il resto lo legge da solo.
+Per ogni ticket della frontiera: label `in-lavorazione`, poi un subagent `implementatore` con un messaggio di poche righe: numero del ticket, branch di integrazione, eventuali note da `STATO.md`. Niente altro: il resto lo legge da solo.
+
+Lancia gli implementatori **in primo piano, mai in background**, tutti nello stesso messaggio così lavorano in parallelo: il tuo turno resta aperto finché non hanno finito tutti.
 
 ### 3. Revisione avversaria, mediata da te
 
-Quando un implementatore finisce, lancia un subagent `revisore` in modalità **ticket** su `ticket/<n>`. Poi:
+Quando un implementatore finisce, lancia un subagent `revisore` in modalità **ticket** su `ticket/<n>`, anche lui in primo piano. Poi:
 
-- inoltra le osservazioni aperte all'implementatore (SendMessage al suo id), e le sue risposte al revisore;
+- passa le osservazioni aperte a un **nuovo** `implementatore` in primo piano, con il branch `ticket/<n>` e le osservazioni come puntatori; poi le sue risposte a un nuovo `revisore`. Non usare SendMessage per riprendere un subagent: lo riprende in background, e questo ti porterebbe a chiudere il turno mentre lavora;
 - **al massimo 3 giri**. Dopo il terzo, o quando il revisore dichiara "in disaccordo", decidi tu su ogni punto rimasto, citando ticket, spec, ADR o glossario, e scrivi la decisione in un commento sul ticket;
 - osservazioni `bloccante` e `alta` vanno risolte prima dell'unione; `media` e `bassa` le puoi rimandare aprendo un ticket `ready-for-agent` nella milestone successiva.
 
@@ -49,7 +51,7 @@ Unisci `ticket/<n>` in `integrazione` (merge, non rebase), lancia la suite compl
 
 ### 5. Chiusura della milestone
 
-Quando tutti i ticket della milestone sono chiusi o `ready-for-human`, **prima di qualsiasi altro ticket**, lancia in parallelo due `revisore`:
+Quando tutti i ticket della milestone sono chiusi o `ready-for-human`, **prima di qualsiasi altro ticket**, lancia due `revisore` nello stesso messaggio, in primo piano:
 
 - modalità **audit** (ponytail-audit) dal tag `milestone-<k>-inizio`;
 - modalità **sicurezza** (security-review) sullo stesso intervallo.
@@ -63,6 +65,8 @@ Quando audit e sicurezza non trovano più niente di `bloccante` o `alta`: tag `m
 Quando tutte le milestone sono chiuse: scrivi in `STATO.md` il riepilogo finale (milestone, PR aperte, ticket `ready-for-human` con il motivo), crea il file `.scratch/orchestrazione/FATTO`, e stampa l'elenco delle milestone aperte (`gh api repos/contradalatorre/primanotaaps/milestones?state=open --jq length`), che deve essere `0`.
 
 ## Regole che non si piegano
+
+- **Non chiudere mai il turno mentre c'è lavoro da fare.** Giri in modalità non interattiva: quando il tuo turno finisce, il processo termina e i subagent ancora attivi muoiono con lui. Chiudi il turno solo a obiettivo raggiunto. "Aspetto che l'implementatore finisca" non è un motivo per chiuderlo: per questo i subagent girano in primo piano.
 
 - Mai push su `main`, mai `--force`, mai unire una PR verso `main`: le unisce il tesoriere.
 - Mai pubblicare su Aruba né avviare workflow di deploy; il ticket della pubblicazione (#37) si chiude con il workflow scritto e testato a secco.
