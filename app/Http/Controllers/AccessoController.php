@@ -21,36 +21,69 @@ class AccessoController extends Controller
         return view('accesso', ['dominio' => $this->dominio()]);
     }
 
+    /** Chi è già dentro ci passa solo per rifare l'accesso (`?riautentica=1`, vedi `riautentica()`). */
     public function vaiAGoogle(Request $request)
     {
+        $riautentica = Auth::check() && $request->boolean('riautentica');
+        if (Auth::check() && ! $riautentica) {
+            return redirect()->route('home');
+        }
+
         // `hd` e `prompt` guidano solo la scelta dell'account; il controllo vero è al ritorno. Gli esterni
         // entrano con un account personale, che `hd` nasconderebbe: per loro la scelta resta libera.
         // `offline` + `consent`: Google rilascia il refresh token a ogni accesso, non solo al primo
         // (serve a VerificaAccountGoogle per accorgersi di un account sospeso).
         $parametri = ['prompt' => 'select_account consent', 'access_type' => 'offline'];
-        if (! $request->boolean('esterno')) {
+        if ($riautentica) {
+            // `login`: Google richiede di nuovo le credenziali anche se la sessione Google è ancora aperta.
+            $parametri = ['prompt' => 'login', 'login_hint' => Auth::user()->email];
+            $request->session()->put('riautenticazione', true);
+        }
+        if (! $request->boolean('esterno') && ! ($riautentica && Auth::user()->esterno)) {
             $parametri['hd'] = $this->dominio();
         }
 
         return Socialite::driver('google')->with($parametri)->redirect();
     }
 
+    /** Pagina delle azioni delicate: chi ha l'ultimo accesso più vecchio di un'ora lo rifà qui (`password.confirm`). */
+    public function riautentica()
+    {
+        return view('riautentica');
+    }
+
     public function ritornoDaGoogle(Request $request): RedirectResponse
     {
+        $riautentica = Auth::check();
+        if ($riautentica && ! $request->session()->pull('riautenticazione')) {
+            return redirect()->route('home');
+        }
+        $rotta = $riautentica ? 'riautentica' : 'accesso';
+
         if ($request->query('error') === 'access_denied') {
-            return $this->rifiuta('Accesso annullato. Per entrare serve confermare l’account su Google: riprova.');
+            return $this->rifiuta('Accesso annullato. Per entrare serve confermare l’account su Google: riprova.', $rotta);
         }
 
         try {
             $google = Socialite::driver('google')->user();
         } catch (InvalidStateException) {
             // Sessione scaduta o doppio clic: non c'entra l'account.
-            return $this->rifiuta('La richiesta di accesso è scaduta. Riprova a entrare con Google.');
+            return $this->rifiuta('La richiesta di accesso è scaduta. Riprova a entrare con Google.', $rotta);
         } catch (Throwable $e) {
             // Google non rilascia l'accesso a un account sospeso o eliminato; l'app resta in piedi.
             report($e);
 
-            return $this->rifiuta('Google non ha confermato l’accesso. Se il tuo account del Workspace è stato sospeso o eliminato, non puoi più entrare: rivolgiti a un Amministratore.');
+            return $this->rifiuta('Google non ha confermato l’accesso. Se il tuo account del Workspace è stato sospeso o eliminato, non puoi più entrare: rivolgiti a un Amministratore.', $rotta);
+        }
+
+        if ($riautentica) {
+            // Rifare l'accesso con un altro account non conferma chi è già dentro.
+            if ($google->getId() !== Auth::user()->google_id) {
+                return $this->rifiuta('Hai rifatto l’accesso con un altro account Google: serve lo stesso con cui sei entrato.', $rotta);
+            }
+            $request->session()->passwordConfirmed();
+
+            return redirect()->intended(route('home'));
         }
 
         if ($this->delWorkspace($google)) {
@@ -92,6 +125,7 @@ class AccessoController extends Controller
 
         Auth::login($utente);
         $request->session()->regenerate();
+        $request->session()->passwordConfirmed(); // l'accesso è l'ultima autenticazione per le azioni delicate
 
         return redirect()->intended(route('home'));
     }
@@ -154,8 +188,8 @@ class AccessoController extends Controller
             && str_ends_with(strtolower((string) $google->getEmail()), '@'.$dominio);
     }
 
-    private function rifiuta(string $messaggio): RedirectResponse
+    private function rifiuta(string $messaggio, string $rotta = 'accesso'): RedirectResponse
     {
-        return redirect()->route('accesso')->with('errore', $messaggio);
+        return redirect()->route($rotta)->with('errore', $messaggio);
     }
 }

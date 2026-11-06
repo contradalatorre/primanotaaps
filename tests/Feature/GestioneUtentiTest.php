@@ -14,6 +14,14 @@ class GestioneUtentiTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Accesso appena fatto: la riautenticazione ha i suoi test in RiautenticazioneTest.
+        $this->withSession(['auth.password_confirmed_at' => now()->unix()]);
+    }
+
     private function amministratore(): User
     {
         return $this->utenteCon('Amministratore', [], ['name' => 'Anna Bianchi']);
