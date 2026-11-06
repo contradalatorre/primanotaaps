@@ -72,6 +72,17 @@ jobs:
             docker-compose.yml
             **/*.log
 
+      # Solo la prima volta fa qualcosa (database vuoto): senza tabelle l'app risponde 500 e il controllo sotto
+      # fallirebbe. Poi risponde 409 e le migrazioni le avvia l'Amministratore dalla pagina Migrazioni.
+      - name: Prima installazione del database
+        env:
+          SITO_URL: ${{ vars.SITO_URL }}
+          MIGRAZIONI_TOKEN: ${{ secrets.MIGRAZIONI_TOKEN }}
+        run: |
+          codice=$(curl -s --retry 10 --retry-delay 2 --retry-connrefused -o /dev/null -w '%{http_code}'             -X POST -H "Authorization: Bearer $MIGRAZIONI_TOKEN" "$SITO_URL/manutenzione/migrazioni/prima-installazione")
+          echo "prima-installazione -> $codice"
+          test "$codice" = 200 -o "$codice" = 409
+
       - name: Raggiungibilità vietata di configurazione, storage e log
         env:
           SITO_URL: ${{ vars.SITO_URL }}

@@ -25,11 +25,7 @@ Nessun valore va scritto nel repo. I valori non possono contenere l'apice singol
 ## Migrazioni
 
 - **Aggiornamenti**: dopo una pubblicazione con cambiamenti allo schema, un Amministratore apre *Migrazioni* nel menu e preme "Avvia le migrazioni".
-- **Prima installazione**: a database vuoto nessuno può ancora entrare, perché mancano le tabelle degli utenti e delle sessioni. Si avvia una volta sola con il token (funziona solo finché la tabella `migrations` non esiste):
-
-  ```
-  curl -X POST -H "Authorization: Bearer <MIGRAZIONI_TOKEN>" <SITO_URL>/manutenzione/migrazioni/prima-installazione
-  ```
+- **Prima installazione**: a database vuoto nessuno può ancora entrare, perché mancano le tabelle degli utenti e delle sessioni. Ci pensa il workflow: dopo il caricamento chiama `<SITO_URL>/manutenzione/migrazioni/prima-installazione` con il `MIGRAZIONI_TOKEN`. La chiamata funziona solo finché la tabella `migrations` non esiste; dopo risponde 409 e non fa nulla.
 
 ## Prove a secco
 
