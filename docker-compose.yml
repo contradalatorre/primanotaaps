@@ -1,0 +1,43 @@
+# Ambiente locale che riproduce Aruba Easy. Nessun container_name e nessuna porta per i test:
+# ogni worktree ha il suo progetto Compose (nome della cartella), quindi più copie girano in parallelo.
+services:
+  web:
+    build: docker/web
+    ports:
+      - "${APP_PORT:-8080}:80" # solo per aprire l'app nel browser (docker compose up web)
+    volumes:
+      - .:/var/www/html/contabilita
+    environment:
+      DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: segreto-locale
+      MYSQL_DATABASE: contabilita
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      # su TCP: il server temporaneo di inizializzazione risponde solo sul socket
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-psegreto-locale"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+
+  tools:
+    build: docker/tools
+    working_dir: /app
+    volumes:
+      - .:/app
+      - composer-cache:/root/.composer/cache
+    environment:
+      DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  composer-cache:
