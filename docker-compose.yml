@@ -2,6 +2,7 @@
 # ogni worktree ha il suo progetto Compose (nome della cartella), quindi più copie girano in parallelo.
 # La password del database vale solo in locale (db in tmpfs, senza porte sull'host): DB_PASSWORD la sostituisce.
 x-db-env: &db-env
+  DB_CONNECTION: mysql
   DB_HOST: db
   DB_DATABASE: contabilita
   DB_USERNAME: contabilita
@@ -15,6 +16,9 @@ services:
     volumes:
       - .:/var/www/html/contabilita
     environment: *db-env
+    # Apache gira come www-data: gli serve scrivere in storage e bootstrap/cache del repo montato
+    command: sh -c "chmod -R a+rwX storage bootstrap/cache && exec apache2-foreground"
+    working_dir: /var/www/html/contabilita
     depends_on:
       db:
         condition: service_healthy
