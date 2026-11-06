@@ -27,11 +27,8 @@ class VerificaAccountGoogle
             if (now()->unix() - $request->session()->get('auth.password_confirmed_at', 0) <= config('auth.password_timeout')) {
                 return $next($request);
             }
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
 
-            return redirect()->route('accesso.emergenza')->with('errore', 'La sessione di emergenza è scaduta: rientra con password e codice.');
+            return $this->espelli($request, 'accesso.emergenza', 'La sessione di emergenza è scaduta: rientra con password e codice.');
         }
 
         if ($utente->google_verificato_il?->gt(now()->subHour())) {
@@ -39,18 +36,22 @@ class VerificaAccountGoogle
         }
 
         if ($this->googleHaRevocato($utente->google_refresh_token)) {
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-
-            return redirect()->route('accesso')
-                ->with('errore', 'Il tuo account del Workspace non è più valido (sospeso o eliminato): rivolgiti a un Amministratore.');
+            return $this->espelli($request, 'accesso', 'Il tuo account del Workspace non è più valido (sospeso o eliminato): rivolgiti a un Amministratore.');
         }
 
         // Si segna anche se Google non ha risposto: con Google giù non si aspetta il timeout a ogni richiesta.
         $utente->forceFill(['google_verificato_il' => now()])->save();
 
         return $next($request);
+    }
+
+    private function espelli(Request $request, string $rotta, string $messaggio): Response
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route($rotta)->with('errore', $messaggio);
     }
 
     /** Solo `invalid_grant` o l'assenza del token revocano l'accesso; errori di rete o di Google lasciano la sessione. */

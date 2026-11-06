@@ -137,7 +137,7 @@ Un account Google personale (non del Workspace), aggiunto uno per uno dall'Ammin
 _Avoid_: ospite, utente esterno
 
 **Account di emergenza**:
-L'unico account locale, con password lunga e codice a tempo, con cui si entra quando Google non funziona o non resta nessun Amministratore; ha i permessi di un Amministratore ma non è un utente, la sua sessione dura un'ora e ogni suo uso finisce nel registro degli accessi e avvisa gli Amministratori.
+L'unico account locale, con password lunga e codice a tempo, con cui si entra quando Google non funziona o non resta nessun Amministratore; ha i permessi di un Amministratore ma non compare tra gli utenti né ha assegnazioni, la sua sessione dura un'ora e ogni suo uso finisce nel registro degli accessi e avvisa gli Amministratori.
 _Avoid_: account di servizio, super utente, backdoor
 
 **Riautenticazione**:
