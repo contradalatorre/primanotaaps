@@ -65,15 +65,37 @@ class AccessoTest extends TestCase
         $this->assertDatabaseHas('users', ['google_id' => '1001', 'email' => 'maria.rossi@associazione.example', 'name' => 'Maria Rossi']);
     }
 
-    public function test_un_account_ricreato_con_la_stessa_email_ma_un_altro_id_google_entra_sullo_stesso_utente(): void
+    public function test_un_google_id_nuovo_con_un_indirizzo_gia_presente_non_eredita_la_riga_di_un_altro(): void
     {
-        $esistente = User::factory()->create(['google_id' => 'vecchio', 'email' => 'maria.rossi@associazione.example']);
+        User::factory()->create(['google_id' => 'vecchio', 'email' => 'maria.rossi@associazione.example']);
         $this->googleCome();
 
-        $this->entra()->assertRedirect(route('home'));
+        $this->followingRedirects()->entra()->assertSee('rivolgiti a un Amministratore');
 
+        $this->assertGuest();
         $this->assertDatabaseCount('users', 1);
-        $this->assertDatabaseHas('users', ['id' => $esistente->id, 'google_id' => '1001']);
+        $this->assertDatabaseHas('users', ['google_id' => 'vecchio']);
+    }
+
+    public function test_un_indirizzo_aggiornato_che_collide_con_un_altro_utente_e_rifiutato_senza_errore(): void
+    {
+        User::factory()->create(['google_id' => '1001', 'email' => 'm.rossi@associazione.example']);
+        User::factory()->create(['google_id' => '2002', 'email' => 'maria.rossi@associazione.example']);
+        $this->googleCome();
+
+        $this->followingRedirects()->entra()->assertSee('rivolgiti a un Amministratore');
+
+        $this->assertGuest();
+        $this->assertDatabaseHas('users', ['google_id' => '1001', 'email' => 'm.rossi@associazione.example']);
+    }
+
+    public function test_chi_annulla_sulla_schermata_di_google_non_e_accusato_di_essere_sospeso(): void
+    {
+        $this->followingRedirects()->get(route('accesso.ritorno', ['error' => 'access_denied']))
+            ->assertSee('Accesso annullato')
+            ->assertDontSee('sospeso o eliminato');
+
+        $this->assertGuest();
     }
 
     public function test_un_account_di_un_altro_dominio_e_rifiutato_con_un_messaggio_chiaro(): void

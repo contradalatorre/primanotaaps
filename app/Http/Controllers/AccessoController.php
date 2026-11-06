@@ -28,6 +28,10 @@ class AccessoController extends Controller
 
     public function ritornoDaGoogle(Request $request): RedirectResponse
     {
+        if ($request->query('error') === 'access_denied') {
+            return $this->rifiuta('Accesso annullato. Per entrare serve confermare l’account su Google: riprova.');
+        }
+
         try {
             $google = Socialite::driver('google')->user();
         } catch (InvalidStateException) {
@@ -44,10 +48,13 @@ class AccessoController extends Controller
             return $this->rifiuta('Questo account non fa parte del Workspace dell’associazione. Entra con il tuo account @'.$this->dominio().'.');
         }
 
-        // Un account ricreato nel Workspace con la stessa email ha un altro id Google: è la stessa persona.
-        $utente = User::firstWhere('google_id', $google->getId())
-            ?? User::firstWhere('email', $google->getEmail())
-            ?? new User;
+        // Mai ereditare la riga di un altro: un google_id nuovo (account ricreato) o un'email aggiornata
+        // già in uso da un'altra riga li risolve un Amministratore.
+        if (User::where('email', $google->getEmail())->where('google_id', '!=', $google->getId())->exists()) {
+            return $this->rifiuta('Questo indirizzo risulta già associato a un altro accesso: rivolgiti a un Amministratore.');
+        }
+
+        $utente = User::firstWhere('google_id', $google->getId()) ?? new User;
         $utente->fill([
             'google_id' => $google->getId(),
             'name' => $google->getName() ?: $google->getEmail(),
