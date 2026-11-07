@@ -6,6 +6,7 @@ use App\Http\Controllers\ContiController;
 use App\Http\Controllers\DatiDiClassificazioneController;
 use App\Http\Controllers\EmergenzaController;
 use App\Http\Controllers\ImportEstrattiController;
+use App\Http\Controllers\ManualeController;
 use App\Http\Controllers\MigrazioniController;
 use App\Http\Controllers\MovimentiController;
 use App\Http\Controllers\RegistroController;
@@ -41,6 +42,8 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
         Route::get('/conti', [ContiController::class, 'index'])->name('conti');
         Route::get('/movimenti', [MovimentiController::class, 'index'])->name('movimenti');
         Route::get('/classificazione', [DatiDiClassificazioneController::class, 'index'])->name('classificazione');
+        Route::get('/manuale', [ManualeController::class, 'index'])->name('manuale');
+        Route::get('/manuale/esporta', [ManualeController::class, 'esporta'])->name('manuale.esporta');
     });
     // I dati di base (conti) sono di chi ha `gestire_regole`: #16 non ha un permesso a parte.
     Route::middleware('can:gestire_regole')->group(function () {
@@ -57,6 +60,11 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
         Route::post('/classificazione/{tipo}/{id}/archiviazione', [DatiDiClassificazioneController::class, 'archivia'])->name('classificazione.archivia');
         Route::post('/classificazione/{tipo}/{id}/ripristino', [DatiDiClassificazioneController::class, 'ripristina'])->name('classificazione.ripristina');
         Route::delete('/classificazione/{tipo}/{id}', [DatiDiClassificazioneController::class, 'elimina'])->name('classificazione.elimina');
+    });
+    // Manuale di classificazione (#44): scriverlo è di chi gestisce le regole (#16). Le sezioni non si cancellano.
+    Route::middleware('can:gestire_regole')->group(function () {
+        Route::post('/manuale', [ManualeController::class, 'crea'])->name('manuale.crea');
+        Route::put('/manuale/{sezione}', [ManualeController::class, 'salva'])->name('manuale.salva');
     });
     Route::middleware('can:inserire_movimenti_cassa,conto')->group(function () {
         Route::get('/conti/{conto}/movimenti/nuovo', [MovimentiController::class, 'nuovo'])->name('movimenti.nuovo');

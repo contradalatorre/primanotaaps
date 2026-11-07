@@ -12,7 +12,7 @@
                 <option value="">Tutti</option>
                 <option value="movimento" @selected($oggetto === 'movimento')>Movimenti</option>
                 <option value="conto" @selected($oggetto === 'conto')>Conti</option>
-                @foreach (['tipologia' => 'Tipologie', 'attivita' => 'Attività', 'iniziativa' => 'Iniziative', 'tag' => 'Tag', 'import' => 'Import'] as $valore => $etichetta)
+                @foreach (['tipologia' => 'Tipologie', 'attivita' => 'Attività', 'iniziativa' => 'Iniziative', 'tag' => 'Tag', 'import' => 'Import', 'manuale' => 'Manuale'] as $valore => $etichetta)
                     <option value="{{ $valore }}" @selected($oggetto === $valore)>{{ $etichetta }}</option>
                 @endforeach
             </select>
