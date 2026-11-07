@@ -24,6 +24,10 @@
         @endif
     </dl>
 
+    @if ($import->stato === 'confermato')
+        <p><a href="{{ route('import.revisione', $import) }}" class="bottone">Rivedi i movimenti</a></p>
+    @endif
+
     @if ($import->stato === 'anteprima')
         @if ($buco)
             <p class="avviso" role="status">
