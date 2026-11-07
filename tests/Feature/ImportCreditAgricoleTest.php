@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Conto;
-use App\Models\ImportEstratto;
 use App\Models\ImportConflitto;
+use App\Models\ImportEstratto;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
 use App\Models\User;
@@ -63,6 +63,7 @@ class ImportCreditAgricoleTest extends TestCase
             ->assertSeeInOrder(['Righe', '5'])
             ->assertSeeInOrder(['Saldo iniziale', '1.200,00'])
             ->assertSeeInOrder(['Saldo finale', '3.616,80'])
+            ->assertSeeInOrder(['Saldo dell’app alla stessa data', '1.200,00'])
             ->assertSeeInOrder(['Nuovi', '5'])
             ->assertSeeInOrder(['Già presenti', '0'])
             ->assertSeeInOrder(['In conflitto', '0']);

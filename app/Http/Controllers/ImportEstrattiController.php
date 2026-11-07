@@ -9,8 +9,10 @@ use App\Models\ImportEstratto;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -48,7 +50,7 @@ class ImportEstrattiController extends Controller
         // Si valuta il contenuto, non il nome che il browser dichiara; 2 MB bastano a un anno di movimenti.
         $messaggio = 'Carica il file CSV dell’estratto (testo, al massimo 2 MB).';
         $request->validate(
-            ['estratto' => ['required', 'file', 'max:2048', 'mimetypes:text/plain,text/csv,application/csv']],
+            ['estratto' => ['required', 'file', 'max:2048', 'mimetypes:text/*,application/csv']],
             ['estratto.required' => $messaggio, 'estratto.file' => $messaggio, 'estratto.max' => $messaggio, 'estratto.mimetypes' => $messaggio],
         );
 
@@ -208,12 +210,12 @@ class ImportEstrattiController extends Controller
         return redirect()->route('import.mostra', $conflitto->import_estratto_id)->with('ok', 'Decisione registrata.');
     }
 
-    /** @return array{da: \Carbon\CarbonInterface, a: \Carbon\CarbonInterface} il periodo in cui l'app non ha i movimenti che il file dà per presenti */
+    /** @return array{da: CarbonInterface, a: CarbonInterface} il periodo in cui l'app non ha i movimenti che il file dà per presenti */
     private function buco(Conto $conto, ImportEstratto $import): array
     {
         $ultimo = $conto->movimenti()->where('data', '<', $import->periodo_dal->toDateString())->max('data');
 
-        return ['da' => $ultimo ? \Illuminate\Support\Carbon::parse($ultimo)->addDay() : $conto->aperto_il, 'a' => $import->periodo_dal];
+        return ['da' => $ultimo ? Carbon::parse($ultimo)->addDay() : $conto->aperto_il, 'a' => $import->periodo_dal];
     }
 
     private function registraMovimenti(User $utente, Collection $movimenti, string $azione, ?string $motivazione, bool $comeEliminati = false): void

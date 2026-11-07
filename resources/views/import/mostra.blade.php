@@ -14,6 +14,7 @@
         <div><dt>Saldo iniziale</dt><dd>{{ $euro($import->saldo_iniziale) }}</dd></div>
         <div><dt>Saldo finale</dt><dd>{{ $euro($import->saldo_finale) }}</dd></div>
         @if ($import->stato === 'anteprima')
+            <div><dt>Saldo dell’app alla stessa data</dt><dd>{{ $euro($saldoApp) }}</dd></div>
             <div><dt>Nuovi</dt><dd>{{ count($classi['nuove']) }}</dd></div>
             <div><dt>Già presenti</dt><dd>{{ count($classi['presenti']) }}</dd></div>
             <div><dt>In conflitto</dt><dd>{{ count($classi['conflitti']) }}</dd></div>
