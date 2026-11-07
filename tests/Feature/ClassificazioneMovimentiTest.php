@@ -556,6 +556,38 @@ class ClassificazioneMovimentiTest extends TestCase
         $this->assertSame(['Scontrino'], $movimento->giustificativi()->pluck('riferimento')->all());
     }
 
+    /** Eliminato tra il controllo e il blocco: la riga non si trova più, e refresh() non deve ripescarla senza scope. */
+    private function eliminaNelMentre(Movimento $movimento): void
+    {
+        DB::beforeStartingTransaction(fn () => Movimento::whereKey($movimento->id)->update(['eliminato_il' => now()]));
+    }
+
+    public function test_se_nel_frattempo_il_movimento_e_eliminato_non_si_conferma(): void
+    {
+        $tesoriere = $this->utenteCon('Tesoriere');
+        $movimento = $this->movimento();
+        $movimento->imputazioni()->create(['importo' => $movimento->importo, 'tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E']);
+        $this->actingAs($tesoriere);
+        $versione = Classificazione::versione($movimento->refresh());
+        $this->eliminaNelMentre($movimento);
+
+        $this->post("/movimenti/{$movimento->id}/conferma", ['versione' => $versione])->assertNotFound();
+
+        $this->assertNotSame('confermato', Movimento::withTrashed()->find($movimento->id)->stato);
+    }
+
+    public function test_se_nel_frattempo_il_movimento_e_eliminato_non_si_riclassifica(): void
+    {
+        $tesoriere = $this->utenteCon('Tesoriere');
+        $movimento = $this->movimento();
+        $this->actingAs($tesoriere);
+        $this->eliminaNelMentre($movimento);
+
+        $this->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E']]])->assertNotFound();
+
+        $this->assertSame(0, $movimento->imputazioni()->count());
+    }
+
     public function test_la_pagina_di_classificazione_mostra_la_spiegazione_delle_tipologie_e_le_imputazioni_salvate(): void
     {
         $tesoriere = $this->utenteCon('Tesoriere');

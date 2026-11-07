@@ -155,13 +155,15 @@ class ImportEstrattiController extends Controller
         DB::transaction(function () use ($request, $import) {
             Conto::lockForUpdate()->findOrFail($import->conto_id); // stesso ordine di conferma: prima il conto
             $import = ImportEstratto::lockForUpdate()->findOrFail($import->id);
-            if (! $import->annullabile()) {
+            // Si decide sulle righe bloccate (lettura corrente, non la fotografia di MySQL): una conferma singola concorrente
+            // blocca solo il suo movimento, e senza questo lock l'annullamento eliminerebbe un movimento appena confermato.
+            $movimenti = $import->movimenti()->orderBy('id')->lockForUpdate()->get();
+            if ($import->stato !== 'confermato' || $movimenti->contains(fn (Movimento $m) => $m->confermato())) {
                 $this->rifiuta($import->stato === 'confermato'
                     ? 'Almeno un movimento di questo import è già confermato: l’import non si annulla più.'
                     : 'Solo un import confermato si annulla.');
             }
 
-            $movimenti = $import->movimenti()->get();
             $this->registraMovimenti($request->user(), $movimenti, 'eliminato', 'Import annullato', true);
             $import->movimenti()->update(['eliminato_da' => $request->user()->id, 'motivazione_eliminazione' => 'Import annullato', 'eliminato_il' => now()]);
             // Restano le decisioni già prese: il file ricaricato non rimette in discussione un conflitto deciso.
