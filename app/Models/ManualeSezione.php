@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
@@ -14,6 +15,12 @@ use Illuminate\Support\Str;
 class ManualeSezione extends Model
 {
     protected $table = 'manuale_sezioni';
+
+    /** Il browser manda CRLF: si salva sempre con LF, così salvare senza cambiare nulla non risulta una modifica. */
+    protected function corpo(): Attribute
+    {
+        return Attribute::set(fn (string $v) => preg_replace('/\r\n?/', "\n", $v));
+    }
 
     /** Il testo è Markdown scritto da chi ha `gestire_regole`: l'HTML grezzo e i link `javascript:` non passano. */
     public function html(): string

@@ -77,6 +77,17 @@ class ManualeClassificazioneTest extends TestCase
         $this->assertSame("Prima riga.\n\n- primo\n- secondo", $sezione->fresh()->corpo);
     }
 
+    public function test_una_sezione_creata_con_fine_riga_crlf_si_risalva_senza_modifiche_nel_registro(): void
+    {
+        $tesoriere = $this->utenteCon('Tesoriere');
+        $this->actingAs($tesoriere)->post('/manuale', ['titolo' => 'Nuova', 'corpo' => "Riga uno.\r\n\r\nRiga due."])->assertRedirect('/manuale');
+        $nuova = ManualeSezione::firstWhere('titolo', 'Nuova');
+
+        $this->actingAs($tesoriere)->put("/manuale/{$nuova->id}", ['titolo' => 'Nuova', 'corpo' => "Riga uno.\r\n\r\nRiga due.", 'versione' => $nuova->versione()])->assertRedirect('/manuale');
+
+        $this->assertSame(['creato'], RegistroModifica::where('oggetto_tipo', 'manuale')->pluck('azione')->all());
+    }
+
     public function test_due_modifiche_concorrenti_non_si_sovrascrivono_senza_avviso(): void
     {
         $sezione = ManualeSezione::orderBy('id')->firstOrFail();

@@ -41,7 +41,6 @@ class ManualeController extends Controller
     public function salva(Request $request, ManualeSezione $sezione): RedirectResponse
     {
         $dati = $request->validate(self::REGOLE + ['versione' => ['required', 'string', 'size:64']]);
-        $dati['corpo'] = preg_replace('/\r\n?/', "\n", $dati['corpo']); // il browser manda CRLF: senza questo ogni salvataggio sembrerebbe una modifica
 
         DB::transaction(function () use ($request, $sezione, $dati) {
             $sezione = ManualeSezione::lockForUpdate()->findOrFail($sezione->id);
