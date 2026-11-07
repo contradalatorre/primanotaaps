@@ -27,7 +27,8 @@ class ManualeController extends Controller
 
         DB::transaction(function () use ($request, $dati) {
             $sezione = new ManualeSezione($dati);
-            $sezione->codice = (string) (ManualeSezione::pluck('codice')->max(fn ($c) => (int) $c) + 1);
+            // shortcut: max+1 senza blocco, due creazioni simultanee danno un errore sul vincolo unico; da rivedere se serve scrivere in parallelo.
+            $sezione->codice =(string) (ManualeSezione::pluck('codice')->max(fn ($c) => (int) $c) + 1);
             $sezione->save();
             RegistroModifica::registra($request->user(), $sezione, 'creato', null, $sezione->istantanea());
         });

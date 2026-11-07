@@ -236,8 +236,8 @@ T],
             ['I test dell\'esercizio e le scelte di classificazione', <<<'T'
 I test non si inseriscono: l'app li calcola dalle imputazioni, e per questo ogni scelta di classificazione ha un effetto. Questa sezione dice dove guardare; la spiegazione di ciascun test, con la sua base normativa, rimanda qui.
 
-- **Test di secondarietà** (art. 6 CTS, DM 107/2021): confronta le entrate e i costi delle attività diverse (area B) con quelli delle attività di interesse generale. Le sponsorizzazioni **contano** (§ 10). Decidono l'esito la tipologia e l'area scelte per ogni imputazione.
-- **Test dell'art. 79 c. 2-bis**: i corrispettivi dell'attività non devono superare i costi effettivi più il 6%, per al massimo tre esercizi consecutivi. Per questo le iniziative raccolgono **tutti** i loro costi (§ 9) e le spese generali stanno in area E (§ 15).
+- **Test di secondarietà** (art. 6 CTS, DM 107/2021): ha due criteri, quello del 30% e quello del 66%; l'app li calcola entrambi e propone quello rispettato con più margine. Le sponsorizzazioni **contano** (§ 10); le imposte non entrano tra i costi complessivi del criterio del 66%.
+- **Test dell'art. 79 c. 2-bis**, sulla natura non commerciale dell'area A: i corrispettivi dell'attività non devono superare i costi effettivi più il 6%, per al massimo tre esercizi consecutivi. I costi effettivi sono le uscite dell'area A più la quota delle spese generali, senza costi figurativi. Se il test non è rispettato, i corrispettivi dell'area A diventano commerciali. Per questo le iniziative raccolgono **tutti** i loro costi (§ 9) e le spese generali stanno in area E (§ 15).
 - **Test dell'art. 79 c. 5**, sulla natura non commerciale dell'ente: le sponsorizzazioni sono neutre (§ 10).
 
 Una **forzatura** della natura commerciale cambia l'esito dei test: serve una motivazione, e finché la scelta è in dubbio si segue la soluzione prudente (§ 17).
