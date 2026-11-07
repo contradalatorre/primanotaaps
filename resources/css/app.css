@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 
 @source '../views';
+/* L'elenco dei movimenti e il registro sono a pagine: servono gli stili della paginazione di Laravel. */
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 
 /* Colori della contrada: giallo, nero e bianco. Mai il rosso, nemmeno per gli errori:
    gli stati si leggono dal testo e dall'icona, non dal colore. */
@@ -40,8 +42,9 @@
         @apply hidden rounded p-1 hover:bg-white/10;
     }
 
+    /* Va a capo: da 360 px le voci del menu non devono far scorrere la pagina in orizzontale. */
     .menu-voci {
-        @apply flex flex-1 gap-1;
+        @apply flex flex-1 flex-wrap gap-1;
     }
 
     .menu-utente {
@@ -198,6 +201,56 @@
 
     fieldset {
         @apply flex flex-col gap-2 rounded border-2 border-nero p-3;
+    }
+
+    /* Elenchi a schede e non a tabella: da 360 px non devono scorrere in orizzontale. */
+    .schede {
+        @apply flex flex-col gap-3;
+    }
+
+    .scheda {
+        @apply flex flex-col gap-2 rounded border-2 border-nero p-3;
+    }
+
+    .scheda-testa {
+        @apply flex flex-wrap items-baseline gap-2;
+    }
+
+    .importo {
+        @apply text-lg;
+    }
+
+    .dati {
+        @apply flex flex-col gap-1 text-sm;
+    }
+
+    .dati div {
+        @apply flex flex-wrap gap-x-2;
+    }
+
+    .dati dt {
+        @apply font-semibold;
+    }
+
+    .scheda p,
+    .dati dd {
+        @apply break-words;
+        overflow-wrap: anywhere;
+    }
+
+    .azioni {
+        @apply flex flex-wrap items-center gap-3;
+    }
+
+    .modulo-stretto,
+    .modulo-stretto label,
+    .modulo-stretto input[type='text'],
+    .modulo-stretto input[type='date'] {
+        @apply w-full max-w-md;
+    }
+
+    .modulo-stretto .spunta {
+        @apply w-auto;
     }
 
     .elenco-ruoli li {

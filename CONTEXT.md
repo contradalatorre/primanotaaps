@@ -23,12 +23,16 @@ L'etichetta breve con cui il fornitore del conto indica il tipo di operazione (e
 _Avoid_: tipo operazione, codice
 
 **Descrizione**:
-Il testo libero che accompagna un movimento nell'estratto conto, scritto dal fornitore del conto; non va confusa con la nota, scritta da un utente.
+Il testo libero che accompagna un movimento: nell'estratto conto lo scrive il fornitore del conto, in un movimento di cassa lo scrive chi lo inserisce; non va confusa con la nota, scritta da un utente su un movimento già registrato.
 _Avoid_: dettaglio
 
 **Controparte**:
 Chi paga o riceve il denaro di un movimento, come risulta dall'estratto o dichiarato da chi registra il movimento.
 _Avoid_: beneficiario, mittente, cliente, fornitore
+
+**Ritiro**:
+L'eliminazione del proprio movimento da parte di chi l'ha inserito, possibile finché nessuno lo ha confermato e senza motivazione; è un'eliminazione logica, come quella (con motivazione) che chi ha il permesso fa su un movimento manuale anche confermato.
+_Avoid_: cancellazione, annullamento (che si dice di un import)
 
 **Giroconto**:
 Un trasferimento di denaro tra due conti dell'associazione, composto da un movimento in uscita da un conto e da uno in entrata sull'altro; non è né un'entrata né un'uscita dell'ente.
@@ -215,6 +219,10 @@ _Avoid_: badge, trofeo
 **Anonimizzazione**:
 La rimozione dei dati personali da un esercizio dieci anni dopo la sua fine, che ne tiene importi e classificazione e sostituisce le persone con il loro tipo ("Socio", "Privato"); la propone l'app e la conferma l'Amministratore.
 _Avoid_: cancellazione, pulizia, scadenza
+
+**Registro delle modifiche**:
+L'elenco in sola aggiunta di chi ha cambiato cosa e quando, con il valore prima e dopo, per movimenti, conti e il resto dei dati dell'app; il registro completo è per il Tesoriere e l'Amministratore, la storia del singolo movimento per tutti i ruoli interni. Non va confuso con il registro degli accessi.
+_Avoid_: log, cronologia, audit
 
 **Registro degli accessi**:
 L'elenco di chi è entrato nell'app, quando e da dove, e di ogni esportazione fatta; serve a ricostruire un incidente e si conserva dodici mesi. Non va confuso con il registro delle modifiche.

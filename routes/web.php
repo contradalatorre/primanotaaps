@@ -1,8 +1,11 @@
 <?php
 
 use App\Http\Controllers\AccessoController;
+use App\Http\Controllers\ContiController;
 use App\Http\Controllers\EmergenzaController;
 use App\Http\Controllers\MigrazioniController;
+use App\Http\Controllers\MovimentiController;
+use App\Http\Controllers\RegistroController;
 use App\Http\Controllers\RuoliController;
 use App\Http\Controllers\UtentiController;
 use App\Http\Middleware\VerificaAccountGoogle;
@@ -27,6 +30,35 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
     Route::view('/', 'home')->name('home');
     Route::post('/esci', [AccessoController::class, 'esci'])->name('esci');
     Route::get('/riautentica', [AccessoController::class, 'riautentica'])->name('riautentica');
+
+    // Conti e movimenti (#38). Leggere è per tutti: l'ambito limita la scrittura, non la lettura. Dove il permesso
+    // ha un ambito il conto è nell'indirizzo (`can:permesso,conto`); per i movimenti già scritti il controller
+    // controlla il conto del movimento.
+    Route::middleware('can:vedere')->group(function () {
+        Route::get('/conti', [ContiController::class, 'index'])->name('conti');
+        Route::get('/movimenti', [MovimentiController::class, 'index'])->name('movimenti');
+    });
+    // I dati di base (conti) sono di chi ha `gestire_regole`: #16 non ha un permesso a parte.
+    Route::middleware('can:gestire_regole')->group(function () {
+        Route::get('/conti/nuovo', [ContiController::class, 'nuovo'])->name('conti.nuovo');
+        Route::post('/conti', [ContiController::class, 'crea'])->name('conti.crea');
+        Route::get('/conti/{conto}/modifica', [ContiController::class, 'modifica'])->name('conti.modifica');
+        Route::put('/conti/{conto}', [ContiController::class, 'salva'])->name('conti.salva');
+        Route::post('/conti/{conto}/chiusura', [ContiController::class, 'chiudi'])->name('conti.chiudi');
+    });
+    Route::middleware('can:inserire_movimenti_cassa,conto')->group(function () {
+        Route::get('/conti/{conto}/movimenti/nuovo', [MovimentiController::class, 'nuovo'])->name('movimenti.nuovo');
+        Route::post('/conti/{conto}/movimenti', [MovimentiController::class, 'crea'])->name('movimenti.crea');
+    });
+    Route::get('/movimenti/{movimento}/modifica', [MovimentiController::class, 'modifica'])->name('movimenti.modifica');
+    Route::put('/movimenti/{movimento}', [MovimentiController::class, 'salva'])->name('movimenti.salva');
+    Route::post('/movimenti/{movimento}/ritiro', [MovimentiController::class, 'ritira'])->name('movimenti.ritira');
+    Route::post('/movimenti/{movimento}/eliminazione', [MovimentiController::class, 'elimina'])
+        ->middleware('can:eliminare_movimento_manuale')->name('movimenti.elimina');
+    Route::get('/movimenti/{movimento}/storia', [MovimentiController::class, 'storia'])
+        ->middleware('can:vedere_storia_movimento')->withTrashed()->name('movimenti.storia');
+    Route::get('/registro', [RegistroController::class, 'index'])
+        ->middleware('can:vedere_registro_modifiche')->name('registro');
 
     // Gestione di utenti, ruoli e assegnazioni (#35). Le scritture sono azioni delicate (#36): `password.confirm`
     // (timeout in config/auth.php, un'ora) manda a /riautentica chi ha l'ultimo accesso più vecchio.

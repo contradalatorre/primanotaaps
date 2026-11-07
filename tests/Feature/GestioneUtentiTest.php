@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Assegnazione;
+use App\Models\Conto;
 use App\Models\Ruolo;
 use App\Models\User;
 use App\Permesso;
@@ -64,12 +65,14 @@ class GestioneUtentiTest extends TestCase
     {
         $admin = $this->amministratore();
         $this->utenteCon('Consigliere', ['scade_il' => '2027-03-31'], ['name' => 'Carla Neri']);
-        $this->utenteCon('Consigliere', ['conti' => [3, 4]], ['name' => 'Dario Gialli']);
+        $festa = Conto::factory()->create(['nome' => 'Cassa Festa']);
+        $carnevale = Conto::factory()->create(['nome' => 'Cassa Carnevale']);
+        $this->utenteCon('Consigliere', ['conti' => [$festa->id, $carnevale->id]], ['name' => 'Dario Gialli']);
 
         $this->actingAs($admin)->get('/utenti')->assertOk()
             ->assertSee('Anna Bianchi')->assertSee('Amministratore')
             ->assertSee('Carla Neri')->assertSee('31/03/2027')
-            ->assertSee('Dario Gialli')->assertSee('2 conti');
+            ->assertSee('Dario Gialli')->assertSee('Cassa Carnevale, Cassa Festa');
     }
 
     public function test_si_crea_un_ruolo_spuntando_permessi_dall_elenco_fisso(): void
@@ -336,7 +339,8 @@ class GestioneUtentiTest extends TestCase
     public function test_l_elenco_degli_autorizzati_ha_persone_ruoli_ambito_scadenze_e_nomine(): void
     {
         $this->travelTo('2026-11-06 10:00');
-        $this->utenteCon('Consigliere', ['scade_il' => '2027-03-31', 'conti' => [3]], ['name' => 'Carla Neri']);
+        $festa = Conto::factory()->create(['nome' => 'Cassa Festa']);
+        $this->utenteCon('Consigliere', ['scade_il' => '2027-03-31', 'conti' => [$festa->id]], ['name' => 'Carla Neri']);
         $this->utenteCon('Lettore esterno', ['scade_il' => '2027-01-15', 'nomina_firmata_il' => '2026-11-02'], ['name' => 'Paolo Verdi', 'esterno' => true]);
         $this->utenteCon('Tesoriere', ['scade_il' => '2026-10-01'], ['name' => 'Ugo Scaduti']);
 
@@ -345,7 +349,7 @@ class GestioneUtentiTest extends TestCase
         $this->assertStringContainsString('Elenco degli autorizzati', $html);
         $this->assertStringContainsString('6 novembre 2026', $html);
         $this->assertStringContainsString('Carla Neri', $html);
-        $this->assertStringContainsString('1 conto', $html);
+        $this->assertStringContainsString('Cassa Festa', $html);
         $this->assertStringContainsString('31/03/2027', $html);
         $this->assertStringContainsString('Paolo Verdi', $html);
         $this->assertStringContainsString('02/11/2026', $html);

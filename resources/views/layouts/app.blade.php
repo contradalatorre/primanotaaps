@@ -14,6 +14,22 @@
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg>
                 <span class="voce-testo">Home</span>
             </a>
+            @can('vedere')
+                <a href="{{ route('conti') }}" class="voce" @if (request()->routeIs('conti*')) aria-current="page" @endif>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7h18v12H3zM3 7l3-4h12l3 4M16 13h2"/></svg>
+                    <span class="voce-testo">Conti</span>
+                </a>
+                <a href="{{ route('movimenti') }}" class="voce" @if (request()->routeIs('movimenti*')) aria-current="page" @endif>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></svg>
+                    <span class="voce-testo">Movimenti</span>
+                </a>
+            @endcan
+            @can('vedere_registro_modifiche')
+                <a href="{{ route('registro') }}" class="voce" @if (request()->routeIs('registro*')) aria-current="page" @endif>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg>
+                    <span class="voce-testo">Registro</span>
+                </a>
+            @endcan
             @can('gestire_utenti')
                 <a href="{{ route('utenti') }}" class="voce" @if (request()->routeIs('utenti*')) aria-current="page" @endif>
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 20v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2M9.5 10a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM21 20v-2a4 4 0 00-3-3.9M16 3.1a3.5 3.5 0 010 6.8"/></svg>
@@ -47,7 +63,17 @@
                     <span>{{ $stabili === 1 ? 'C’è un solo Amministratore senza scadenza: se perde l’accesso' : 'Nessun Amministratore è senza scadenza: quando le loro assegnazioni scadranno' }} nessuno potrà più gestire utenti e ruoli. Assegna il ruolo, senza scadenza, a un’altra persona.</span>
                 </p>
             @endif
+            @php($senzaConti = \App\Models\User::senzaConti()->orderBy('name')->pluck('name'))
+            @if ($senzaConti->isNotEmpty())
+                <p class="avviso" role="status">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l10 18H2zM12 10v5M12 18h.01"/></svg>
+                    <span>Restano senza conti, perché i loro conti si sono chiusi, e possono solo leggere: {{ $senzaConti->join(', ') }}. Dalla pagina Utenti puoi dare loro un conto nuovo.</span>
+                </p>
+            @endif
         @endcan
+        @if (session('avviso'))
+            <p class="avviso" role="status">{{ session('avviso') }}</p>
+        @endif
         @if (session('ok'))
             <p class="avviso" role="status">{{ session('ok') }}</p>
         @endif

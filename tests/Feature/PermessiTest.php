@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\VerificaAccountGoogle;
+use App\Models\Conto;
 use App\Models\Ruolo;
 use App\Models\User;
 use App\Permesso;
@@ -39,6 +40,9 @@ class PermessiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        foreach ([7, 8] as $id) {
+            Conto::factory()->create(['id' => $id]);
+        }
 
         // Le funzioni che usano i permessi arrivano coi ticket successivi: intanto ogni permesso ha una rotta di prova
         // dietro lo stesso middleware delle rotte vere. Il conto, se c'è, è l'ambito.
@@ -169,6 +173,26 @@ class PermessiTest extends TestCase
     public function test_un_assegnazione_con_tutti_i_conti_vale_su_ogni_conto(): void
     {
         $this->actingAs($this->utenteCon('Consigliere'))->get('/prova/inserire_movimenti_cassa/99')->assertOk();
+    }
+
+    public function test_un_assegnazione_decaduta_resta_in_sola_lettura_anche_per_i_permessi_senza_ambito(): void
+    {
+        $tesoriere = $this->utenteCon('Tesoriere', ['conti' => []]);
+
+        $this->assertTrue($tesoriere->puo(Permesso::Vedere));
+        $this->assertTrue($tesoriere->puo(Permesso::Note));
+        foreach ([Permesso::GestireRegole, Permesso::EliminareMovimentoManuale, Permesso::ImportareEConfermare, Permesso::GestireEsercizio, Permesso::InserireMovimentiCassa] as $permesso) {
+            $this->assertFalse($tesoriere->puo($permesso), $permesso->value);
+        }
+    }
+
+    public function test_un_amministratore_limitato_a_un_conto_chiuso_non_gestisce_piu_e_non_conta(): void
+    {
+        $admin = $this->utenteCon('Amministratore', ['conti' => []]);
+
+        $this->assertFalse($admin->puo(Permesso::GestireUtenti));
+        $this->assertSame(0, User::amministratoriAttivi()->count());
+        $this->assertSame(0, User::amministratoriAttivi(true)->count());
     }
 
     public function test_un_assegnazione_rimasta_senza_conti_non_vale_su_nessuno(): void

@@ -40,6 +40,7 @@ class User extends Authenticatable
     public static function amministratoriAttivi(bool $senzaScadenza = false): Builder
     {
         return static::where('esterno', false)->whereHas('assegnazioniAttive', fn (Builder $a) => $a
+            ->conConti()
             ->when($senzaScadenza, fn (Builder $a) => $a->whereNull('scade_il'))
             ->whereHas('ruolo', fn (Builder $r) => $r->whereJsonContains('permessi', Permesso::GestireUtenti->value)));
     }
@@ -67,6 +68,16 @@ class User extends Authenticatable
         });
     }
 
+    /**
+     * Chi è rimasto senza conti: ha un'assegnazione attiva senza conti (i suoi conti si sono chiusi) e nessun'altra
+     * attiva che valga su qualche conto. Chi ne ha un'altra su tutti i conti scrive ancora, quindi non va avvisato.
+     */
+    public static function senzaConti(): Builder
+    {
+        return static::whereHas('assegnazioniAttive', fn (Builder $a) => $a->senzaConti())
+            ->whereDoesntHave('assegnazioniAttive', fn (Builder $a) => $a->conConti());
+    }
+
     public function assegnazioni(): HasMany
     {
         return $this->hasMany(Assegnazione::class);
@@ -80,6 +91,8 @@ class User extends Authenticatable
     /**
      * I permessi di tutte le assegnazioni attive si sommano. L'ambito limita solo i permessi che ne hanno uno
      * (`Permesso::haAmbito`) e solo se si chiede per un conto preciso; senza conto basta averlo su qualche conto.
+     * Un'assegnazione decaduta (limitata a conti ora chiusi, senza conti) dà solo i permessi di lettura
+     * (`Permesso::valePerEsterni`): se la persona non ha più conti resta in sola lettura (#16).
      * Un esterno non va mai oltre `Permesso::valePerEsterni`, qualunque ruolo gli si dia.
      */
     public function puo(Permesso $permesso, ?int $contoId = null): bool
@@ -96,7 +109,7 @@ class User extends Authenticatable
 
         return $this->loadMissing('assegnazioniAttive.ruolo')->assegnazioniAttive->contains(
             fn (Assegnazione $a) => $a->ruolo->haPermesso($permesso)
-                && (! $permesso->haAmbito() || $a->valeSuConto($contoId)),
+                && ($permesso->valePerEsterni() || $a->valeSuConto($permesso->haAmbito() ? $contoId : null)),
         );
     }
 }
