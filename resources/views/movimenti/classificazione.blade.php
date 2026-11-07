@@ -100,7 +100,9 @@
     </form>
 
     @can('importare_e_confermare')
-        @if ($movimento->stato === 'proposto')
+        @if ($movimento->stato === 'proposto' && session()->hasOldInput())
+            <p class="nota">Salva la classificazione prima di confermare: si conferma quella salvata, non quella che stai scrivendo.</p>
+        @elseif ($movimento->stato === 'proposto')
             <form method="POST" action="{{ route('movimenti.conferma', $movimento) }}" class="modulo-in-riga">
                 @csrf
                 <input type="hidden" name="versione" value="{{ \App\Classificazione::versione($movimento) }}">
