@@ -58,9 +58,27 @@ class Movimento extends Model
         return $this->belongsTo(User::class, 'proposto_da');
     }
 
+    /**
+     * Da dove viene la proposta in corso, o null se non ce n'è.
+     * shortcut: finora le proposte sono solo di persone; regole, storico e AI (#42, #43) avranno la loro fonte.
+     */
+    public function fonteProposta(): ?string
+    {
+        return $this->stato === 'proposto' && $this->proponente ? 'Proposta da '.$this->proponente->name : null;
+    }
+
     public function confermato(): bool
     {
         return $this->stato === 'confermato';
+    }
+
+    /**
+     * Si può confermare così com'è: ha imputazioni e ognuna ha la tipologia (gli altri controlli li rifà
+     * `Classificazione::conferma`). Legge le imputazioni: da caricare prima, in un elenco.
+     */
+    public function confermabile(): bool
+    {
+        return ! $this->confermato() && $this->imputazioni->isNotEmpty() && $this->imputazioni->every(fn (Imputazione $i) => $i->tipologia_id !== null);
     }
 
     /**

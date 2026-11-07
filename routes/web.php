@@ -9,6 +9,7 @@ use App\Http\Controllers\ImportEstrattiController;
 use App\Http\Controllers\MigrazioniController;
 use App\Http\Controllers\MovimentiController;
 use App\Http\Controllers\RegistroController;
+use App\Http\Controllers\RevisioneImportController;
 use App\Http\Controllers\RuoliController;
 use App\Http\Controllers\UtentiController;
 use App\Http\Middleware\VerificaAccountGoogle;
@@ -67,6 +68,8 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
         Route::get('/conti/{conto}/import', [ImportEstrattiController::class, 'index'])->name('import.indice');
         Route::post('/conti/{conto}/import', [ImportEstrattiController::class, 'carica'])->name('import.carica');
         Route::get('/import/{import}', [ImportEstrattiController::class, 'mostra'])->name('import.mostra');
+        // Revisione dei movimenti di un import (#41)
+        Route::get('/import/{import}/revisione', [RevisioneImportController::class, 'mostra'])->name('import.revisione');
         Route::post('/import/{import}/conferma', [ImportEstrattiController::class, 'conferma'])->name('import.conferma');
         Route::post('/import/{import}/scarto', [ImportEstrattiController::class, 'scarta'])->name('import.scarta');
         Route::post('/import/{import}/annullamento', [ImportEstrattiController::class, 'annulla'])->name('import.annulla');
