@@ -27,7 +27,7 @@
                 <p>{{ ($resta = $revisione->cosaResta()) ? 'Restano '.$resta.'.' : 'Tutti i movimenti sono confermati.' }}</p>
             </div>
             @if ($pronte > 0)
-                <form method="POST" action="{{ route('import.conferme', $import) }}">
+                <form method="POST" action="{{ route('import.revisione.conferma', $import) }}">
                     @csrf
                     @foreach ($versioniDi($pronteDaConfermare) as $id => $versione)<input type="hidden" name="movimenti[{{ $id }}]" value="{{ $versione }}">@endforeach
                     <button type="submit" class="bottone">Conferma {{ $pronte }} {{ $pronte === 1 ? 'proposta pronta' : 'proposte pronte' }}</button>
@@ -88,7 +88,7 @@
 
                 @if ($movimenti->isNotEmpty() && $passo !== 'giroconti')
                     {{-- Le caselle delle righe puntano a questo modulo (`form="selezione"`): i moduli non si annidano. --}}
-                    <form method="POST" action="{{ route('import.conferme', $import) }}" id="selezione" class="selezione" data-selezione>
+                    <form method="POST" action="{{ route('import.revisione.conferma', $import) }}" id="selezione" class="selezione" data-selezione>
                         @csrf
                         <input type="hidden" name="passo" value="{{ $passo }}">
                         <span class="nota" role="status" data-selezionati>Seleziona i movimenti con le caselle per agire su più insieme.</span>
@@ -99,7 +99,7 @@
                                 @foreach ($iniziative as $iniziativa)<option value="{{ $iniziativa->id }}">{{ $iniziativa->nome }}</option>@endforeach
                             </select>
                         </label>
-                        <button type="submit" formaction="{{ route('import.iniziativa', $import) }}" class="bottone-piccolo" data-su-selezionati>Imposta l’iniziativa</button>
+                        <button type="submit" formaction="{{ route('import.revisione.iniziativa', $import) }}" class="bottone-piccolo" data-su-selezionati>Imposta l’iniziativa</button>
                         <button type="submit" class="bottone-piccolo" data-su-selezionati>Conferma i selezionati</button>
                     </form>
                 @endif
@@ -119,7 +119,7 @@
                                 <span class="nota">{{ $gruppo->count() }} {{ $gruppo->count() === 1 ? 'movimento' : 'movimenti' }} · {{ $gruppo->map->fonteProposta()->unique()->join(', ') }}</span>
                             </div>
                             <strong class="importo">{{ ($somma = $gruppo->sum(fn ($m) => $m->verso === 'uscita' ? -$m->importo : $m->importo)) < 0 ? '−' : '+' }}{{ $euro(abs($somma)) }}</strong>
-                            <form method="POST" action="{{ route('import.conferme', $import) }}">
+                            <form method="POST" action="{{ route('import.revisione.conferma', $import) }}">
                                 @csrf
                                 <input type="hidden" name="passo" value="pronte">
                                 @foreach ($versioniDi($gruppo) as $id => $versione)<input type="hidden" name="movimenti[{{ $id }}]" value="{{ $versione }}">@endforeach

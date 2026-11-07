@@ -150,6 +150,7 @@ class RevisioneImportTest extends TestCase
 
         // la pagina offre i pulsanti: del gruppo, e delle proposte pronte
         $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione?passo=pronte")
+            ->assertSee('id="selezione"', false)->assertSee('form="selezione"', false) // le caselle dei selezionati puntano al loro modulo
             ->assertSeeText('Conferma il gruppo')->assertSee('<span class="testo-conferma"></span>', false) // la ✓ della riga non prende il nome del gruppo
             ->assertSeeText('Utenze · Carnevale')->assertSeeText('Materiali e beni di consumo · Carnevale');
 

@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Models\Conto;
 use App\Models\ImportEstratto;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
@@ -156,6 +157,10 @@ final class Revisione
         abort_if($movimenti->count() !== count($versioni), 404);
 
         DB::transaction(function () use ($movimenti, $versioni, $azione) {
+            // Stesso ordine di conferma e annullamento dell'import: prima il conto, poi l'import, poi i movimenti.
+            // Un import annullato nel frattempo non si rivede: i suoi movimenti sono usciti.
+            Conto::lockForUpdate()->findOrFail($this->import->conto_id);
+            abort_unless(ImportEstratto::lockForUpdate()->findOrFail($this->import->id)->stato === 'confermato', 404);
             foreach ($movimenti as $movimento) {
                 try {
                     $azione($movimento, $versioni[$movimento->id]);

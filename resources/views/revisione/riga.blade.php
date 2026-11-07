@@ -22,5 +22,5 @@
         @if ($voci)<span class="nota">{{ $voci }}</span>@endif
     </span>
     <span class="riga-stato">@include('revisione.pill')</span>
-    <span class="riga-azione">@include('revisione.conferma', ['dove' => 'riga', 'dopo' => $dopo, 'etichetta' => ''])</span>
+    <div class="riga-azione">@include('revisione.conferma', ['dove' => 'riga', 'dopo' => $dopo, 'etichetta' => ''])</div>
 </li>

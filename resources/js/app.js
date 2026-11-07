@@ -48,7 +48,8 @@ if (revisione) {
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, select, textarea, button, a, summary, [contenteditable]')) return;
         const azione = { j: '[data-successivo]', k: '[data-precedente]', Escape: '[data-chiudi]', Enter: '.dettaglio [data-conferma]' }[e.key];
-        const elemento = azione && document.querySelector(azione);
+        // Senza dettaglio aperto, J apre il primo movimento dell'elenco.
+        const elemento = azione && (document.querySelector(azione) ?? (e.key === 'j' && !document.querySelector('.dettaglio') ? document.querySelector('.riga-desc a') : null));
         if (elemento) {
             e.preventDefault();
             elemento.click();

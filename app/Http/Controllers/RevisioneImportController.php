@@ -18,7 +18,7 @@ class RevisioneImportController extends Controller
     public function mostra(Request $request, ImportEstratto $import)
     {
         $revisione = $this->revisione($import);
-        $passo = array_key_exists($request->query('passo', ''), Revisione::PASSI) ? $request->query('passo') : $revisione->passoIniziale();
+        $passo = array_key_exists((string) $request->string('passo'), Revisione::PASSI) ? $request->query('passo') : $revisione->passoIniziale();
 
         return view('revisione.mostra', [
             'revisione' => $revisione, 'import' => $import, 'passo' => $passo, 'movimenti' => $revisione->passo($passo),
@@ -59,7 +59,7 @@ class RevisioneImportController extends Controller
     private function valida(Request $request): array
     {
         return $request->validate([
-            'movimenti' => ['required', 'array', 'min:1', 'max:500'],
+            'movimenti' => ['required', 'array', 'min:1', 'max:2000'],
             'movimenti.*' => ['string', 'size:64'],
             'passo' => ['nullable', Rule::in(array_keys(Revisione::PASSI))],
             'dopo' => ['nullable', 'integer'],

@@ -3,7 +3,7 @@
 @if ($movimento->confermato())
     @include('revisione.icona', ['nome' => 'ok'])
 @elseif ($movimento->confermabile())
-    <form method="POST" action="{{ route('import.conferme', $import) }}" class="conferma">
+    <form method="POST" action="{{ route('import.revisione.conferma', $import) }}" class="conferma">
         @csrf
         <input type="hidden" name="passo" value="{{ $passo }}">
         @if ($dopo)<input type="hidden" name="dopo" value="{{ $dopo->id }}">@endif
