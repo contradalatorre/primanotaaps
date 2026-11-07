@@ -183,7 +183,7 @@ T],
 T],
 
             ['Spese generali e La Casa', <<<'T'
-Le spese che servono a tutta l'associazione e non a una sola iniziativa vanno in **area E**: materiale di consumo, servizi internet, assicurazioni, spese di rappresentanza, imposte e bolli. Il motivo: nel test dell'art. 79 c. 2-bis contano per l'area A solo in quota, in proporzione ai ricavi (Circolare 1/E § 2.2.1). È un'ipotesi prudente. Sul 2025 porta i costi dell'area A da circa 43.900 a circa 41.200 euro; gli altri test non cambiano. **Da confermare con il commercialista.**
+Le spese che servono a tutta l'associazione e non a una sola iniziativa vanno in **area E**: materiale di consumo, servizi internet, assicurazioni, spese di rappresentanza, imposte e bolli. Il motivo: nel test dell'art. 79 c. 2-bis contano per l'area A solo in quota, in proporzione ai ricavi (Circolare 1/E § 2.2.1). È un'ipotesi prudente. Sui conti del 2025 abbassa un poco i costi dell'area A; gli altri test non cambiano. **Da confermare con il commercialista.**
 
 **La Casa** è un'iniziativa trattata come progetto, senza attività: le sue spese (materiale, utenze, servizi, affitto, imposte) vanno in area E.
 

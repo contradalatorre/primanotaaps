@@ -3,7 +3,7 @@
         'aperto_il' => 'Aperto il', 'chiuso_il' => 'Chiuso il', 'saldo_iniziale' => 'Saldo di partenza', 'conto_id' => 'Conto',
         'data' => 'Data', 'importo' => 'Importo', 'verso' => 'Verso', 'descrizione' => 'Descrizione',
         'valuta_originale' => 'Valuta originale', 'stato' => 'Stato', 'area' => 'Area',
-        'spiegazione' => 'Spiegazione', 'proprieta' => 'Proprietà fiscali', 'archiviata_il' => 'Archiviata il', 'predefiniti' => 'Area e attività predefinite',
+        'spiegazione' => 'Spiegazione', 'codice' => 'Sezione', 'titolo' => 'Titolo', 'corpo' => 'Testo', 'proprieta' => 'Proprietà fiscali', 'archiviata_il' => 'Archiviata il', 'predefiniti' => 'Area e attività predefinite',
         'imputazioni' => 'Imputazioni', 'tipo_controparte' => 'La controparte è', 'giustificativi' => 'Giustificativi',
         'saldo_finale' => 'Saldo finale', 'righe' => 'Righe',
         'periodo_dal' => 'Dal', 'periodo_al' => 'Al', 'nuovi' => 'Nuovi', 'gia_presenti' => 'Già presenti', 'in_conflitto' => 'In conflitto'];
@@ -14,12 +14,11 @@
     $azioni = ['inserito' => 'ha inserito', 'modificato' => 'ha modificato', 'ritirato' => 'ha ritirato', 'eliminato' => 'ha eliminato', 'creato' => 'ha creato', 'chiuso' => 'ha chiuso',
         'archiviato' => 'ha archiviato', 'ripristinato' => 'ha ripristinato', 'classificato' => 'ha classificato', 'confermato' => 'ha confermato',
         'importato' => 'ha importato', 'annullato' => 'ha annullato', 'conflitto_deciso' => 'ha deciso un conflitto di'];
-    $oggetti = ['conto' => 'il conto', 'movimento' => 'il movimento', 'tipologia' => 'la tipologia', 'attivita' => 'l’attività', 'iniziativa' => 'l’iniziativa', 'tag' => 'il tag', 'import' => 'l’import'];
+    $oggetti = ['conto' => 'il conto', 'movimento' => 'il movimento', 'tipologia' => 'la tipologia', 'attivita' => 'l’attività', 'iniziativa' => 'l’iniziativa', 'tag' => 'il tag', 'import' => 'l’import', 'manuale' => 'la sezione del manuale'];
 @endphp
 <li class="scheda">
     <p>
-        <strong>{{ $riga->user->name }}</strong> {{ $azioni[$riga->azione] ?? $riga->azione }}
-        {{ $oggetti[$riga->oggetto_tipo] ?? 'il movimento' }} n. {{ $riga->oggetto_id }}
+        <strong>{{ $riga->user->name }}</strong> {{ $azioni[$riga->azione] ?? $riga->azione }} {{ $oggetti[$riga->oggetto_tipo] ?? 'il movimento' }} n. {{ $riga->oggetto_id }}
         <span class="nota">· {{ $riga->created_at->format('d/m/Y H:i') }}</span>
     </p>
     @if ($riga->motivazione) <p>Motivazione: {{ $riga->motivazione }}</p> @endif

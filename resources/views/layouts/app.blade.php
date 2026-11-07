@@ -27,6 +27,10 @@
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12l9-9h9v9l-9 9zM16 8h.01"/></svg>
                     <span class="voce-testo">Classificazione</span>
                 </a>
+                <a href="{{ route('manuale') }}" class="voce" @if (request()->routeIs('manuale*')) aria-current="page" @endif>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h7a3 3 0 013 3v13a2 2 0 00-2-2H4zM20 4h-6M20 4v14h-6"/></svg>
+                    <span class="voce-testo">Manuale</span>
+                </a>
             @endcan
             @can('vedere_registro_modifiche')
                 <a href="{{ route('registro') }}" class="voce" @if (request()->routeIs('registro*')) aria-current="page" @endif>

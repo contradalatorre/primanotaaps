@@ -37,7 +37,7 @@
                     @if ($tipologia->archiviata()) <span class="etichetta">archiviata</span> @endif
                     @foreach ($tipologia->proprieta as $proprieta) <span class="etichetta">{{ \App\Models\Tipologia::PROPRIETA[$proprieta] ?? $proprieta }}</span> @endforeach
                 </div>
-                <p>{{ $tipologia->spiegazione }}</p>
+                <p>{{ $tipologia->spiegazione }} <a href="{{ route('manuale') }}#tipologia-{{ $tipologia->id }}">Nel manuale</a></p>
                 <p class="nota">
                     Voce Modello D {{ $esercizio }}:
                     {{ ($voci[$tipologia->id] ?? collect())->sortBy('area')->map(fn ($v) => "area $v->area → $v->voce")->join(' · ') ?: 'nessuna: la tipologia si potrà usare quando la tabella delle voci avrà una riga per lei (vedi riclassificazione in blocco)' }}

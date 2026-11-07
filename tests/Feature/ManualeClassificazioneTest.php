@@ -87,7 +87,8 @@ class ManualeClassificazioneTest extends TestCase
         $sezione = ManualeSezione::orderBy('id')->firstOrFail();
         $sezione->update(['corpo' => "Un **grassetto** e <script>alert('x')</script> e [un link](javascript:alert(1)).\n\n- primo\n- secondo"]);
 
-        $this->actingAs($this->utenteCon('Tesoriere'))->get('/manuale')->assertOk()
+        // Un lettore: chi può modificare ha il testo grezzo nel campo di modifica.
+        $this->actingAs($this->utenteCon('Lettore esterno'))->get('/manuale')->assertOk()
             ->assertSee('<strong>grassetto</strong>', false)->assertSee('<li>primo</li>', false)
             ->assertDontSee('<script>', false)->assertDontSee('javascript:', false);
     }
