@@ -200,6 +200,56 @@
         @apply flex flex-col gap-2 rounded border-2 border-nero p-3;
     }
 
+    /* Elenchi a schede e non a tabella: da 360 px non devono scorrere in orizzontale. */
+    .schede {
+        @apply flex flex-col gap-3;
+    }
+
+    .scheda {
+        @apply flex flex-col gap-2 rounded border-2 border-nero p-3;
+    }
+
+    .scheda-testa {
+        @apply flex flex-wrap items-baseline gap-2;
+    }
+
+    .importo {
+        @apply text-lg;
+    }
+
+    .dati {
+        @apply flex flex-col gap-1 text-sm;
+    }
+
+    .dati div {
+        @apply flex flex-wrap gap-x-2;
+    }
+
+    .dati dt {
+        @apply font-semibold;
+    }
+
+    .scheda p,
+    .dati dd {
+        @apply break-words;
+        overflow-wrap: anywhere;
+    }
+
+    .azioni {
+        @apply flex flex-wrap items-center gap-3;
+    }
+
+    .modulo-stretto,
+    .modulo-stretto label,
+    .modulo-stretto input[type='text'],
+    .modulo-stretto input[type='date'] {
+        @apply w-full max-w-md;
+    }
+
+    .modulo-stretto .spunta {
+        @apply w-auto;
+    }
+
     .elenco-ruoli li {
         @apply flex items-baseline gap-3 border-b border-neutral-300 py-2;
     }

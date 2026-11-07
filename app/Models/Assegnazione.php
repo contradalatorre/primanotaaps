@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\DB;
 
 #[Fillable(['user_id', 'ruolo_id', 'tutti_i_conti', 'scade_il', 'nomina_firmata_il'])]
@@ -34,15 +35,30 @@ class Assegnazione extends Model
         $query->where(fn (Builder $q) => $q->whereNull('scade_il')->orWhere('scade_il', '>=', today()));
     }
 
-    /** L'ambito come testo per le liste; l'elenco dei nomi dei conti arriva con i conti (#38). */
+    public function conti(): BelongsToMany
+    {
+        return $this->belongsToMany(Conto::class, 'assegnazione_conto');
+    }
+
+    /**
+     * Le assegnazioni che non valgono su nessun conto: erano limitate ai conti scelti e quei conti si sono chiusi.
+     * Restano inerti (sola lettura), non diventano «tutti i conti».
+     */
+    public function scopeSenzaConti(Builder $query): void
+    {
+        $query->where('tutti_i_conti', false)->whereNotExists(
+            fn ($q) => $q->from('assegnazione_conto')->whereColumn('assegnazione_conto.assegnazione_id', 'assegnazioni.id'),
+        );
+    }
+
+    /** L'ambito come testo per le liste e per l'elenco degli autorizzati. */
     public function descrizioneAmbito(): string
     {
         if ($this->tutti_i_conti) {
             return 'Tutti i conti';
         }
-        $n = DB::table('assegnazione_conto')->where('assegnazione_id', $this->id)->count();
 
-        return $n === 1 ? '1 conto' : $n.' conti';
+        return $this->conti->pluck('nome')->sort()->join(', ') ?: 'Senza conti: sola lettura';
     }
 
     /** Su un conto preciso, o (senza conto) su almeno uno: un'assegnazione rimasta senza conti non vale su niente. */

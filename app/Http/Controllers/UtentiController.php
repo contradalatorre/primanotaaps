@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Assegnazione;
+use App\Models\Conto;
 use App\Models\Ruolo;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -11,6 +12,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Validation\Rule;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
 
@@ -20,8 +22,9 @@ class UtentiController extends Controller
     public function index()
     {
         return view('utenti', [
-            'utenti' => User::where('emergenza', false)->with('assegnazioni.ruolo')->orderBy('esterno')->orderBy('name')->get(),
+            'utenti' => User::where('emergenza', false)->with('assegnazioni.ruolo', 'assegnazioni.conti')->orderBy('esterno')->orderBy('name')->get(),
             'ruoli' => Ruolo::orderBy('nome')->get(),
+            'conti' => Conto::aperti()->orderBy('nome')->get(),
         ]);
     }
 
@@ -34,13 +37,18 @@ class UtentiController extends Controller
             // La scadenza è facoltativa per chi è dell'associazione, obbligatoria per un esterno.
             'scade_il' => [$utente->esterno ? 'required' : 'nullable', 'date', 'after_or_equal:today'],
             'nomina_firmata_il' => ['nullable', 'date'],
+            // L'ambito (glossario): nessun conto scelto vale su tutti; un conto chiuso non si sceglie.
+            'conti' => ['nullable', 'array'],
+            'conti.*' => ['integer', Rule::exists('conti', 'id')->whereNull('chiuso_il')],
         ]);
 
-        $utente->assegnazioni()->create([
+        $assegnazione = $utente->assegnazioni()->create([
             'ruolo_id' => $dati['ruolo_id'],
+            'tutti_i_conti' => empty($dati['conti']),
             'scade_il' => $dati['scade_il'] ?? null,
             'nomina_firmata_il' => $utente->esterno ? ($dati['nomina_firmata_il'] ?? null) : null,
         ]);
+        $assegnazione->conti()->sync($dati['conti'] ?? []);
 
         return $this->fatto('Assegnazione aggiunta.');
     }
@@ -80,7 +88,7 @@ class UtentiController extends Controller
     {
         $data = now();
         $html = view('autorizzati', [
-            'assegnazioni' => Assegnazione::attive()->with('user', 'ruolo')->get()->sortBy(fn ($a) => mb_strtolower($a->user->name)),
+            'assegnazioni' => Assegnazione::attive()->with('user', 'ruolo', 'conti')->get()->sortBy(fn ($a) => mb_strtolower($a->user->name)),
             'data' => $data,
         ])->render();
 

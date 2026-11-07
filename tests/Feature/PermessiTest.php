@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\VerificaAccountGoogle;
+use App\Models\Conto;
 use App\Models\Ruolo;
 use App\Models\User;
 use App\Permesso;
@@ -39,6 +40,9 @@ class PermessiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        foreach ([7, 8] as $id) {
+            Conto::factory()->create(['id' => $id]);
+        }
 
         // Le funzioni che usano i permessi arrivano coi ticket successivi: intanto ogni permesso ha una rotta di prova
         // dietro lo stesso middleware delle rotte vere. Il conto, se c'è, è l'ambito.

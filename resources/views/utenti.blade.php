@@ -54,6 +54,15 @@
                                 @if ($utente->esterno)
                                     <label>Nomina firmata il <input type="date" name="nomina_firmata_il"></label>
                                 @endif
+                                @unless ($utente->esterno || $conti->isEmpty())
+                                    <fieldset>
+                                        <legend>Scrive sui conti</legend>
+                                        @foreach ($conti as $conto)
+                                            <label class="spunta"><input type="checkbox" name="conti[]" value="{{ $conto->id }}"> <span>{{ $conto->nome }}</span></label>
+                                        @endforeach
+                                        <span class="nota">Nessuno spuntato: vale su tutti i conti. L’ambito limita la scrittura, non la lettura.</span>
+                                    </fieldset>
+                                @endunless
                                 <button type="submit" class="bottone">Assegna</button>
                             </form>
                         </td>

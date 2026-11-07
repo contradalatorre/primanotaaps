@@ -33,7 +33,7 @@ enum Permesso: string
             self::ProporreClassificazioni => 'Proporre classificazioni',
             self::ImportareEConfermare => 'Importare estratti, confermare, classificare, abbinare giroconti',
             self::EliminareMovimentoManuale => 'Eliminare un movimento manuale, con motivazione',
-            self::GestireRegole => 'Gestire regole, manuale, tipologie, iniziative, preventivi',
+            self::GestireRegole => 'Gestire regole, manuale, tipologie, iniziative, preventivi, conti',
             self::ChiedereSuggerimentiAi => 'Chiedere suggerimenti all’AI',
             self::RiclassificareInBlocco => 'Riclassificare in blocco, modificare la tabella delle voci',
             self::GestireEsercizio => 'Dati dell’esercizio, approvazione, deposito',
