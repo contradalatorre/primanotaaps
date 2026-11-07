@@ -13,6 +13,7 @@ use App\Models\Tag;
 use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -500,6 +501,40 @@ class ClassificazioneMovimentiTest extends TestCase
         $this->post("/movimenti/{$altrui->id}/giustificativi", ['riferimento' => 'Scontrino'])->assertForbidden();
         $this->delete('/giustificativi/'.$suo->giustificativi()->sole()->id)->assertRedirect();
         $this->assertSame(0, $suo->giustificativi()->count());
+    }
+
+    /** Il Tesoriere conferma tra il controllo dei permessi e il blocco della riga: l'autore non deve più poter scrivere. */
+    private function confermaNelMentre(Movimento $movimento): void
+    {
+        $tesoriere = $this->utenteCon('Tesoriere');
+        DB::beforeStartingTransaction(fn () => Movimento::whereKey($movimento->id)->update(['stato' => 'confermato', 'confermato_da' => $tesoriere->id]));
+    }
+
+    public function test_se_nel_frattempo_il_movimento_e_confermato_l_autore_non_salva_la_classificazione(): void
+    {
+        $consigliere = $this->utenteCon('Consigliere');
+        $movimento = $this->movimento([], $consigliere);
+        $this->actingAs($consigliere);
+        $this->confermaNelMentre($movimento);
+
+        $this->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E']]])->assertForbidden();
+
+        $this->assertSame(0, $movimento->imputazioni()->count());
+        $this->assertNotSame($consigliere->id, $movimento->refresh()->confermato_da);
+    }
+
+    public function test_se_nel_frattempo_il_movimento_e_confermato_l_autore_non_tocca_i_giustificativi(): void
+    {
+        $consigliere = $this->utenteCon('Consigliere');
+        $movimento = $this->movimento([], $consigliere);
+        $giustificativo = $movimento->giustificativi()->create(['riferimento' => 'Scontrino']);
+        $this->actingAs($consigliere);
+        $this->confermaNelMentre($movimento);
+
+        $this->post("/movimenti/{$movimento->id}/giustificativi", ['riferimento' => 'Altro'])->assertForbidden();
+        $this->delete("/giustificativi/{$giustificativo->id}")->assertForbidden();
+
+        $this->assertSame(['Scontrino'], $movimento->giustificativi()->pluck('riferimento')->all());
     }
 
     public function test_la_pagina_di_classificazione_mostra_la_spiegazione_delle_tipologie_e_le_imputazioni_salvate(): void

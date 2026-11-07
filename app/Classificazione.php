@@ -37,8 +37,7 @@ final class Classificazione
         $imputazioni = self::risolvi($movimento, $righe);
 
         DB::transaction(function () use ($utente, $movimento, $tipoControparte, $imputazioni) {
-            self::blocca($movimento);
-            $movimento->refresh();
+            self::bloccaEControlla($utente, $movimento);
             $prima = $movimento->istantanea();
             $firmaPrima = self::firma($movimento->imputazioni()->orderBy('id')->get()->map->only(self::CAMPI_DELLA_CLASSIFICAZIONE));
             $movimento->imputazioni()->delete(); // le righe dei tag seguono con la chiave esterna
@@ -133,6 +132,17 @@ final class Classificazione
     private static function blocca(Movimento $movimento): void
     {
         Movimento::whereKey($movimento->id)->lockForUpdate()->first();
+    }
+
+    /**
+     * Da chiamare a inizio transazione prima di scrivere: blocca la riga, la rilegge e rifà il controllo di chi può
+     * (il Tesoriere può aver confermato dopo il controllo del controllore: l'autore non scrive più).
+     */
+    public static function bloccaEControlla(User $utente, Movimento $movimento): void
+    {
+        self::blocca($movimento);
+        $movimento->refresh();
+        abort_unless($movimento->classificabileDa($utente), 403);
     }
 
     /**

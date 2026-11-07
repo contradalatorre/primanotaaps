@@ -105,6 +105,7 @@ class ClassificazioneController extends Controller
     private function conRegistro(Request $request, Movimento $movimento, \Closure $modifica): void
     {
         DB::transaction(function () use ($request, $movimento, $modifica) {
+            Classificazione::bloccaEControlla($request->user(), $movimento);
             $prima = $movimento->istantanea();
             $modifica();
             RegistroModifica::registra($request->user(), $movimento, 'modificato', $prima, $movimento->istantanea());
