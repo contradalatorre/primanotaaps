@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccessoController;
 use App\Http\Controllers\ContiController;
+use App\Http\Controllers\DatiDiClassificazioneController;
 use App\Http\Controllers\EmergenzaController;
 use App\Http\Controllers\MigrazioniController;
 use App\Http\Controllers\MovimentiController;
@@ -37,6 +38,7 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
     Route::middleware('can:vedere')->group(function () {
         Route::get('/conti', [ContiController::class, 'index'])->name('conti');
         Route::get('/movimenti', [MovimentiController::class, 'index'])->name('movimenti');
+        Route::get('/classificazione', [DatiDiClassificazioneController::class, 'index'])->name('classificazione');
     });
     // I dati di base (conti) sono di chi ha `gestire_regole`: #16 non ha un permesso a parte.
     Route::middleware('can:gestire_regole')->group(function () {
@@ -45,6 +47,13 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
         Route::get('/conti/{conto}/modifica', [ContiController::class, 'modifica'])->name('conti.modifica');
         Route::put('/conti/{conto}', [ContiController::class, 'salva'])->name('conti.salva');
         Route::post('/conti/{conto}/chiusura', [ContiController::class, 'chiudi'])->name('conti.chiudi');
+    });
+    // Tipologie, attività, iniziative e tag (#39): anche questi sono dati di base, quindi `gestire_regole`.
+    Route::middleware('can:gestire_regole')->where(['tipo' => 'tipologie|attivita|iniziative|tag', 'id' => '[0-9]+'])->group(function () {
+        Route::post('/classificazione/{tipo}', [DatiDiClassificazioneController::class, 'crea'])->name('classificazione.crea');
+        Route::put('/classificazione/{tipo}/{id}', [DatiDiClassificazioneController::class, 'salva'])->name('classificazione.salva');
+        Route::post('/classificazione/{tipo}/{id}/archiviazione', [DatiDiClassificazioneController::class, 'archivia'])->name('classificazione.archivia');
+        Route::delete('/classificazione/{tipo}/{id}', [DatiDiClassificazioneController::class, 'elimina'])->name('classificazione.elimina');
     });
     Route::middleware('can:inserire_movimenti_cassa,conto')->group(function () {
         Route::get('/conti/{conto}/movimenti/nuovo', [MovimentiController::class, 'nuovo'])->name('movimenti.nuovo');

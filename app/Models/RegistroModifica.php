@@ -41,6 +41,10 @@ class RegistroModifica extends Model
             'oggetto_tipo' => match (true) {
                 $oggetto instanceof Conto => 'conto',
                 $oggetto instanceof Movimento => 'movimento',
+                $oggetto instanceof Tipologia => 'tipologia',
+                $oggetto instanceof Attivita => 'attivita',
+                $oggetto instanceof Iniziativa => 'iniziativa',
+                $oggetto instanceof Tag => 'tag',
                 default => throw new LogicException('Oggetto non previsto nel registro: '.$oggetto::class),
             },
             'oggetto_id' => $oggetto->getKey(),

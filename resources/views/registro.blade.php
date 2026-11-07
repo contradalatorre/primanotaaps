@@ -12,6 +12,9 @@
                 <option value="">Tutti</option>
                 <option value="movimento" @selected($oggetto === 'movimento')>Movimenti</option>
                 <option value="conto" @selected($oggetto === 'conto')>Conti</option>
+                @foreach (['tipologia' => 'Tipologie', 'attivita' => 'Attività', 'iniziativa' => 'Iniziative', 'tag' => 'Tag'] as $valore => $etichetta)
+                    <option value="{{ $valore }}" @selected($oggetto === $valore)>{{ $etichetta }}</option>
+                @endforeach
             </select>
         </label>
         <label>Persona

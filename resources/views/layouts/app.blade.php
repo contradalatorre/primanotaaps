@@ -23,6 +23,10 @@
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></svg>
                     <span class="voce-testo">Movimenti</span>
                 </a>
+                <a href="{{ route('classificazione') }}" class="voce" @if (request()->routeIs('classificazione*')) aria-current="page" @endif>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12l9-9h9v9l-9 9zM16 8h.01"/></svg>
+                    <span class="voce-testo">Classificazione</span>
+                </a>
             @endcan
             @can('vedere_registro_modifiche')
                 <a href="{{ route('registro') }}" class="voce" @if (request()->routeIs('registro*')) aria-current="page" @endif>

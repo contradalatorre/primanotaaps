@@ -25,5 +25,12 @@ trait Archiviabile
         return $this->archiviata_il !== null;
     }
 
+    /** I campi che il registro delle modifiche conserva prima e dopo ogni cambiamento. */
+    public function istantanea(): array
+    {
+        return collect($this->attributesToArray())->only(['nome', 'area', 'verso', 'spiegazione', 'proprieta', 'archiviata_il'])
+            ->map(fn ($valore) => is_array($valore) ? implode(', ', $valore) : $valore)->all();
+    }
+
     abstract public function usata(): bool;
 }

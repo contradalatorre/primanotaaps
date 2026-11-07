@@ -26,6 +26,15 @@ class Iniziativa extends Model
         return $this->predefiniti->firstWhere('esercizio', $esercizio);
     }
 
+    /** Nel registro anche area e attività predefinite, un esercizio per riga. */
+    public function istantanea(): array
+    {
+        $predefiniti = $this->predefiniti()->with('attivita')->orderBy('esercizio')->get()
+            ->map(fn ($p) => "$p->esercizio: ".$p->area->value.($p->attivita ? ' · '.$p->attivita->nome : ''))->join('; ');
+
+        return ['nome' => $this->nome, 'predefiniti' => $predefiniti ?: null, 'archiviata_il' => $this->archiviata_il?->toIso8601String()];
+    }
+
     public function usata(): bool
     {
         return Imputazione::where('iniziativa_id', $this->id)->exists();
