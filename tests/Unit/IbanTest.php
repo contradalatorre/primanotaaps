@@ -26,6 +26,8 @@ class IbanTest extends TestCase
         yield 'coda 6BIC' => ['IT 12 6BIC 1234', 'IT 12 6BIC 1234'];
         yield 'IBAN a gruppi e poi 6BIC' => ['IT60 X054 2811 1010 0000 0123 456 6BIC', str_repeat('*', 23).'3456 6BIC'];
         yield 'parola in maiuscolo con cifre' => ['PAGAMENTO FATTURA AB12CD34EF56GH78', 'PAGAMENTO FATTURA AB12CD34EF56GH78'];
+        yield 'gruppi in testa: un riferimento a gruppi' => ['RIF AB12 IT60 X054 2811 1010 0000 0123 456', 'RIF AB12 '.str_repeat('*', 23).'3456'];
+        yield 'gruppi in testa: un numero e poi un IBAN compatto' => ['FT26 3456 IT60X0542811101000000123456', 'FT26 3456 '.str_repeat('*', 23).'3456'];
         yield 'IBAN con un errore di cifra non è un IBAN' => ['IT60X0542811101000000123457', 'IT60X0542811101000000123457'];
     }
 

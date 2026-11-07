@@ -10,6 +10,7 @@ use App\Models\RegistroModifica;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -426,6 +427,26 @@ class ImportCreditAgricoleTest extends TestCase
         $this->assertSame(6, Movimento::count());
         $this->assertNull($secondo->refresh()->decisione);
         $this->post("/import/conflitti/{$secondo->id}/decisione", ['decisione' => 'tieni_esistente'])->assertSessionHasNoErrors();
+    }
+
+    public function test_la_decisione_controlla_la_riga_gia_entrata_con_una_lettura_con_lock(): void
+    {
+        // Su MySQL (REPEATABLE READ) una lettura senza lock vede la fotografia della transazione e non il movimento
+        // appena inserito da una decisione concorrente: qui la fotografia non si può riprodurre (il test gira già
+        // dentro una transazione), quindi si controlla che la lettura sia con lock, cioè corrente.
+        $this->importa($this->fixture());
+        $variante = str_replace('15/04/2026;14/04/2026;COMMISSIONI', '15/04/2026;15/04/2026;COMMISSIONI', $this->fixture());
+        $this->importa($variante);
+        $conflitto = ImportConflitto::firstOrFail();
+
+        DB::enableQueryLog();
+        $this->post("/import/conflitti/{$conflitto->id}/decisione", ['decisione' => 'importa_a_parte'])->assertSessionHasNoErrors();
+
+        $controlli = array_filter(DB::getQueryLog(), fn ($q) => str_contains($q['query'], 'from `movimenti`') && str_contains($q['query'], '`chiave`'));
+        $this->assertNotEmpty($controlli);
+        foreach ($controlli as $q) {
+            $this->assertStringContainsString('for update', $q['query']);
+        }
     }
 
     public function test_chi_non_ha_il_permesso_di_importare_non_carica_il_file(): void
