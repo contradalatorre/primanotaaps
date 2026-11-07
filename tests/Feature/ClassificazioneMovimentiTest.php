@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Classificazione;
 use App\Models\Attivita;
 use App\Models\Conto;
 use App\Models\Imputazione;
@@ -12,6 +13,7 @@ use App\Models\Tag;
 use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /** Imputazioni, voce Modello D che ne risulta, controparte e conferma manuale di un movimento. */
@@ -41,6 +43,12 @@ class ClassificazioneMovimentiTest extends TestCase
     private function iniziativa(string $nome): int
     {
         return Iniziativa::where('nome', $nome)->value('id');
+    }
+
+    /** La conferma che parte dalla pagina: porta con sé la versione che l'utente ha davanti. */
+    private function conferma(Movimento $movimento): TestResponse
+    {
+        return $this->post("/movimenti/{$movimento->id}/conferma", ['versione' => Classificazione::versione($movimento->refresh())]);
     }
 
     private function url(Movimento $movimento): string
@@ -268,7 +276,7 @@ class ClassificazioneMovimentiTest extends TestCase
         $movimento = $this->movimento();
         $this->actingAs($tesoriere)->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E']]]);
 
-        $this->post("/movimenti/{$movimento->id}/conferma")->assertRedirect()->assertSessionHasNoErrors();
+        $this->conferma($movimento)->assertRedirect()->assertSessionHasNoErrors();
 
         $movimento->refresh();
         $this->assertSame('confermato', $movimento->stato);
@@ -284,8 +292,8 @@ class ClassificazioneMovimentiTest extends TestCase
         $senzaTipologia = $this->movimento();
         $this->put($this->url($senzaTipologia), ['imputazioni' => [['iniziativa_id' => $this->iniziativa('Carnevale')]]])->assertSessionHasNoErrors();
 
-        $this->post("/movimenti/{$senzaImputazioni->id}/conferma")->assertSessionHasErrors('conferma');
-        $this->post("/movimenti/{$senzaTipologia->id}/conferma")->assertSessionHasErrors('conferma');
+        $this->conferma($senzaImputazioni)->assertSessionHasErrors('conferma');
+        $this->conferma($senzaTipologia)->assertSessionHasErrors('conferma');
 
         $this->assertSame('da_classificare', $senzaImputazioni->refresh()->stato);
         $this->assertSame('proposto', $senzaTipologia->refresh()->stato);
@@ -298,26 +306,93 @@ class ClassificazioneMovimentiTest extends TestCase
         $this->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E']]]);
 
         $movimento->update(['importo' => 9999]);
-        $this->post("/movimenti/{$movimento->id}/conferma")->assertSessionHasErrors('conferma');
+        $this->conferma($movimento)->assertSessionHasErrors('conferma');
 
         $movimento->update(['importo' => 1250, 'verso' => 'entrata']);
-        $this->post("/movimenti/{$movimento->id}/conferma")->assertSessionHasErrors('conferma');
+        $this->conferma($movimento)->assertSessionHasErrors('conferma');
         $this->assertSame('proposto', $movimento->refresh()->stato);
     }
 
-    public function test_riclassificare_un_movimento_confermato_lo_riporta_a_proposto(): void
+    public function test_riclassificare_un_movimento_confermato_lo_lascia_confermato_a_nome_di_chi_lo_ha_rifatto_e_l_autore_non_riprende_i_diritti(): void
     {
-        $this->actingAs($this->utenteCon('Tesoriere'));
-        $movimento = $this->movimento();
-        $this->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E']]]);
-        $this->post("/movimenti/{$movimento->id}/conferma");
+        $consigliere = $this->utenteCon('Consigliere');
+        $movimento = $this->movimento([], $consigliere);
+        $this->actingAs($consigliere)->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E']]]);
+        $tesoriere = $this->utenteCon('Tesoriere');
+        $this->actingAs($tesoriere);
+        $this->conferma($movimento);
 
         $this->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Assicurazioni'), 'area' => 'E']]])->assertSessionHasNoErrors();
 
         $movimento->refresh();
+        $this->assertSame('confermato', $movimento->stato);
+        $this->assertSame($tesoriere->id, $movimento->confermato_da);
+        $this->assertNotNull($movimento->confermato_il);
+        $this->assertSame('Assicurazioni', $movimento->imputazioni()->first()->tipologia->nome);
+        $this->actingAs($consigliere)->post("/movimenti/{$movimento->id}/ritiro")->assertForbidden();
+        $this->put($this->url($movimento), ['imputazioni' => []])->assertForbidden();
+    }
+
+    public function test_cambiare_solo_i_tag_non_cambia_lo_stato(): void
+    {
+        $tesoriere = $this->utenteCon('Tesoriere');
+        $consigliere = $this->utenteCon('Consigliere');
+        $movimento = $this->movimento([], $consigliere);
+        $imputazione = ['tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E'];
+        $tag = Tag::create(['nome' => 'Festa 2026'])->id;
+        $this->actingAs($consigliere)->put($this->url($movimento), ['imputazioni' => [$imputazione]]);
+
+        $this->actingAs($tesoriere)->put($this->url($movimento), ['imputazioni' => [$imputazione + ['tag' => [$tag]]]])->assertSessionHasNoErrors();
+        $movimento->refresh();
         $this->assertSame('proposto', $movimento->stato);
-        $this->assertNull($movimento->confermato_da);
-        $this->assertNull($movimento->confermato_il);
+        $this->assertSame($consigliere->id, $movimento->proposto_da);
+
+        $this->conferma($movimento);
+        $this->put($this->url($movimento), ['imputazioni' => [$imputazione]])->assertSessionHasNoErrors();
+        $movimento->refresh();
+        $this->assertSame('confermato', $movimento->stato);
+        $this->assertSame($tesoriere->id, $movimento->confermato_da);
+    }
+
+    public function test_un_movimento_confermato_non_si_riclassifica_in_modo_che_non_si_confermerebbe(): void
+    {
+        $this->actingAs($this->utenteCon('Tesoriere'));
+        $movimento = $this->movimento();
+        $this->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E']]]);
+        $this->conferma($movimento);
+
+        $this->put($this->url($movimento), ['imputazioni' => [['iniziativa_id' => $this->iniziativa('Carnevale')]]])->assertSessionHasErrors('conferma');
+
+        $this->assertSame('confermato', $movimento->refresh()->stato);
+        $this->assertSame('Utenze', $movimento->imputazioni()->first()->tipologia->nome);
+    }
+
+    public function test_la_conferma_e_legata_alla_versione_vista(): void
+    {
+        $this->actingAs($this->utenteCon('Tesoriere'));
+        $movimento = $this->movimento();
+        $this->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E']]]);
+        $vista = Classificazione::versione($movimento);
+
+        $this->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Assicurazioni'), 'area' => 'E']]]);
+        $this->post("/movimenti/{$movimento->id}/conferma", ['versione' => $vista])->assertSessionHasErrors('conferma');
+        $this->post("/movimenti/{$movimento->id}/conferma")->assertSessionHasErrors('versione');
+        $this->assertSame('proposto', $movimento->refresh()->stato);
+
+        $this->conferma($movimento)->assertSessionHasNoErrors();
+        $this->assertSame('confermato', $movimento->refresh()->stato);
+    }
+
+    public function test_una_data_spostata_in_un_esercizio_senza_voce_impedisce_la_conferma(): void
+    {
+        $this->actingAs($this->utenteCon('Tesoriere'));
+        $movimento = $this->movimento();
+        $this->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E']]]);
+
+        $movimento->update(['data' => '2027-01-10']);
+
+        $this->conferma($movimento)->assertSessionHasErrors('conferma');
+        $this->assertSame('proposto', $movimento->refresh()->stato);
     }
 
     public function test_un_consigliere_propone_sul_proprio_movimento_non_confermato_e_non_conferma(): void

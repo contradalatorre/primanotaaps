@@ -66,7 +66,8 @@ class ClassificazioneController extends Controller
     /** Conferma manuale: solo chi ha `importare_e_confermare` (la rotta); la proposta di un consigliere vale come proposta. */
     public function conferma(Request $request, Movimento $movimento): RedirectResponse
     {
-        Classificazione::conferma($request->user(), $movimento);
+        $dati = $request->validate(['versione' => ['required', 'string', 'size:64']]);
+        Classificazione::conferma($request->user(), $movimento, $dati['versione']);
 
         return back()->with('ok', 'Movimento confermato.');
     }

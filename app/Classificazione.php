@@ -10,6 +10,8 @@ use App\Models\RegistroModifica;
 use App\Models\Tag;
 use App\Models\Tipologia;
 use App\Models\User;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -24,7 +26,8 @@ final class Classificazione
     /**
      * Sostituisce le imputazioni del movimento con `$righe` (campi: importo, tipologia_id, iniziativa_id, area,
      * attivita_id, tag) e la controparte. Le righe senza alcun campo si ignorano; nessuna riga toglie la classificazione.
-     * Un movimento con imputazioni è «proposto» (da chi le ha scritte) e perde l'eventuale conferma.
+     * Un movimento non confermato con imputazioni nuove è «proposto» (da chi le ha scritte); uno confermato resta
+     * confermato, a nome di chi lo ha riclassificato (#16: l'autore non riprende mai i diritti).
      *
      * @throws ValidationException con gli errori sotto `imputazioni.N.campo`
      */
@@ -35,22 +38,39 @@ final class Classificazione
 
         DB::transaction(function () use ($utente, $movimento, $tipoControparte, $imputazioni) {
             self::blocca($movimento);
+            $movimento->refresh();
             $prima = $movimento->istantanea();
+            $firmaPrima = self::firma($movimento->imputazioni()->orderBy('id')->get()->map->only(self::CAMPI_DELLA_CLASSIFICAZIONE));
             $movimento->imputazioni()->delete(); // le righe dei tag seguono con la chiave esterna
             foreach ($imputazioni as $dati) {
                 $tag = $dati['tag'];
                 unset($dati['tag']);
                 $movimento->imputazioni()->create($dati)->tag()->sync($tag);
             }
-            $movimento->forceFill([
-                'tipo_controparte' => $tipoControparte ?: null,
-                'stato' => $imputazioni === [] ? 'da_classificare' : 'proposto',
-                'proposto_da' => $imputazioni === [] ? null : $utente->id,
-                'confermato_da' => null,
-                'confermato_il' => null,
-            ])->save();
+            // I tag non hanno effetti (spec #33): cambiandoli soli lo stato non si muove.
+            $cambiata = $firmaPrima !== self::firma(collect($imputazioni)->map(fn ($i) => Arr::only($i, self::CAMPI_DELLA_CLASSIFICAZIONE)));
+            $stato = [];
+            if ($movimento->confermato()) {
+                // Confermato resta: chi lo riclassifica lo riconferma a suo nome (la conferma vale come verifica) e
+                // l'autore non riprende mai i diritti di ritiro e modifica. Se non si confermerebbe più, non si salva.
+                if (($problemi = self::problemiDiConferma($movimento)) !== []) {
+                    throw ValidationException::withMessages(['conferma' => $problemi]);
+                }
+                $stato = $cambiata ? ['confermato_da' => $utente->id, 'confermato_il' => now()] : [];
+            } elseif ($cambiata) {
+                $stato = ['stato' => $imputazioni === [] ? 'da_classificare' : 'proposto', 'proposto_da' => $imputazioni === [] ? null : $utente->id];
+            }
+            $movimento->forceFill(['tipo_controparte' => $tipoControparte ?: null] + $stato)->save();
             RegistroModifica::registra($utente, $movimento, 'classificato', $prima, $movimento->istantanea());
         });
+    }
+
+    /** Quello che fa cambiare la classificazione: i tag no. */
+    private const CAMPI_DELLA_CLASSIFICAZIONE = ['importo', 'area', 'attivita_id', 'iniziativa_id', 'tipologia_id'];
+
+    private static function firma(Collection $righe): string
+    {
+        return json_encode($righe->map(fn ($r) => array_map(fn ($v) => $v instanceof \BackedEnum ? $v->value : $v, $r))->values());
     }
 
     /**
@@ -59,30 +79,17 @@ final class Classificazione
      *
      * @throws ValidationException sotto `conferma`
      */
-    public static function conferma(User $utente, Movimento $movimento): void
+    public static function conferma(User $utente, Movimento $movimento, string $versioneVista): void
     {
         // Controlli e scrittura nella stessa transazione, a riga bloccata: un salvataggio che arriva in mezzo
         // non può lasciare confermata un'imputazione senza tipologia.
-        DB::transaction(function () use ($utente, $movimento) {
+        DB::transaction(function () use ($utente, $movimento, $versioneVista) {
             self::blocca($movimento);
             $movimento->refresh();
-            $imputazioni = $movimento->imputazioni()->with('tipologia')->get();
-            $problemi = [];
-            if ($imputazioni->isEmpty()) {
-                $problemi[] = 'Il movimento non ha imputazioni: classificalo prima di confermarlo.';
+            if (! hash_equals(self::versione($movimento), $versioneVista)) {
+                throw ValidationException::withMessages(['conferma' => 'Il movimento è cambiato dopo che lo hai aperto: rileggilo prima di confermarlo.']);
             }
-            if ($imputazioni->contains(fn (Imputazione $i) => $i->tipologia_id === null)) {
-                $problemi[] = 'Ogni imputazione ha bisogno della tipologia: senza non si conferma.';
-            }
-            if ($imputazioni->isNotEmpty() && $imputazioni->sum('importo') !== $movimento->importo) {
-                $problemi[] = 'La somma delle imputazioni non è più l’importo del movimento: rifai la classificazione.';
-            }
-            if ($imputazioni->contains(fn (Imputazione $i) => $i->tipologia && $i->tipologia->verso !== $movimento->verso)) {
-                $problemi[] = 'Il verso del movimento non corrisponde più alla tipologia: rifai la classificazione.';
-            }
-            if ($imputazioni->contains(fn (Imputazione $i) => $i->tipologia_id !== null && $i->voce() === null)) {
-                $problemi[] = 'La combinazione di area e tipologia non è ammessa per l’esercizio del movimento: rifai la classificazione.';
-            }
+            $problemi = self::problemiDiConferma($movimento);
             if ($problemi !== []) {
                 throw ValidationException::withMessages(['conferma' => $problemi]);
             }
@@ -91,6 +98,36 @@ final class Classificazione
             $movimento->forceFill(['stato' => 'confermato', 'confermato_da' => $utente->id, 'confermato_il' => now()])->save();
             RegistroModifica::registra($utente, $movimento, 'confermato', $prima, $movimento->istantanea());
         });
+    }
+
+    /** Un'impronta di quello che si conferma (classificazione, importo, data, giustificativi): la conferma vale per la versione vista. */
+    public static function versione(Movimento $movimento): string
+    {
+        return hash('sha256', json_encode($movimento->istantanea()));
+    }
+
+    /** @return list<string> */
+    private static function problemiDiConferma(Movimento $movimento): array
+    {
+        $imputazioni = $movimento->imputazioni()->with('tipologia')->get();
+        $problemi = [];
+        if ($imputazioni->isEmpty()) {
+            $problemi[] = 'Il movimento non ha imputazioni: classificalo prima di confermarlo.';
+        }
+        if ($imputazioni->contains(fn (Imputazione $i) => $i->tipologia_id === null)) {
+            $problemi[] = 'Ogni imputazione ha bisogno della tipologia: senza non si conferma.';
+        }
+        if ($imputazioni->isNotEmpty() && $imputazioni->sum('importo') !== $movimento->importo) {
+            $problemi[] = 'La somma delle imputazioni non è più l’importo del movimento: rifai la classificazione.';
+        }
+        if ($imputazioni->contains(fn (Imputazione $i) => $i->tipologia && $i->tipologia->verso !== $movimento->verso)) {
+            $problemi[] = 'Il verso del movimento non corrisponde più alla tipologia: rifai la classificazione.';
+        }
+        if ($imputazioni->contains(fn (Imputazione $i) => $i->tipologia_id !== null && $i->voce() === null)) {
+            $problemi[] = 'La combinazione di area e tipologia non è ammessa per l’esercizio del movimento: rifai la classificazione.';
+        }
+
+        return $problemi;
     }
 
     private static function blocca(Movimento $movimento): void

@@ -66,7 +66,7 @@
                     @endif
                     @if ($movimento->stato === 'proposto')
                         @can('importare_e_confermare')
-                            <form method="POST" action="{{ route('movimenti.conferma', $movimento) }}">@csrf <button type="submit" class="link">Conferma</button></form>
+                            <form method="POST" action="{{ route('movimenti.conferma', $movimento) }}">@csrf <input type="hidden" name="versione" value="{{ \App\Classificazione::versione($movimento) }}"> <button type="submit" class="link">Conferma</button></form>
                         @endcan
                     @endif
                 </div>

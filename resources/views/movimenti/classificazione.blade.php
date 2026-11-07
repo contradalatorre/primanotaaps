@@ -14,7 +14,7 @@
         <p>{{ $movimento->descrizione }}</p>
         <p class="nota">{{ $movimento->data->format('d/m/Y') }} · {{ $movimento->conto->nome }} · esercizio {{ $movimento->data->year }}</p>
         @if ($movimento->proponente) <p class="nota">Proposta da {{ $movimento->proponente->name }}</p> @endif
-        @if ($movimento->confermato()) <p class="nota">Salvando una nuova classificazione il movimento torna da confermare.</p> @endif
+        @if ($movimento->confermato()) <p class="nota">Una nuova classificazione lo lascia confermato, a nome di chi la salva.</p> @endif
     </div>
 
     <form method="POST" action="{{ route('movimenti.classificazione.salva', $movimento) }}" class="modulo modulo-stretto">
@@ -102,6 +102,7 @@
         @if ($movimento->stato === 'proposto')
             <form method="POST" action="{{ route('movimenti.conferma', $movimento) }}" class="modulo-in-riga">
                 @csrf
+                <input type="hidden" name="versione" value="{{ \App\Classificazione::versione($movimento) }}">
                 <button type="submit" class="bottone">Conferma il movimento</button>
                 <span class="nota">Senza tipologia su ogni imputazione non si conferma.</span>
             </form>
