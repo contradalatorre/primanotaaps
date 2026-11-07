@@ -103,7 +103,7 @@ final class CreditAgricoleCsv
     {
         $centesimi = Euro::daTesto(ltrim($testo, "'"));
         if ($centesimi === null) {
-            throw new EstrattoNonValido("$cosa («$testo») non è un importo in euro.");
+            throw new EstrattoNonValido("$cosa («{$testo}») non è un importo in euro.");
         }
 
         return $centesimi;
@@ -112,7 +112,7 @@ final class CreditAgricoleCsv
     private function data(string $testo, int $n): string
     {
         if (! preg_match('#^(\d{2})/(\d{2})/(\d{4})$#', $testo, $m) || ! checkdate((int) $m[2], (int) $m[1], (int) $m[3])) {
-            throw new EstrattoNonValido("Riga $n: la data («$testo») non è nella forma gg/mm/aaaa.");
+            throw new EstrattoNonValido("Riga $n: la data («{$testo}») non è nella forma gg/mm/aaaa.");
         }
 
         return "$m[3]-$m[2]-$m[1]";

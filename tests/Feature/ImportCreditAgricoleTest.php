@@ -244,7 +244,7 @@ class ImportCreditAgricoleTest extends TestCase
         $riga = RegistroModifica::where('oggetto_tipo', 'import')->firstOrFail();
         $this->assertSame('confermato', $riga->azione);
         $this->assertSame(5, $riga->dopo['nuovi']);
-        $this->actingAs($this->tesoriere)->get('/registro')->assertOk()->assertSee('ha confermato l’import');
+        $this->actingAs($this->tesoriere)->get('/registro')->assertOk()->assertSeeInOrder(['ha confermato', 'l’import n. '.$import->id]);
     }
 
     public function test_un_periodo_sovrapposto_salta_i_movimenti_gia_presenti_e_li_conta(): void
@@ -385,5 +385,28 @@ class ImportCreditAgricoleTest extends TestCase
             $this->actingAs($this->utenteCon($ruolo))->get("/conti/{$this->banca->id}/import")->assertForbidden();
         }
         $this->assertSame(0, ImportEstratto::count());
+    }
+
+    public function test_conferma_annullamento_e_decisioni_sono_solo_di_chi_importa(): void
+    {
+        $import = $this->importa($this->fixture());
+        $this->importa(str_replace('15/04/2026;14/04/2026;COMMISSIONI', '15/04/2026;15/04/2026;COMMISSIONI', $this->fixture()));
+        $consigliere = $this->utenteCon('Consigliere');
+
+        $this->actingAs($consigliere);
+        $this->get("/import/{$import->id}")->assertForbidden();
+        $this->post("/import/{$import->id}/conferma")->assertForbidden();
+        $this->post("/import/{$import->id}/annullamento")->assertForbidden();
+        $this->post("/import/{$import->id}/scarto")->assertForbidden();
+        $this->post('/import/conflitti/'.ImportConflitto::firstOrFail()->id.'/decisione', ['decisione' => 'tieni_esistente'])->assertForbidden();
+        $this->assertSame('confermato', $import->refresh()->stato);
+    }
+
+    public function test_l_elenco_dei_movimenti_dice_che_sono_importati_e_con_quale_causale(): void
+    {
+        $this->importa($this->fixture());
+
+        $this->actingAs($this->tesoriere)->get("/movimenti?conto={$this->banca->id}")->assertOk()
+            ->assertSee('Importato da')->assertSee('PAGAMENTO TRAMITE POS')->assertSee('Da classificare');
     }
 }

@@ -37,7 +37,8 @@
                 <p class="nota">
                     {{ $movimento->data->format('d/m/Y') }} · {{ $movimento->conto->nome }}
                     @if ($movimento->valuta_originale) · valuta originale: {{ $movimento->valuta_originale }} @endif
-                    <br>Inserito da {{ $movimento->autore->name }} il {{ $movimento->created_at->format('d/m/Y') }}
+                    @if ($movimento->causale) · {{ $movimento->causale }} @endif
+                    <br>{{ $movimento->manuale ? 'Inserito' : 'Importato' }} da {{ $movimento->autore->name }} il {{ $movimento->created_at->format('d/m/Y') }}
                 </p>
                 <p class="azioni">
                     @if ($movimento->modificabileDa(auth()->user()))
