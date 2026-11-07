@@ -368,6 +368,31 @@ class ImportCreditAgricoleTest extends TestCase
         $this->assertSame(5, Movimento::count());
     }
 
+    /** Su MySQL (REPEATABLE READ) una lettura semplice fissa la fotografia: i movimenti si bloccano tutti, prima di ogni lettura semplice. */
+    public function test_l_annullamento_blocca_i_movimenti_dell_import_prima_di_decidere(): void
+    {
+        $import = $this->importa($this->fixture());
+        DB::enableQueryLog();
+
+        $this->post("/import/{$import->id}/annullamento")->assertSessionHasNoErrors();
+
+        $query = DB::getQueryLog();
+        $inizio = array_key_first(array_filter($query, fn ($q) => str_contains($q['query'], 'from `conti`') && str_contains($q['query'], 'for update')));
+        $this->assertNotNull($inizio);
+        $lock = null;
+        foreach (array_slice($query, $inizio) as $q) {
+            if (! str_contains($q['query'], 'for update')) {
+                $this->fail('Lettura semplice prima del lock dei movimenti: '.$q['query']);
+            }
+            if (str_contains($q['query'], 'from `movimenti`')) {
+                $lock = $q;
+                break;
+            }
+        }
+        $this->assertNotNull($lock, 'nessun lock sui movimenti dell’import');
+        $this->assertStringContainsString('order by `id`', $lock['query']);
+    }
+
     public function test_un_import_in_anteprima_si_scarta_senza_far_entrare_nulla(): void
     {
         $this->carica($this->fixture());

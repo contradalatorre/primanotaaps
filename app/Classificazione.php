@@ -129,9 +129,10 @@ final class Classificazione
         return $problemi;
     }
 
-    private static function blocca(Movimento $movimento): void
+    /** Un movimento eliminato nel frattempo non si trova più: 404, non lo si ripesca con refresh() senza scope. */
+    public static function blocca(Movimento $movimento): void
     {
-        Movimento::whereKey($movimento->id)->lockForUpdate()->first();
+        Movimento::whereKey($movimento->id)->lockForUpdate()->firstOrFail();
     }
 
     /**

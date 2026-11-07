@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Classificazione;
 use App\Euro;
 use App\Models\Conto;
 use App\Models\Movimento;
@@ -71,6 +72,7 @@ class MovimentiController extends Controller
         $dati = $this->dati($request, $movimento->conto);
 
         DB::transaction(function () use ($request, $movimento, $dati) {
+            $this->bloccaEControllaAutore($request, $movimento);
             $prima = $movimento->istantanea();
             $movimento->update($dati);
             RegistroModifica::registra($request->user(), $movimento, 'modificato', $prima, $movimento->istantanea());
@@ -83,7 +85,7 @@ class MovimentiController extends Controller
     public function ritira(Request $request, Movimento $movimento): RedirectResponse
     {
         $this->controllaAutore($request, $movimento);
-        $this->eliminaLogicamente($request, $movimento, 'ritirato', null);
+        $this->eliminaLogicamente($request, $movimento, 'ritirato', null, true);
 
         return redirect()->route('movimenti', ['conto' => $movimento->conto_id])->with('ok', 'Movimento ritirato.');
     }
@@ -110,14 +112,25 @@ class MovimentiController extends Controller
         ]);
     }
 
-    private function eliminaLogicamente(Request $request, Movimento $movimento, string $azione, ?string $motivazione): void
+    private function eliminaLogicamente(Request $request, Movimento $movimento, string $azione, ?string $motivazione, bool $comeAutore = false): void
     {
-        DB::transaction(function () use ($request, $movimento, $azione, $motivazione) {
+        DB::transaction(function () use ($request, $movimento, $azione, $motivazione, $comeAutore) {
+            if ($comeAutore) {
+                $this->bloccaEControllaAutore($request, $movimento);
+            }
             $prima = $movimento->istantanea();
             $movimento->forceFill(['eliminato_da' => $request->user()->id, 'motivazione_eliminazione' => $motivazione])->save();
             $movimento->delete();
             RegistroModifica::registra($request->user(), $movimento, $azione, $prima, null, $motivazione);
         });
+    }
+
+    /** Il controllo fuori dalla transazione è solo un rifiuto rapido: quello che vale si rifà qui, a riga bloccata (il Tesoriere può aver confermato). */
+    private function bloccaEControllaAutore(Request $request, Movimento $movimento): void
+    {
+        Classificazione::blocca($movimento);
+        $movimento->refresh();
+        $this->controllaAutore($request, $movimento);
     }
 
     private function controllaAutore(Request $request, Movimento $movimento): void

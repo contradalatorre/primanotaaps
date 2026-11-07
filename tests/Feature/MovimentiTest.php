@@ -8,6 +8,7 @@ use App\Models\RegistroModifica;
 use App\Models\Ruolo;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use LogicException;
 use Tests\TestCase;
 
@@ -223,6 +224,39 @@ class MovimentiTest extends TestCase
         $this->actingAs($autore)->post("/movimenti/{$confermato->id}/ritiro")->assertForbidden();
         $this->actingAs($this->utenteCon('Consigliere'))->post("/movimenti/{$proprio->id}/ritiro")->assertForbidden();
         $this->assertSame(2, Movimento::count());
+    }
+
+    /** Il Tesoriere conferma tra il controllo dei permessi e il blocco della riga: l'autore non deve più poter scrivere. */
+    private function confermaNelMentre(Movimento $movimento): void
+    {
+        $tesoriere = $this->utenteCon('Tesoriere');
+        DB::beforeStartingTransaction(fn () => Movimento::whereKey($movimento->id)->update(['stato' => 'confermato', 'confermato_da' => $tesoriere->id]));
+    }
+
+    public function test_se_nel_frattempo_il_movimento_e_confermato_l_autore_non_lo_modifica(): void
+    {
+        $autore = $this->utenteCon('Consigliere');
+        $movimento = $this->movimentoDi($autore);
+        $this->actingAs($autore);
+        $this->confermaNelMentre($movimento);
+
+        $this->put("/movimenti/{$movimento->id}", $this->dati(['importo' => '99,00']))->assertForbidden();
+
+        $this->assertNotSame(9900, $movimento->refresh()->importo);
+        $this->assertSame(0, RegistroModifica::where('azione', 'modificato')->count());
+    }
+
+    public function test_se_nel_frattempo_il_movimento_e_confermato_l_autore_non_lo_ritira(): void
+    {
+        $autore = $this->utenteCon('Consigliere');
+        $movimento = $this->movimentoDi($autore);
+        $this->actingAs($autore);
+        $this->confermaNelMentre($movimento);
+
+        $this->post("/movimenti/{$movimento->id}/ritiro")->assertForbidden();
+
+        $this->assertNull($movimento->refresh()->eliminato_il);
+        $this->assertSame(0, RegistroModifica::where('azione', 'ritirato')->count());
     }
 
     public function test_un_movimento_ritirato_non_si_ritira_due_volte(): void
