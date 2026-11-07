@@ -100,9 +100,9 @@ final class Classificazione
     }
 
     /** Un'impronta di quello che si conferma (classificazione, importo, data, giustificativi): la conferma vale per la versione vista. */
-    public static function versione(Movimento $movimento): string
+    public static function versione(Movimento $movimento, bool $relazioniCaricate = false): string
     {
-        return hash('sha256', json_encode($movimento->istantanea()));
+        return hash('sha256', json_encode($movimento->istantanea($relazioniCaricate)));
     }
 
     /** @return list<string> */

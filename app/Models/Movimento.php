@@ -83,15 +83,22 @@ class Movimento extends Model
             || ($this->manuale && $this->inserito_da === $utente->id && ! $this->confermato() && $utente->can('proporre_classificazioni', $this->conto_id));
     }
 
-    /** I campi che il registro delle modifiche conserva prima e dopo ogni cambiamento. */
-    public function istantanea(): array
+    /**
+     * I campi che il registro delle modifiche conserva prima e dopo ogni cambiamento. Con `$relazioniCaricate` legge
+     * imputazioni (con attività, iniziativa, tipologia e tag) e giustificativi già caricati, senza query: solo per
+     * chi non scrive dopo (la lista); le relazioni caricate non seguono le scritture.
+     */
+    public function istantanea(bool $relazioniCaricate = false): array
     {
+        $imputazioni = $relazioniCaricate ? $this->imputazioni->sortBy('id') : $this->imputazioni()->with('attivita', 'iniziativa', 'tipologia', 'tag')->orderBy('id')->get();
+        $giustificativi = $relazioniCaricate ? $this->giustificativi->sortBy('id')->pluck('riferimento') : $this->giustificativi()->orderBy('id')->pluck('riferimento');
+
         return [
             'conto_id' => $this->conto_id, 'data' => $this->data->toDateString(), 'importo' => $this->importo,
             'verso' => $this->verso, 'descrizione' => $this->descrizione, 'valuta_originale' => $this->valuta_originale,
             'stato' => $this->stato, 'tipo_controparte' => $this->tipo_controparte,
-            'imputazioni' => $this->imputazioni()->with('attivita', 'iniziativa', 'tipologia', 'tag')->orderBy('id')->get()->map->riassunto()->join('; ') ?: null,
-            'giustificativi' => $this->giustificativi()->orderBy('id')->pluck('riferimento')->join('; ') ?: null,
+            'imputazioni' => $imputazioni->map->riassunto()->join('; ') ?: null,
+            'giustificativi' => $giustificativi->join('; ') ?: null,
         ];
     }
 }

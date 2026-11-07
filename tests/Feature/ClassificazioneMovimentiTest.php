@@ -368,6 +368,25 @@ class ClassificazioneMovimentiTest extends TestCase
         $this->assertSame('Utenze', $movimento->imputazioni()->first()->tipologia->nome);
     }
 
+    public function test_la_versione_della_lista_si_calcola_dalle_relazioni_caricate_e_coincide_con_quella_della_conferma(): void
+    {
+        $this->actingAs($this->utenteCon('Tesoriere'));
+        $movimento = $this->movimento(['importo' => 3000]);
+        $tag = [Tag::create(['nome' => 'Zeta'])->id, Tag::create(['nome' => 'Alfa'])->id];
+        $this->put($this->url($movimento), ['imputazioni' => [
+            ['importo' => '10', 'tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E', 'tag' => $tag],
+            ['importo' => '20', 'tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E'],
+        ]])->assertSessionHasNoErrors();
+        $movimento->giustificativi()->create(['riferimento' => 'Scontrino']);
+        $caricato = Movimento::with('giustificativi', 'imputazioni.attivita', 'imputazioni.iniziativa', 'imputazioni.tipologia', 'imputazioni.tag')->find($movimento->id);
+
+        DB::enableQueryLog();
+        $dallaLista = Classificazione::versione($caricato, true);
+        $this->assertSame([], DB::getQueryLog());
+
+        $this->assertSame(Classificazione::versione($movimento->refresh()), $dallaLista);
+    }
+
     public function test_la_conferma_e_legata_alla_versione_vista(): void
     {
         $this->actingAs($this->utenteCon('Tesoriere'));
