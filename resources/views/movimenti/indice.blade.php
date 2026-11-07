@@ -46,7 +46,8 @@
                         @if ($imputazione->attivita) · {{ $imputazione->attivita->nome }} @endif
                         @if ($imputazione->iniziativa) · {{ $imputazione->iniziativa->nome }} @endif
                         · {{ $imputazione->tipologia?->nome ?? 'tipologia da scegliere' }}
-                        @if ($imputazione->etichettaVoce()) · <strong>{{ $imputazione->etichettaVoce() }}</strong> @endif
+                        @php($voce = $imputazione->etichettaVoce())
+                        @if ($voce) · <strong>{{ $voce }}</strong> @endif
                         @foreach ($imputazione->tag as $t) <span class="etichetta">{{ $t->nome }}</span> @endforeach
                     </p>
                 @endforeach

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
 /** La natura di un'imputazione, indipendente dall'area (glossario: Tipologia). */
-#[Fillable(['nome', 'verso', 'spiegazione', 'proprieta'])]
+#[Fillable(['nome', 'spiegazione', 'proprieta'])]
 class Tipologia extends Model
 {
     use Archiviabile;

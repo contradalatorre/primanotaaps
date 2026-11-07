@@ -33,7 +33,7 @@ class ClassificazioneController extends Controller
 
         return view('movimenti.classificazione', [
             'movimento' => $movimento->load('conto', 'autore', 'proponente', 'giustificativi'),
-            'imputazioni' => $imputazioni,
+            'imputazioni' => $imputazioni->load('iniziativa.predefiniti'),
             'righe' => min(10, max($request->integer('righe'), $imputazioni->count() + 1, 2)),
             'tipologie' => Tipologia::where('verso', $movimento->verso)->where(fn ($q) => $q->whereNull('archiviata_il')->orWhereIn('id', $conservati('tipologia_id')))->orderBy('nome')->get(),
             'iniziative' => Iniziativa::with('predefiniti.attivita')->where(fn ($q) => $q->whereNull('archiviata_il')->orWhereIn('id', $conservati('iniziativa_id')))->orderBy('nome')->get(),
@@ -85,6 +85,7 @@ class ClassificazioneController extends Controller
     public function rimuoviGiustificativo(Request $request, Giustificativo $giustificativo): RedirectResponse
     {
         $movimento = $giustificativo->movimento;
+        abort_if($movimento === null, 404); // movimento ritirato o eliminato
         $this->controlla($request, $movimento);
 
         $this->conRegistro($request, $movimento, fn () => $giustificativo->delete());

@@ -149,7 +149,7 @@
 
     {{-- ——— Tag ——— --}}
     <h2>Tag</h2>
-    <p class="nota">Etichette libere per raggruppare le imputazioni: non hanno mai effetto su Modello D e test.</p>
+    <p class="nota">Un tag raggruppa le imputazioni senza avere mai effetto su Modello D e test.</p>
     @can('gestire_regole')
         <form method="POST" action="{{ route('classificazione.crea', 'tag') }}" class="modulo-in-riga">
             @csrf

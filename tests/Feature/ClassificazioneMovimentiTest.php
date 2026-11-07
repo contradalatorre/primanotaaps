@@ -187,6 +187,39 @@ class ClassificazioneMovimentiTest extends TestCase
         $this->put($this->url($this->movimento()), ['imputazioni' => [$riga]])->assertSessionHasErrors(['imputazioni.0.tipologia_id', 'imputazioni.0.iniziativa_id']);
     }
 
+    public function test_area_e_attivita_ereditate_restano_tali_riaprendo_la_pagina_e_seguono_un_altra_iniziativa(): void
+    {
+        $this->actingAs($this->utenteCon('Tesoriere'));
+        $movimento = $this->movimento();
+        $this->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'iniziativa_id' => $this->iniziativa('La Casa')]]]);
+
+        // La Casa è in area E: riaprendo la pagina l'area non è precompilata, quindi cambiare iniziativa la cambia con lei.
+        $html = $this->get($this->url($movimento))->assertOk()->getContent();
+        $this->assertStringNotContainsString('<option value="E" selected', $html);
+
+        $this->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'iniziativa_id' => $this->iniziativa('Carnevale'), 'area' => '']]])->assertSessionHasNoErrors();
+        $this->assertSame('A', $movimento->imputazioni()->sole()->area->value);
+    }
+
+    public function test_l_attivita_predefinita_archiviata_si_eredita_comunque(): void
+    {
+        $this->actingAs($this->utenteCon('Tesoriere'));
+        Attivita::firstWhere('nome', 'Lettera i (art. 5 CTS)')->forceFill(['archiviata_il' => now()])->save();
+
+        $this->put($this->url($this->movimento()), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'iniziativa_id' => $this->iniziativa('Carnevale'), 'area' => 'A']]])
+            ->assertSessionHasNoErrors();
+    }
+
+    public function test_un_giustificativo_di_un_movimento_ritirato_non_si_tocca(): void
+    {
+        $tesoriere = $this->utenteCon('Tesoriere');
+        $movimento = $this->movimento();
+        $giustificativo = $movimento->giustificativi()->create(['riferimento' => 'Fattura']);
+        $movimento->delete();
+
+        $this->actingAs($tesoriere)->delete("/giustificativi/{$giustificativo->id}")->assertNotFound();
+    }
+
     public function test_l_attivita_deve_stare_nell_area_scelta(): void
     {
         $this->actingAs($this->utenteCon('Tesoriere'));

@@ -28,11 +28,17 @@
             @endforeach
         </fieldset>
 
-        <p class="nota">Una sola imputazione prende tutto l’importo. Per dividere il movimento scrivi l’importo di ogni riga: la somma deve essere {{ \App\Euro::formatta($movimento->importo) }} €. Area e attività si prendono dall’iniziativa, se le lasci come sono.</p>
+        <p class="nota">Una sola imputazione prende tutto l’importo. Per dividere il movimento scrivi l’importo di ogni imputazione: la somma deve essere {{ \App\Euro::formatta($movimento->importo) }} €. Area e attività si prendono dall’iniziativa, se le lasci come sono.</p>
         @error('imputazioni') <p class="avviso" role="alert">{{ $message }}</p> @enderror
 
         @for ($i = 0; $i < $righe; $i++)
-            @php($imputazione = $imputazioni[$i] ?? null)
+            @php
+                $imputazione = $imputazioni[$i] ?? null;
+                // Area e attività uguali a quelle dell'iniziativa restano «ereditate»: se si cambia l'iniziativa le seguono.
+                $predefiniti = $imputazione?->iniziativa?->predefinitiPer($movimento->data->year);
+                $areaScelta = $predefiniti && $imputazione->area === $predefiniti->area ? null : $imputazione?->area?->value;
+                $attivitaScelta = $predefiniti && $imputazione->area === $predefiniti->area && $imputazione->attivita_id === $predefiniti->attivita_id ? null : $imputazione?->attivita_id;
+            @endphp
             <fieldset>
                 <legend>Imputazione {{ $i + 1 }}</legend>
                 <label>Importo (€) <input type="text" name="imputazioni[{{ $i }}][importo]" inputmode="decimal" autocomplete="off" placeholder="{{ \App\Euro::formatta($movimento->importo) }}"
@@ -58,7 +64,7 @@
                 <label>Area
                     <select name="imputazioni[{{ $i }}][area]">
                         <option value="">Come l’iniziativa</option>
-                        @foreach (\App\Area::cases() as $area) <option value="{{ $area->value }}" @selected(old("imputazioni.$i.area", $imputazione?->area?->value) === $area->value)>{{ $area->etichetta() }}</option> @endforeach
+                        @foreach (\App\Area::cases() as $area) <option value="{{ $area->value }}" @selected(old("imputazioni.$i.area", $areaScelta) === $area->value)>{{ $area->etichetta() }}</option> @endforeach
                     </select>
                 </label>
                 @error("imputazioni.$i.area") <span class="nota">{{ $message }}</span> @enderror
@@ -66,7 +72,7 @@
                 <label>Attività
                     <select name="imputazioni[{{ $i }}][attivita_id]">
                         <option value="">Come l’iniziativa, o nessuna</option>
-                        @foreach ($attivita as $a) <option value="{{ $a->id }}" @selected((int) old("imputazioni.$i.attivita_id", $imputazione?->attivita_id) === $a->id)>{{ $a->area->value }} · {{ $a->nome }}{{ $a->archiviata() ? ' (archiviata)' : '' }}</option> @endforeach
+                        @foreach ($attivita as $a) <option value="{{ $a->id }}" @selected((int) old("imputazioni.$i.attivita_id", $attivitaScelta) === $a->id)>{{ $a->area->value }} · {{ $a->nome }}{{ $a->archiviata() ? ' (archiviata)' : '' }}</option> @endforeach
                     </select>
                 </label>
                 @error("imputazioni.$i.attivita_id") <span class="nota">{{ $message }}</span> @enderror
@@ -87,7 +93,7 @@
             </fieldset>
         @endfor
 
-        <p><a href="{{ route('movimenti.classificazione', [$movimento, 'righe' => $righe + 1]) }}" class="link">Aggiungi una riga</a></p>
+        <p><a href="{{ route('movimenti.classificazione', [$movimento, 'righe' => $righe + 1]) }}" class="link">Aggiungi un’imputazione</a></p>
         <button type="submit" class="bottone">Salva la classificazione</button>
         <a href="{{ route('movimenti', ['conto' => $movimento->conto_id]) }}" class="link">Torna ai movimenti</a>
     </form>

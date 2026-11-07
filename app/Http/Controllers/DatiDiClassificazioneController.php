@@ -134,7 +134,7 @@ class DatiDiClassificazioneController extends Controller
         }
         $elemento->predefiniti()->where('esercizio', $dati['esercizio'])->delete();
         if (! empty($dati['area'])) {
-            $elemento->predefiniti()->create(['esercizio' => $dati['esercizio'], 'area' => $dati['area'], 'attivita_id' => $dati['attivita_id'] ?: null]);
+            $elemento->predefiniti()->create(['esercizio' => $dati['esercizio'], 'area' => $dati['area'], 'attivita_id' => $dati['attivita_id'] ?? null]);
         }
     }
 }

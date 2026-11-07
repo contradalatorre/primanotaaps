@@ -131,12 +131,13 @@ final class Classificazione
             }
 
             // L'attività dell'iniziativa vale solo se l'area è rimasta la sua.
-            $attivitaId = ($riga['attivita_id'] ?? '') !== '' ? (int) $riga['attivita_id'] : ($predefiniti?->area === $area ? $predefiniti?->attivita_id : null);
+            $attivitaScelta = ($riga['attivita_id'] ?? '') !== '';
+            $attivitaId = $attivitaScelta ? (int) $riga['attivita_id'] : ($predefiniti?->area === $area ? $predefiniti?->attivita_id : null);
             if ($attivitaId !== null) {
                 $attivita = Attivita::find($attivitaId);
                 if ($attivita->area !== $area) {
                     $errori[$chiave('attivita_id')] = "L’attività «{$attivita->nome}» non è dell’area {$area?->value}.";
-                } elseif (! $scegliibile($attivita, 'attivita_id', $attivita->id)) {
+                } elseif ($attivitaScelta && ! $scegliibile($attivita, 'attivita_id', $attivita->id)) { // quella ereditata resta anche se archiviata
                     $errori[$chiave('attivita_id')] = "L’attività «{$attivita->nome}» è archiviata: non si sceglie più.";
                 }
             }
