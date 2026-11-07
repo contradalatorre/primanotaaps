@@ -32,13 +32,22 @@ fi
 # Senza barra finale, come lo vuole anche il controllo di raggiungibilità: il redirect di Google deve combaciare.
 APP_URL="${APP_URL%/}"
 
+# Produzione e prova stanno sullo stesso host: il cookie di sessione (e XSRF-TOKEN) va limitato al percorso dell'app,
+# se no i due ambienti si buttano fuori a vicenda.
+resto="${APP_URL#*://}"
+case "$resto" in
+    */*) percorso="/${resto#*/}" ;;
+    *) percorso=/ ;;
+esac
+
 echo "APP_NAME='Prima nota'"
 echo "APP_ENV=production"
 echo "APP_DEBUG=false"
 echo "DB_CONNECTION=mysql"
 echo "SESSION_DRIVER=database"
 echo "CACHE_STORE=database"
-echo "QUEUE_CONNECTION=database"
+echo "QUEUE_CONNECTION=sync" # su Aruba non gira nessun worker (ADR 0001)
+echo "SESSION_PATH='$percorso'"
 echo "GOOGLE_REDIRECT_URI='${APP_URL}/accesso/google/ritorno'"
 for chiave in $chiavi; do
     eval "valore=\${$chiave}"

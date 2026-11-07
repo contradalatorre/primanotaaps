@@ -15,16 +15,19 @@ In Settings > Environments crea `produzione` e `prova`. Su ciascuno imposta *Dep
 | Segreto | `DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | database MySQL dell'ambiente: **quello di prova ha un database diverso da quello di produzione** |
 | Segreto | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | credenziali OAuth di Google |
 | Configurazione | schermata di consenso OAuth (Google Cloud) | tipo **Esterno**, stato di pubblicazione **In produzione**, solo gli scope `openid`, `email` e `profile` (non sensibili: nessuna verifica degli scope; la verifica del brand serve solo per mostrare nome e logo). *Interno* blocca (`org_internal`) gli account fuori dall'organizzazione, come quelli esterni di #35; *Test* ammette solo gli utenti di prova elencati a mano (al massimo 100) |
-| Segreto | `AMMINISTRATORI_INIZIALI` | email di chi diventa Amministratore al primo accesso, separate da virgola: vale solo finché nell'app non è mai stato assegnato il ruolo di Amministratore (#35) |
+| Configurazione | client OAuth (Google Cloud) | tra gli *URI di reindirizzamento autorizzati* registra `<SITO_URL>/accesso/google/ritorno`, uno per ambiente (produzione e prova). Se manca, Google risponde `redirect_uri_mismatch` e nessuno entra |
+| Segreto | `AMMINISTRATORI_INIZIALI` | email di chi diventa Amministratore al primo accesso, separate da virgola: vale solo finché nell'app non è mai stato assegnato il ruolo di Amministratore, e una volta sola (lo ricorda il registro degli accessi, evento `amministratore_iniziale`; #35). Dopo l'avvio conviene svuotarla |
 | Segreto | `EMERGENZA_PASSWORD_HASH`, `EMERGENZA_TOTP_SECRET` | hash della password e segreto TOTP dell'account di emergenza (#36), diversi per ogni ambiente: si generano con `docker compose run --rm tools php artisan emergenza:credenziali` (vedi sotto) |
-| Segreto | `MAIL_USERNAME`, `MAIL_PASSWORD` | account SMTP della posta del Workspace da cui parte l'avviso di accesso di emergenza (#36; lo riuserà anche #46) |
+| Segreto | `MAIL_USERNAME`, `MAIL_PASSWORD` | account SMTP della posta del Workspace da cui parte l'avviso di accesso di emergenza (#36; lo riuserà anche #46). `MAIL_PASSWORD` dev'essere una **password per le app** di Google (l'account deve avere la verifica in due passaggi): con la password normale Gmail risponde 535 e l'avviso non parte, senza che nessuno se ne accorga |
 | Segreto | `MIGRAZIONI_TOKEN` | stringa lunga e casuale, per la prima installazione |
 | Variabile | `SITO_URL` | indirizzo dell'app senza barra finale, es. `https://sito.example/contabilita` |
-| Variabile | `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM_ADDRESS` | trasporto della posta: `smtp`, il server SMTP del Workspace (per Gmail `smtp.gmail.com`, porta `587`) e il mittente. Senza `MAIL_MAILER=smtp` Laravel scrive le email nel log e non le spedisce |
+| Variabile | `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM_ADDRESS` | trasporto della posta: `smtp`, il server SMTP del Workspace (per Gmail `smtp.gmail.com`, porta `465`: TLS implicito, Laravel sceglie `smtps` da solo) e il mittente. Senza `MAIL_MAILER=smtp` Laravel scrive le email nel log e non le spedisce |
 | Variabile | `GOOGLE_WORKSPACE_DOMAIN` | dominio del Workspace |
 | Variabile | `FTP_CARTELLA` | `contabilita/` oppure `contabilita-test/` |
 
 Nessun valore va scritto nel repo. I valori non possono contenere l'apice singolo `'`.
+
+Di suo `scripts/scrivi-env.sh` scrive anche `SESSION_PATH` (il percorso di `SITO_URL`) e `QUEUE_CONNECTION=sync`. Il primo tiene separati i cookie di produzione e prova, che stanno sullo stesso host; il secondo serve perché su Aruba non gira nessun worker (ADR 0001) e le email in coda non partirebbero mai.
 
 ## Account di emergenza
 

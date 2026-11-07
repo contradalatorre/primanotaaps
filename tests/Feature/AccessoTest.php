@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Assegnazione;
+use App\Models\RegistroAccesso;
 use App\Models\User;
 use App\Permesso;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -223,6 +225,23 @@ class AccessoTest extends TestCase
         $this->entra();
 
         $this->assertFalse(User::firstWhere('google_id', '1001')->puo(Permesso::GestireUtenti));
+    }
+
+    public function test_il_ruolo_iniziale_vale_una_volta_sola_anche_se_le_assegnazioni_spariscono(): void
+    {
+        // L'emergenza (#36) può revocare le assegnazioni scadute: l'elenco iniziale non deve tornare a scattare.
+        config(['prima_nota.amministratori_iniziali' => ['maria.rossi@associazione.example', 'paola.bianchi@associazione.example']]);
+        $this->googleCome();
+        $this->entra();
+        $this->assertSame(['amministratore_iniziale'], RegistroAccesso::pluck('evento')->all());
+        $this->post(route('esci'));
+        Assegnazione::query()->delete();
+
+        $this->googleCome(['id' => '2002', 'name' => 'Paola Bianchi', 'email' => 'paola.bianchi@associazione.example']);
+        $this->entra();
+
+        $this->assertFalse(User::firstWhere('google_id', '2002')->puo(Permesso::GestireUtenti));
+        $this->assertCount(1, RegistroAccesso::all());
     }
 
     public function test_un_indirizzo_aggiunto_senza_google_id_che_collide_e_rifiutato_senza_errore(): void
