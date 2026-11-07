@@ -26,9 +26,18 @@ class ManualeSezione extends Model
         return $this->only(['codice', 'titolo', 'corpo']);
     }
 
-    /** Il manuale intero come testo, quello che riceverà l'AI. */
+    /** Il manuale intero in Markdown, con le spiegazioni delle tipologie attive: l'esportazione, e il testo che riceverà l'AI. */
     public static function testo(): string
     {
-        return static::orderBy('id')->get()->map(fn ($s) => "§ {$s->codice} {$s->titolo}\n\n{$s->corpo}")->join("\n\n");
+        $testo = "# Manuale di classificazione\n\n";
+        foreach (static::orderBy('id')->get() as $s) {
+            $testo .= "## § {$s->codice} {$s->titolo}\n\n{$s->corpo}\n\n";
+        }
+        $testo .= "## § tipologie Le tipologie\n\n";
+        foreach (Tipologia::attive()->orderBy('verso')->orderBy('nome')->get() as $t) {
+            $testo .= "### {$t->nome} (".Tipologia::VERSI[$t->verso].")\n\n{$t->spiegazione}\n\n";
+        }
+
+        return rtrim($testo)."\n";
     }
 }

@@ -21,7 +21,7 @@ return new class extends Migration
             $table->id();
             $table->string('codice', 20)->unique();
             $table->string('titolo');
-            $table->text('corpo'); // Markdown
+            $table->mediumText('corpo'); // Markdown; `text` su MySQL tiene 65.535 byte, non caratteri
             $table->timestamps();
         });
 
@@ -62,7 +62,7 @@ T],
             ['Aree e attività', <<<'T'
 Le aree sono le sezioni del Modello D:
 
-- **A, attività di interesse generale.** L'attività è la lettera dell'art. 5 del Codice del Terzo Settore prevista dallo statuto (f, i, k, l, w, z). Per le iniziative culturali, artistiche e ricreative si usa la lettera **i**; per Palio e Corteo l'alternativa è la **f**, perché lo statuto lega quell'attività alla tutela del patrimonio culturale. Con entrate sotto i 300.000 euro la lettera scelta non cambia l'esito dei test.
+- **A, attività di interesse generale.** L'attività è la lettera dell'art. 5 del Codice del Terzo Settore prevista dallo statuto (f, i, k, l, w, z). Per le iniziative culturali, artistiche e ricreative si usa la lettera **i**; per Palio e Corteo l'alternativa è la **f**, perché lo statuto lega quell'attività alla tutela del patrimonio culturale. Con entrate sotto i 300.000 euro la lettera scelta non cambia l'esito dei test. **Da confermare con il commercialista** (§ 18).
 - **B, attività diverse.** Lo statuto non le elenca: i nomi in uso sono «Sponsorizzazioni e pubblicità», «Collaborazioni con esercizi commerciali» e «Vendita di beni».
 - **C, raccolta fondi.** Per ora nessun movimento ci va. Una raccolta occasionale in concomitanza di una ricorrenza richiede un rendiconto a parte: prima di usare quest'area si decide con il commercialista.
 - **D, attività finanziarie e patrimoniali.** Interessi attivi, commissioni e canoni di banca.
@@ -81,7 +81,7 @@ Alcune tipologie hanno proprietà fiscali: «commerciale per natura» e «neutra
 Per le causali generiche, che non dicono che spesa sia, si usa «Materiali e beni di consumo» e si segna il dubbio.
 T],
 
-            ['Giroconti e movimenti tra conti', <<<'T'
+            ['Giroconti', <<<'T'
 Spostare soldi tra due conti dell'associazione non è né un'entrata né un'uscita: è un **giroconto**. Non compare tra le entrate e le uscite del Modello D, ma solo nei saldi finali di cassa e banca.
 
 Vale per un versamento dalla cassa in banca, per un prelievo, per il passaggio da Satispay o PayPal al conto bancario. Un giroconto ha due metà, una per conto, che vanno abbinate; una metà senza compagna resta segnalata finché non si trova l'altra.
@@ -139,7 +139,7 @@ Due regole fisse, senza opzioni interpretative:
 - Nel **test di secondarietà** (art. 6 CTS e DM 107/2021) le sponsorizzazioni **contano**: entrano tra le entrate delle attività diverse, e nel criterio del 30% pesano.
 - Sono **neutre solo** nel test della natura non commerciale dell'ente (art. 79 c. 5 CTS).
 
-**Attenzione alle fonti formative.** Alcune slide e un webinar degli incontri per i tesorieri le danno fuori dalla secondarietà. Non è la regola: l'esclusione vale solo per gli enti sportivi dilettantistici, mentre la Circolare dell'Agenzia delle Entrate 1/E del 2026 e il decreto le fanno rientrare. L'app segue la norma. Per questo le entrate dell'area B vanno tenute d'occhio: già nel 2025 erano vicine alla soglia.
+**Attenzione alle fonti formative.** Alcune slide e un webinar degli incontri per i tesorieri le danno fuori dalla secondarietà. Non è la regola: l'esclusione vale solo per gli enti sportivi dilettantistici, mentre la Circolare dell'Agenzia delle Entrate 1/E del 2026 e il decreto le fanno rientrare. L'app segue la norma. Per questo le entrate dell'area B vanno tenute d'occhio rispetto alla soglia.
 
 I costi legati alla raccolta: il materiale pubblicitario per lo sponsor è «Materiale di comunicazione» in area B (riga 1); provvigioni e ritenute sono nel § 12.
 
@@ -177,15 +177,15 @@ T],
 - **Imposte e tasse** (IMU, TARI della sede, imposta di bollo sugli atti, altre imposte): tipologia «Imposte e tasse», riga 5 dell'area. Se sono imposte generali, area E.
 - **IRES e IRAP**: nella riga «Imposte» del Modello D, tra l'avanzo prima delle imposte e l'avanzo prima degli investimenti.
 - **IVA versata**: tipologia «IVA», nella riga **«Imposte»** del Modello D e non in B5. È una decisione del 3/11/2026, verificata sul vademecum del Terzo Settore; **da confermare con il commercialista**. Dal 2026, con il regime forfettario dell'art. 86 CTS, l'IVA non si applica alle operazioni: il caso riguarda soprattutto l'esercizio 2025.
-- **Bollo sul conto corrente**: dalla fine del 2025 è esente (art. 82 c. 5 CTS). La causale resta solo per gli esempi del 2025.
+- **Bollo sul conto corrente**: dalla fine del 2025 è esente (art. 82 c. 5 CTS). La causale resta solo per gli esempi del 2025. **Da confermare con il commercialista** (§ 18).
 
 *Esempio.* L'F24 del trimestre con 230 euro di IVA da versare: tipologia «IVA».
 T],
 
             ['Spese generali e La Casa', <<<'T'
-Le spese che servono a tutta l'associazione e non a una sola iniziativa vanno in **area E**: materiale di consumo, servizi internet, assicurazioni, spese di rappresentanza, imposte e bolli. Il motivo: nel test dell'art. 79 c. 2-bis contano per l'area A solo in quota, in proporzione ai ricavi (Circolare 1/E § 2.2.1). È un'ipotesi prudente. Sui conti del 2025 abbassa un poco i costi dell'area A; gli altri test non cambiano. **Da confermare con il commercialista.**
+Le spese che servono a tutta l'associazione e non a una sola iniziativa vanno in **area E**: materiale di consumo, servizi internet, assicurazioni, spese di rappresentanza, imposte e bolli. Il motivo: nel test dell'art. 79 c. 2-bis contano per l'area A solo in quota, in proporzione ai ricavi (Circolare 1/E § 2.2.1). È un'ipotesi prudente. Riduce i costi dell'area A che entrano nel test; gli altri test non cambiano. **Da confermare con il commercialista.**
 
-**La Casa** è un'iniziativa trattata come progetto, senza attività: le sue spese (materiale, utenze, servizi, affitto, imposte) vanno in area E.
+**La Casa** è un'iniziativa senza attività, trattata come spesa generale: le sue spese (materiale, utenze, servizi, affitto, imposte) vanno in area E.
 
 Le spese di rappresentanza hanno una sola tipologia, qualunque sia l'occasione.
 
@@ -231,6 +231,16 @@ Scelte prese in via prudente, in attesa del parere del commercialista. Ognuna si
 - **Vendita delle bandiere in area B** (§ 11).
 - **Palio e Corteo: lettera i** e non f (§ 3).
 - **Esenzione del bollo sul conto** dalla fine del 2025 (§ 14).
+T],
+
+            ['I test dell\'esercizio e le scelte di classificazione', <<<'T'
+I test non si inseriscono: l'app li calcola dalle imputazioni, e per questo ogni scelta di classificazione ha un effetto. Questa sezione dice dove guardare; la spiegazione di ciascun test, con la sua base normativa, rimanda qui.
+
+- **Test di secondarietà** (art. 6 CTS, DM 107/2021): confronta le entrate e i costi delle attività diverse (area B) con quelli delle attività di interesse generale. Le sponsorizzazioni **contano** (§ 10). Decidono l'esito la tipologia e l'area scelte per ogni imputazione.
+- **Test dell'art. 79 c. 2-bis**: i corrispettivi dell'attività non devono superare i costi effettivi più il 6%, per al massimo tre esercizi consecutivi. Per questo le iniziative raccolgono **tutti** i loro costi (§ 9) e le spese generali stanno in area E (§ 15).
+- **Test dell'art. 79 c. 5**, sulla natura non commerciale dell'ente: le sponsorizzazioni sono neutre (§ 10).
+
+Una **forzatura** della natura commerciale cambia l'esito dei test: serve una motivazione, e finché la scelta è in dubbio si segue la soluzione prudente (§ 17).
 T],
         ];
     }

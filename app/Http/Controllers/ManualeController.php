@@ -52,16 +52,8 @@ class ManualeController extends Controller
     public function esporta(Request $request): Response
     {
         RegistroAccesso::registra('esportazione_manuale', $request, $request->user());
-        $testo = "# Manuale di classificazione\n\n";
-        foreach (ManualeSezione::orderBy('id')->get() as $s) {
-            $testo .= "## § {$s->codice} {$s->titolo}\n\n{$s->corpo}\n\n";
-        }
-        $testo .= "## § tipologie Le tipologie\n\n";
-        foreach ($this->tipologie() as $t) {
-            $testo .= "### {$t->nome} (".Tipologia::VERSI[$t->verso].")\n\n{$t->spiegazione}\n\n";
-        }
 
-        return response(rtrim($testo)."\n", 200, [
+        return response(ManualeSezione::testo(), 200, [
             'Content-Type' => 'text/markdown; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename=manuale-di-classificazione-'.today()->toDateString().'.md',
         ]);

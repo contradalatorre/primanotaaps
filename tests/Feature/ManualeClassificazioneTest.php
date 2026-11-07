@@ -109,8 +109,12 @@ class ManualeClassificazioneTest extends TestCase
     {
         $tipologia = Tipologia::firstWhere('nome', 'Quote associative');
 
+        $archiviata = Tipologia::firstWhere('nome', 'Libri e pubblicazioni');
+        $archiviata->forceFill(['archiviata_il' => now()])->save();
+
         $this->actingAs($this->utenteCon('Lettore esterno'))->get('/classificazione')->assertOk()
-            ->assertSee('/manuale#tipologia-'.$tipologia->id, false);
+            ->assertSee('/manuale#tipologia-'.$tipologia->id, false)
+            ->assertDontSee('/manuale#tipologia-'.$archiviata->id, false); // il manuale elenca solo le attive: niente rimando a un'ancora che non c'è
     }
 
     public function test_l_esportazione_e_un_file_di_testo_con_le_sezioni_e_le_tipologie_e_finisce_nel_registro_degli_accessi(): void
