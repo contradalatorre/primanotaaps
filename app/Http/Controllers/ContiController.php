@@ -112,7 +112,7 @@ class ContiController extends Controller
             'nome' => $dati['nome'],
             'formato_import' => $dati['formato_import'],
             // Come deciso in #12: PayPal e Satispay nei depositi, la cassa nella riga cassa; la banca nei depositi.
-            'riga_modello_d' => $dati['riga_modello_d'] ?: ($tipo === 'cassa' ? 'cassa' : 'depositi'),
+            'riga_modello_d' => ($dati['riga_modello_d'] ?? null) ?: ($tipo === 'cassa' ? 'cassa' : 'depositi'),
             'aperto_il' => $dati['aperto_il'],
             'saldo_iniziale' => Euro::daTesto($dati['saldo_iniziale']),
         ];

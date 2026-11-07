@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Conto;
 use App\Models\RegistroModifica;
+use App\Models\Ruolo;
 use App\Models\User;
+use App\Permesso;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -138,10 +140,10 @@ class ContiTest extends TestCase
         $this->assertDatabaseMissing('assegnazione_conto', ['conto_id' => $festa->id]);
         $this->assertDatabaseHas('assegnazione_conto', ['conto_id' => $altra->id]);
         // «nessun conto» non diventa «tutti i conti»
-        $this->assertFalse($solo->fresh()->puo(\App\Permesso::InserireMovimentiCassa));
-        $this->assertFalse($solo->fresh()->puo(\App\Permesso::InserireMovimentiCassa, $altra->id));
-        $this->assertTrue($due->fresh()->puo(\App\Permesso::InserireMovimentiCassa, $altra->id));
-        $this->assertTrue($tutti->fresh()->puo(\App\Permesso::InserireMovimentiCassa, $altra->id));
+        $this->assertFalse($solo->fresh()->puo(Permesso::InserireMovimentiCassa));
+        $this->assertFalse($solo->fresh()->puo(Permesso::InserireMovimentiCassa, $altra->id));
+        $this->assertTrue($due->fresh()->puo(Permesso::InserireMovimentiCassa, $altra->id));
+        $this->assertTrue($tutti->fresh()->puo(Permesso::InserireMovimentiCassa, $altra->id));
         $this->assertSame('chiuso', RegistroModifica::latest('id')->firstOrFail()->azione);
     }
 
@@ -174,14 +176,14 @@ class ContiTest extends TestCase
         $altra = Conto::factory()->create();
         $consigliere = User::factory()->create();
         $admin = $this->utenteCon('Amministratore');
-        $ruolo = \App\Models\Ruolo::where('nome', 'Consigliere')->firstOrFail();
+        $ruolo = Ruolo::where('nome', 'Consigliere')->firstOrFail();
         $this->withSession(['auth.password_confirmed_at' => now()->unix()]);
 
         $this->actingAs($admin)->post("/utenti/{$consigliere->id}/assegnazioni", ['ruolo_id' => $ruolo->id, 'conti' => [$festa->id]])
             ->assertRedirect('/utenti');
 
-        $this->assertTrue($consigliere->fresh()->puo(\App\Permesso::InserireMovimentiCassa, $festa->id));
-        $this->assertFalse($consigliere->fresh()->puo(\App\Permesso::InserireMovimentiCassa, $altra->id));
+        $this->assertTrue($consigliere->fresh()->puo(Permesso::InserireMovimentiCassa, $festa->id));
+        $this->assertFalse($consigliere->fresh()->puo(Permesso::InserireMovimentiCassa, $altra->id));
         $this->actingAs($admin)->get('/utenti')->assertSee('Cassa', false)->assertSee($festa->nome);
     }
 
@@ -190,7 +192,7 @@ class ContiTest extends TestCase
         $chiuso = Conto::factory()->create(['chiuso_il' => '2026-06-01']);
         $consigliere = User::factory()->create();
         $admin = $this->utenteCon('Amministratore');
-        $ruolo = \App\Models\Ruolo::where('nome', 'Consigliere')->firstOrFail();
+        $ruolo = Ruolo::where('nome', 'Consigliere')->firstOrFail();
         $this->withSession(['auth.password_confirmed_at' => now()->unix()]);
 
         $this->actingAs($admin)->post("/utenti/{$consigliere->id}/assegnazioni", ['ruolo_id' => $ruolo->id, 'conti' => [$chiuso->id]])
