@@ -12,6 +12,7 @@
                 <option value="">Tutti</option>
                 <option value="movimento" @selected($oggetto === 'movimento')>Movimenti</option>
                 <option value="conto" @selected($oggetto === 'conto')>Conti</option>
+                <option value="import" @selected($oggetto === 'import')>Import</option>
             </select>
         </label>
         <label>Persona

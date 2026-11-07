@@ -23,7 +23,16 @@
                     <div><dt>Aperto il</dt><dd>{{ $conto->aperto_il->format('d/m/Y') }}</dd></div>
                     @if ($conto->chiuso()) <div><dt>Chiuso il</dt><dd>{{ $conto->chiuso_il->format('d/m/Y') }}</dd></div> @endif
                     <div><dt>Saldo di partenza</dt><dd>{{ \App\Euro::formatta($conto->saldo_iniziale) }} €</dd></div>
+                    @if (\App\Models\ImportEstratto::lettorePer($conto))
+                        @php($fino = $conto->riconciliatoFinoAl())
+                        <div><dt>Riconciliazione</dt><dd>{{ $fino ? 'Riconciliato fino al '.$fino->format('d/m/Y') : 'Non riconciliato' }}</dd></div>
+                    @endif
                 </dl>
+                @if (\App\Models\ImportEstratto::lettorePer($conto))
+                    @can('importare_e_confermare')
+                        <p><a href="{{ route('import.indice', $conto) }}" class="link">Importa un estratto</a></p>
+                    @endcan
+                @endif
                 @can('gestire_regole')
                     @unless ($conto->chiuso())
                         <p><a href="{{ route('conti.modifica', $conto) }}" class="link">Modifica</a></p>

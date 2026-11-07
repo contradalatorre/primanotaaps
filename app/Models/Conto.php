@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Import\Estratto;
+use App\Import\RigaEstratto;
+use Carbon\CarbonInterface;
 use Database\Factories\ContoFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -38,6 +41,65 @@ class Conto extends Model
     public function movimenti(): HasMany
     {
         return $this->hasMany(Movimento::class);
+    }
+
+    public function importEstratti(): HasMany
+    {
+        return $this->hasMany(ImportEstratto::class);
+    }
+
+    /** Il saldo dell'app: saldo di partenza più i movimenti non eliminati fino a quella data (compresa o no). */
+    public function saldoAl(string $data, bool $compresa = true): int
+    {
+        $somma = $this->movimenti()->where('data', $compresa ? '<=' : '<', $data)
+            ->selectRaw("coalesce(sum(case when verso = 'entrata' then cast(importo as signed) else -cast(importo as signed) end), 0) as somma")
+            ->value('somma');
+
+        return $this->saldo_iniziale + (int) $somma;
+    }
+
+    /**
+     * La data fino a cui l'app concorda con la banca: l'ultimo estratto confermato il cui saldo finale è quello
+     * dell'app a fine periodo. Un buco, un conflitto non deciso o un import annullato lo fanno arretrare, senza
+     * nulla da correggere a mano. Null se nessun estratto concorda.
+     * shortcut: se un movimento con data operazione dentro un estratto compare solo in quello successivo,
+     * l'estratto precedente risulta non riconciliato; da rivedere con estratti veri (#11, punto 6).
+     */
+    public function riconciliatoFinoAl(): ?CarbonInterface
+    {
+        foreach ($this->importEstratti()->where('stato', 'confermato')->orderByDesc('periodo_al')->get() as $import) {
+            if ($this->saldoAl($import->periodo_al->toDateString()) === $import->saldo_finale) {
+                return $import->periodo_al;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Le righe dell'estratto divise in nuove, già presenti (stessa chiave e stessi dati) e in conflitto (stessa
+     * chiave, dati diversi: data valuta o causale). Con la stessa chiave la data operazione, l'importo, la
+     * descrizione e il saldo parziale sono già uguali.
+     *
+     * @return array{nuove: list<RigaEstratto>, presenti: list<RigaEstratto>, conflitti: list<array{riga: RigaEstratto, movimento: Movimento}>}
+     */
+    public function classifica(Estratto $estratto): array
+    {
+        $esistenti = $this->movimenti()->whereIn('chiave', array_map(fn (RigaEstratto $r) => $r->chiave(), $estratto->righe))->get()->groupBy('chiave');
+        $risultato = ['nuove' => [], 'presenti' => [], 'conflitti' => []];
+
+        foreach ($estratto->righe as $riga) {
+            $uguali = $esistenti->get($riga->chiave(), collect());
+            if ($uguali->isEmpty()) {
+                $risultato['nuove'][] = $riga;
+            } elseif ($uguali->contains(fn (Movimento $m) => $m->data_valuta?->toDateString() === $riga->dataValuta && $m->causale === $riga->causale)) {
+                $risultato['presenti'][] = $riga;
+            } else {
+                $risultato['conflitti'][] = ['riga' => $riga, 'movimento' => $uguali->first()];
+            }
+        }
+
+        return $risultato;
     }
 
     public function scopeAperti(Builder $query): void

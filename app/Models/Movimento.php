@@ -27,7 +27,7 @@ class Movimento extends Model
 
     protected function casts(): array
     {
-        return ['data' => 'date', 'importo' => 'integer', 'manuale' => 'boolean', 'confermato_il' => 'datetime'];
+        return ['data' => 'date', 'data_valuta' => 'date', 'importo' => 'integer', 'saldo_parziale' => 'integer', 'manuale' => 'boolean', 'confermato_il' => 'datetime'];
     }
 
     public function conto(): BelongsTo

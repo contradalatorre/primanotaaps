@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccessoController;
 use App\Http\Controllers\ContiController;
 use App\Http\Controllers\EmergenzaController;
+use App\Http\Controllers\ImportEstrattiController;
 use App\Http\Controllers\MigrazioniController;
 use App\Http\Controllers\MovimentiController;
 use App\Http\Controllers\RegistroController;
@@ -49,6 +50,16 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
     Route::middleware('can:inserire_movimenti_cassa,conto')->group(function () {
         Route::get('/conti/{conto}/movimenti/nuovo', [MovimentiController::class, 'nuovo'])->name('movimenti.nuovo');
         Route::post('/conti/{conto}/movimenti', [MovimentiController::class, 'crea'])->name('movimenti.crea');
+    });
+    // Import degli estratti (#40). `importare_e_confermare` non ha ambito (#16): niente conto da passare.
+    Route::middleware('can:importare_e_confermare')->group(function () {
+        Route::get('/conti/{conto}/import', [ImportEstrattiController::class, 'index'])->name('import.indice');
+        Route::post('/conti/{conto}/import', [ImportEstrattiController::class, 'carica'])->name('import.carica');
+        Route::get('/import/{import}', [ImportEstrattiController::class, 'mostra'])->name('import.mostra');
+        Route::post('/import/{import}/conferma', [ImportEstrattiController::class, 'conferma'])->name('import.conferma');
+        Route::post('/import/{import}/scarto', [ImportEstrattiController::class, 'scarta'])->name('import.scarta');
+        Route::post('/import/{import}/annullamento', [ImportEstrattiController::class, 'annulla'])->name('import.annulla');
+        Route::post('/import/conflitti/{conflitto}/decisione', [ImportEstrattiController::class, 'decidi'])->name('import.decidi');
     });
     Route::get('/movimenti/{movimento}/modifica', [MovimentiController::class, 'modifica'])->name('movimenti.modifica');
     Route::put('/movimenti/{movimento}', [MovimentiController::class, 'salva'])->name('movimenti.salva');
