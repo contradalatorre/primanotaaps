@@ -45,11 +45,19 @@ if (revisione) {
     }
 
     // J e K vanno al movimento dopo e prima, Invio conferma quello aperto, Esc chiude il dettaglio.
+    // J e K sono scorciatoie di un carattere (WCAG 2.1.4): valgono solo con il focus nell'elenco o nel dettaglio,
+    // mai in un campo di testo, e senza distinguere maiuscole (Caps Lock). Per questo il dettaglio prende il focus quando si apre.
+    document.querySelector('.dettaglio')?.setAttribute('tabindex', '-1');
+    document.querySelector('.dettaglio')?.focus({ preventScroll: true });
     document.addEventListener('keydown', (e) => {
-        if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, select, textarea, button, a, summary, [contenteditable]')) return;
-        const azione = { j: '[data-successivo]', k: '[data-precedente]', Escape: '[data-chiudi]', Enter: '.dettaglio [data-conferma]' }[e.key];
+        if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, select, textarea, [contenteditable]')) return;
+        const tasto = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+        const dentro = e.target.closest('.elenco, .dettaglio');
+        // Invio e Esc, su un collegamento o un pulsante, fanno quello che fa il collegamento o il pulsante.
+        if (tasto.length === 1 ? ! dentro : e.target.closest('button, a, summary')) return;
+        const azione = { j: '[data-successivo]', k: '[data-precedente]', Escape: '[data-chiudi]', Enter: '.dettaglio [data-conferma]' }[tasto];
         // Senza dettaglio aperto, J apre il primo movimento dell'elenco.
-        const elemento = azione && (document.querySelector(azione) ?? (e.key === 'j' && !document.querySelector('.dettaglio') ? document.querySelector('.riga-desc a') : null));
+        const elemento = azione && (document.querySelector(azione) ?? (tasto === 'j' && !document.querySelector('.dettaglio') ? document.querySelector('.riga-desc a') : null));
         if (elemento) {
             e.preventDefault();
             elemento.click();

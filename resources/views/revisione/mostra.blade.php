@@ -14,7 +14,6 @@
         $url = fn (array $parametri = []) => route('import.revisione', [$import, 'passo' => $passo] + $parametri);
         // Nell'ordine in cui le righe sono disegnate: «Successivo», J/K e il movimento da aprire dopo una conferma lo seguono.
         $ordine = $passo === 'pronte' ? $revisione->gruppi($movimenti)->flatten() : $movimenti;
-        $pronteDaConfermare = $revisione->passo('pronte');
         $versioniDi = fn ($elenco) => $elenco->mapWithKeys(fn ($m) => [$m->id => \App\Classificazione::versione($m, true)]);
     @endphp
 
@@ -27,9 +26,9 @@
                 <p>{{ ($resta = $revisione->cosaResta()) ? 'Restano '.$resta.'.' : 'Tutti i movimenti sono confermati.' }}</p>
             </div>
             @if ($pronte > 0)
-                <form method="POST" action="{{ route('import.revisione.conferma', $import) }}">
+                <form method="POST" action="{{ route('import.revisione.conferma-pronte', $import) }}">
                     @csrf
-                    @foreach ($versioniDi($pronteDaConfermare) as $id => $versione)<input type="hidden" name="movimenti[{{ $id }}]" value="{{ $versione }}">@endforeach
+                    <input type="hidden" name="impronta" value="{{ $revisione->improntaPronte() }}">
                     <button type="submit" class="bottone">Conferma {{ $pronte }} {{ $pronte === 1 ? 'proposta pronta' : 'proposte pronte' }}</button>
                 </form>
             @endif

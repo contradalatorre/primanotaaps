@@ -12,6 +12,7 @@ use App\Models\Tag;
 use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /** La schermata di revisione dei movimenti di un import (#41). Dati inventati. */
@@ -235,12 +236,85 @@ class RevisioneImportTest extends TestCase
         $this->assertNotEmpty($trovati);
         $mandati = [];
         foreach ($trovati as [, $id, $versione]) {
-            $mandati[(int) $id] = $versione; // la stessa versione compare ovunque nella pagina: riga, gruppo, azione primaria
+            $mandati[(int) $id] = $versione; // la stessa versione compare ovunque nella pagina: riga e gruppo
         }
         $this->assertEqualsCanonicalizing([$s['ghiaccio']->id, $s['gazebo']->id, $diviso->id], array_keys($mandati));
 
         $this->confermaVia(['movimenti' => $mandati])->assertSessionHasNoErrors();
         $this->assertSame(0, Movimento::where('import_estratto_id', $this->import->id)->whereIn('stato', ['proposto', 'da_classificare'])->where('id', '!=', $s['contributo']->id)->count());
+    }
+
+    /** La pagina manda l'impronta delle proposte pronte, non un campo per proposta: oltre `max_input_vars` PHP taglierebbe in silenzio. */
+    private function improntaDallaPagina(): string
+    {
+        $pagina = $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione?passo=pronte")->getContent();
+        preg_match('#<form[^>]*action="[^"]*/conferme-pronte"[^>]*>(.*?)</form>#s', $pagina, $modulo);
+        $this->assertNotEmpty($modulo, 'manca il modulo di conferma delle proposte pronte');
+        $this->assertStringNotContainsString('name="movimenti[', $modulo[1]);
+        preg_match('/name="impronta" value="([0-9a-f]{64})"/', $modulo[1], $impronta);
+        $this->assertNotEmpty($impronta);
+
+        return $impronta[1];
+    }
+
+    public function test_l_azione_primaria_conferma_le_pronte_con_la_sola_impronta(): void
+    {
+        $s = $this->scenario();
+        $impronta = $this->improntaDallaPagina();
+
+        $this->actingAs($this->tesoriere)->post("/import/{$this->import->id}/conferme-pronte", ['impronta' => $impronta])
+            ->assertSessionHasNoErrors()->assertSessionHas('ok', '2 movimenti confermati.');
+        $this->assertSame(['confermato', 'confermato'], [$s['ghiaccio']->refresh()->stato, $s['gazebo']->refresh()->stato]);
+    }
+
+    public function test_l_impronta_di_un_insieme_cambiato_si_rifiuta_e_non_conferma_niente(): void
+    {
+        $s = $this->scenario();
+        $impronta = $this->improntaDallaPagina();
+        // dopo che l'utente ha visto la pagina un'altra proposta diventa pronta
+        $this->movimento('Bolletta del gas', 900, 'uscita', 'Utenze', 'Carnevale');
+        $post = fn (string $i) => $this->actingAs($this->tesoriere)->post("/import/{$this->import->id}/conferme-pronte", ['impronta' => $i]);
+
+        $post($impronta)->assertSessionHasErrors('conferma');
+        $post(str_repeat('0', 64))->assertSessionHasErrors('conferma');
+        $post('corta')->assertSessionHasErrors('impronta');
+        $this->assertSame(['proposto', 'proposto'], [$s['ghiaccio']->refresh()->stato, $s['gazebo']->refresh()->stato]);
+        $this->assertSame(0, RegistroModifica::where('oggetto_id', $s['ghiaccio']->id)->where('azione', 'confermato')->count());
+    }
+
+    public function test_la_transazione_blocca_tutti_i_movimenti_prima_di_leggerne_uno(): void
+    {
+        // MySQL (REPEATABLE READ) fotografa alla prima lettura semplice: se si blocca un movimento alla volta,
+        // dal secondo in poi si decide su dati vecchi. Quindi, dopo conto e import, un solo lock su tutti gli id,
+        // e nessuna lettura semplice prima. Il test gira già in una transazione: si controlla la sequenza delle query.
+        $s = $this->scenario();
+        $ids = [$s['ghiaccio']->id, $s['gazebo']->id];
+        $dati = ['movimenti' => $this->versioni($s['ghiaccio'], $s['gazebo'])];
+        DB::enableQueryLog();
+        $this->confermaVia($dati)->assertSessionHasNoErrors();
+
+        $query = DB::getQueryLog();
+        $inizio = array_key_first(array_filter($query, fn ($q) => str_contains($q['query'], 'from `conti`') && str_contains($q['query'], 'for update')));
+        $this->assertNotNull($inizio);
+        $lock = null;
+        foreach (array_slice($query, $inizio) as $q) {
+            if (! str_contains($q['query'], 'for update')) {
+                $this->fail('Lettura semplice prima del lock di tutti i movimenti: '.$q['query']);
+            }
+            if (str_contains($q['query'], 'from `movimenti`') && count(array_intersect($ids, $q['bindings'])) === count($ids)) {
+                $lock = $q;
+                break;
+            }
+        }
+        $this->assertNotNull($lock, 'nessun lock unico su tutti i movimenti');
+        $this->assertStringContainsString('order by `id`', $lock['query']);
+    }
+
+    public function test_un_passo_che_non_e_una_stringa_non_rompe_la_pagina(): void
+    {
+        $this->scenario();
+        $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione?passo[]=x&movimento[]=1")
+            ->assertOk()->assertSee('data-passo="pronte" data-conteggio="2"', false);
     }
 
     public function test_l_iniziativa_su_un_movimento_diviso_tiene_gli_importi(): void

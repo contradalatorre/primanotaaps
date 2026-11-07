@@ -125,6 +125,34 @@ final class Revisione
     }
 
     /**
+     * L'impronta delle proposte pronte come le ha viste l'utente (id e versione di ognuna): l'azione primaria della pagina
+     * manda solo questa, non un campo per proposta, che oltre `max_input_vars` PHP taglierebbe in silenzio.
+     */
+    public function improntaPronte(): string
+    {
+        return hash('sha256', $this->passo('pronte')->map(fn (Movimento $m) => $m->id.':'.Classificazione::versione($m, true))->implode(','));
+    }
+
+    /**
+     * Conferma tutte le proposte pronte, se sono ancora quelle che l'utente aveva davanti. Le versioni si rileggono qui,
+     * e `conferma` le ricontrolla a riga bloccata: una modifica arrivata in mezzo fa rifiutare tutto.
+     *
+     * @return int quante ne ha confermate
+     *
+     * @throws ValidationException sotto `conferma`
+     */
+    public function confermaPronte(User $utente, string $impronta): int
+    {
+        $pronte = $this->passo('pronte');
+        if ($pronte->isEmpty() || ! hash_equals($this->improntaPronte(), $impronta)) {
+            throw ValidationException::withMessages(['conferma' => 'Le proposte pronte sono cambiate dopo che le hai viste: rileggile prima di confermarle.']);
+        }
+        $this->conferma($utente, $pronte->mapWithKeys(fn (Movimento $m) => [$m->id => Classificazione::versione($m, true)])->all());
+
+        return $pronte->count();
+    }
+
+    /**
      * Imposta l'iniziativa su tutte le imputazioni dei movimenti scelti (area e attività si ereditano da lei),
      * lasciando il resto della classificazione com'è. Anche qui: tutti o nessuno, e solo sulla versione vista.
      *
@@ -161,6 +189,11 @@ final class Revisione
             // Un import annullato nel frattempo non si rivede: i suoi movimenti sono usciti.
             Conto::lockForUpdate()->findOrFail($this->import->conto_id);
             abort_unless(ImportEstratto::lockForUpdate()->findOrFail($this->import->id)->stato === 'confermato', 404);
+            // Tutti i movimenti insieme, prima di qualunque lettura semplice: MySQL (REPEATABLE READ) fotografa alla prima
+            // lettura semplice, e se si bloccasse un movimento alla volta dal secondo in poi si deciderebbe su dati vecchi
+            // (conferma di un movimento appena privato della tipologia, classificazione altrui cancellata).
+            // shortcut: circa 28 query per movimento sotto lock; un estratto mensile ha qualche centinaio di righe, da ripensare solo se diventano migliaia.
+            Movimento::whereIn('id', $movimenti->modelKeys())->orderBy('id')->lockForUpdate()->get(['id']);
             foreach ($movimenti as $movimento) {
                 try {
                     $azione($movimento, $versioni[$movimento->id]);

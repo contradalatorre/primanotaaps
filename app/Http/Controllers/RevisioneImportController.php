@@ -18,7 +18,9 @@ class RevisioneImportController extends Controller
     public function mostra(Request $request, ImportEstratto $import)
     {
         $revisione = $this->revisione($import);
-        $passo = array_key_exists((string) $request->string('passo'), Revisione::PASSI) ? $request->query('passo') : $revisione->passoIniziale();
+        $passo = $request->query('passo');
+        // `?passo[]=x` è un array: non è un passo.
+        $passo = is_string($passo) && array_key_exists($passo, Revisione::PASSI) ? $passo : $revisione->passoIniziale();
 
         return view('revisione.mostra', [
             'revisione' => $revisione, 'import' => $import, 'passo' => $passo, 'movimenti' => $revisione->passo($passo),
@@ -36,6 +38,15 @@ class RevisioneImportController extends Controller
         $n = count($dati['movimenti']);
 
         return $this->torna($import, $dati, $n.($n === 1 ? ' movimento confermato.' : ' movimenti confermati.'));
+    }
+
+    /** L'azione primaria: tutte le proposte pronte, riconosciute dall'impronta di quando la pagina è stata disegnata. */
+    public function confermaPronte(Request $request, ImportEstratto $import): RedirectResponse
+    {
+        $dati = $request->validate(['impronta' => ['required', 'string', 'size:64']]);
+        $n = $this->revisione($import)->confermaPronte($request->user(), $dati['impronta']);
+
+        return $this->torna($import, ['passo' => 'pronte'], $n.($n === 1 ? ' movimento confermato.' : ' movimenti confermati.'));
     }
 
     public function iniziativa(Request $request, ImportEstratto $import): RedirectResponse

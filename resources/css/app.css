@@ -460,7 +460,7 @@
     }
 
     .dettaglio {
-        @apply fixed inset-x-0 bottom-0 z-20 flex max-h-[70vh] flex-col gap-3 overflow-y-auto border-t-4 border-nero bg-white p-4 shadow-lg min-[1100px]:left-64;
+        @apply fixed inset-x-0 bottom-0 z-20 flex max-h-[70vh] flex-col gap-3 overflow-y-auto border-t-4 border-nero bg-white p-4 shadow-lg min-[1100px]:left-64 focus:outline-none;
     }
 
     .dettaglio-testa {
