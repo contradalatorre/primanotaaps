@@ -263,7 +263,7 @@ class RevisioneImportTest extends TestCase
         $impronta = $this->improntaDallaPagina();
 
         $this->actingAs($this->tesoriere)->post("/import/{$this->import->id}/conferme-pronte", ['impronta' => $impronta])
-            ->assertSessionHasNoErrors()->assertSessionHas('ok', '2 movimenti confermati.');
+            ->assertRedirect(route('import.revisione', $this->import))->assertSessionHasNoErrors()->assertSessionHas('ok', '2 movimenti confermati.'); // senza passo: la pagina porta a quello che resta
         $this->assertSame(['confermato', 'confermato'], [$s['ghiaccio']->refresh()->stato, $s['gazebo']->refresh()->stato]);
     }
 

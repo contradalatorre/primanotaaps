@@ -46,7 +46,7 @@ class RevisioneImportController extends Controller
         $dati = $request->validate(['impronta' => ['required', 'string', 'size:64']]);
         $n = $this->revisione($import)->confermaPronte($request->user(), $dati['impronta']);
 
-        return $this->torna($import, ['passo' => 'pronte'], $n.($n === 1 ? ' movimento confermato.' : ' movimenti confermati.'));
+        return $this->torna($import, [], $n.($n === 1 ? ' movimento confermato.' : ' movimenti confermati.'));
     }
 
     public function iniziativa(Request $request, ImportEstratto $import): RedirectResponse
