@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccessoController;
+use App\Http\Controllers\ClassificazioneController;
 use App\Http\Controllers\ContiController;
 use App\Http\Controllers\DatiDiClassificazioneController;
 use App\Http\Controllers\EmergenzaController;
@@ -61,7 +62,14 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
     });
     Route::get('/movimenti/{movimento}/modifica', [MovimentiController::class, 'modifica'])->name('movimenti.modifica');
     Route::put('/movimenti/{movimento}', [MovimentiController::class, 'salva'])->name('movimenti.salva');
-    Route::post('/movimenti/{movimento}/ritiro', [MovimentiController::class, 'ritira'])->name('movimenti.ritira');
+    // Classificazione (#39): il Tesoriere sempre, l'autore sul proprio movimento non confermato (controllo nel controllore).
+    Route::get('/movimenti/{movimento}/classificazione', [ClassificazioneController::class, 'modifica'])->name('movimenti.classificazione');
+    Route::put('/movimenti/{movimento}/classificazione', [ClassificazioneController::class, 'salva'])->name('movimenti.classificazione.salva');
+    Route::post('/movimenti/{movimento}/giustificativi', [ClassificazioneController::class, 'aggiungiGiustificativo'])->name('movimenti.giustificativi');
+    Route::delete('/giustificativi/{giustificativo}', [ClassificazioneController::class, 'rimuoviGiustificativo'])->name('giustificativi.elimina');
+    Route::post('/movimenti/{movimento}/conferma', [ClassificazioneController::class, 'conferma'])
+        ->middleware('can:importare_e_confermare')->name('movimenti.conferma');
+    Route::post('/movimenti/{movimento}/ritiro',[MovimentiController::class, 'ritira'])->name('movimenti.ritira');
     Route::post('/movimenti/{movimento}/eliminazione', [MovimentiController::class, 'elimina'])
         ->middleware('can:eliminare_movimento_manuale')->name('movimenti.elimina');
     Route::get('/movimenti/{movimento}/storia', [MovimentiController::class, 'storia'])

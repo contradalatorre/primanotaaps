@@ -26,8 +26,11 @@ class MovimentiController extends Controller
         return view('movimenti.indice', [
             'conti' => $conti,
             'conto' => $conto,
-            'movimenti' => Movimento::with('conto', 'autore')
+            'senzaGiustificativo' => $request->boolean('senza_giustificativo'),
+            'movimenti' => Movimento::with('conto', 'autore', 'proponente', 'giustificativi', 'imputazioni.attivita', 'imputazioni.iniziativa', 'imputazioni.tipologia', 'imputazioni.tag')
                 ->when($conto, fn ($q) => $q->where('conto_id', $conto->id))
+                // «Spese senza giustificativo»: le uscite che non ne hanno nessuno.
+                ->when($request->boolean('senza_giustificativo'), fn ($q) => $q->where('verso', 'uscita')->whereDoesntHave('giustificativi'))
                 ->orderByDesc('data')->orderByDesc('id')->paginate(50)->withQueryString(),
         ]);
     }
