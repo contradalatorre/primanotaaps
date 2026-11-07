@@ -71,7 +71,7 @@ class Imputazione extends Model
     /** Una riga di testo per il registro delle modifiche. */
     public function riassunto(): string
     {
-        $tag = $this->tag->pluck('nome')->sort()->values(); // in ordine: lista e conferma devono ottenere la stessa versione
+        $tag = $this->tag->pluck('nome');
 
         return collect([
             Euro::formatta($this->importo).' €', 'area '.$this->area->value, $this->attivita?->nome, $this->iniziativa?->nome,
