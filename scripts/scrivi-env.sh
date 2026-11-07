@@ -5,7 +5,7 @@
 # né andare a capo (tipico di un segreto incollato con l'invio finale).
 set -eu
 
-chiavi="APP_URL APP_KEY DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GOOGLE_WORKSPACE_DOMAIN AMMINISTRATORI_INIZIALI MIGRAZIONI_TOKEN"
+chiavi="APP_URL APP_KEY DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GOOGLE_WORKSPACE_DOMAIN AMMINISTRATORI_INIZIALI EMERGENZA_PASSWORD_HASH EMERGENZA_TOTP_SECRET MIGRAZIONI_TOKEN MAIL_MAILER MAIL_HOST MAIL_PORT MAIL_USERNAME MAIL_PASSWORD MAIL_FROM_ADDRESS"
 a_capo=$(printf '\n.')
 
 for chiave in $chiavi; do
@@ -18,6 +18,16 @@ for chiave in $chiavi; do
         *"'"* | *"${a_capo%.}"*) echo "$chiave contiene un apice singolo o un a capo: non si può scrivere nel .env." >&2; exit 1 ;;
     esac
 done
+
+# Le credenziali di emergenza sbagliate si scoprirebbero solo nell'emergenza: meglio far fallire la pubblicazione.
+case "$EMERGENZA_PASSWORD_HASH" in
+    '$2y$'*) ;;
+    *) echo 'EMERGENZA_PASSWORD_HASH non è un hash bcrypt (deve iniziare con $2y$): rigenerala con emergenza:credenziali.' >&2; exit 1 ;;
+esac
+if ! printf '%s' "$EMERGENZA_TOTP_SECRET" | grep -Eq '^[A-Z2-7]+=*$'; then
+    echo 'EMERGENZA_TOTP_SECRET non è un segreto base32 (A-Z, 2-7): rigeneralo con emergenza:credenziali.' >&2
+    exit 1
+fi
 
 # Senza barra finale, come lo vuole anche il controllo di raggiungibilità: il redirect di Google deve combaciare.
 APP_URL="${APP_URL%/}"

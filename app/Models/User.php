@@ -27,6 +27,7 @@ class User extends Authenticatable
             'google_refresh_token' => 'encrypted',
             'google_verificato_il' => 'datetime',
             'esterno' => 'boolean',
+            'emergenza' => 'boolean',
         ];
     }
 
@@ -83,6 +84,12 @@ class User extends Authenticatable
      */
     public function puo(Permesso $permesso, ?int $contoId = null): bool
     {
+        // L'account di emergenza (#36) vale come un Amministratore su tutto, senza avere assegnazioni: con una
+        // conterebbe tra gli Amministratori e nasconderebbe l'avviso di quando non ne resta nessuno.
+        if ($this->emergenza) {
+            return true;
+        }
+
         if ($this->esterno && ! $permesso->valePerEsterni()) {
             return false;
         }

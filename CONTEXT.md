@@ -136,6 +136,14 @@ _Avoid_: abilitazione
 Un account Google personale (non del Workspace), aggiunto uno per uno dall'Amministratore a un consulente come il commercialista o il revisore. Resta in sola lettura qualunque ruolo abbia (vede, scrive note e, se il ruolo lo prevede, consulta registro e storia dei movimenti), ha sempre una scadenza e, quando c'è, la data della nomina firmata.
 _Avoid_: ospite, utente esterno
 
+**Account di emergenza**:
+L'unico account locale, con password lunga e codice a tempo, con cui si entra quando Google non funziona o non resta nessun Amministratore; ha i permessi di un Amministratore ma non compare tra gli utenti né ha assegnazioni, la sua sessione dura un'ora e ogni suo uso finisce nel registro degli accessi e avvisa gli Amministratori.
+_Avoid_: account di servizio, super utente, backdoor
+
+**Riautenticazione**:
+Il rifare l'accesso (con Google, o con password e codice per l'account di emergenza) che le azioni delicate chiedono quando l'ultimo accesso risale a più di un'ora fa.
+_Avoid_: conferma della password, nuovo login
+
 **Elenco degli autorizzati**:
 Le assegnazioni in corso (persona, ruolo, conti, scadenza, nomina firmata), esportate in PDF datato come elenco di chi può trattare i dati personali; non include le assegnazioni scadute.
 _Avoid_: elenco utenti
