@@ -47,6 +47,10 @@ class ImportEstrattiController extends Controller
         if ($conto->chiuso()) {
             $this->rifiuta('Il conto è chiuso: non si importano nuovi movimenti.');
         }
+        // Il controllo sul contenuto vuole l'estensione fileinfo; senza, al posto di un errore 500 un messaggio che dice cosa fare.
+        if (! extension_loaded('fileinfo')) {
+            $this->rifiuta('Sul server manca l’estensione PHP «fileinfo», che serve a controllare il file: va attivata dal pannello dell’hosting (docs/pubblicazione.md).');
+        }
         // Si valuta il contenuto, non il nome che il browser dichiara; 2 MB bastano a un anno di movimenti.
         $messaggio = 'Carica il file CSV dell’estratto (testo, al massimo 2 MB).';
         $request->validate(
@@ -140,19 +144,7 @@ class ImportEstrattiController extends Controller
     /** Si butta un'anteprima che non si vuole più: l'import e le sue righe in attesa spariscono. */
     public function scarta(ImportEstratto $import): RedirectResponse
     {
-        // Riletto con il lock: una conferma arrivata nel frattempo non deve perdere il file né l'import.
-        $percorso = DB::transaction(function () use ($import) {
-            $attuale = ImportEstratto::lockForUpdate()->findOrFail($import->id);
-            if ($attuale->stato !== 'anteprima') {
-                return null;
-            }
-            $attuale->delete();
-
-            return $attuale->percorso;
-        });
-        if ($percorso) {
-            Storage::disk('local')->delete($percorso);
-        }
+        $this->scartaAnteprima($import->id);
 
         return redirect()->route('import.indice', $import->conto_id)->with('ok', 'Anteprima scartata: non è entrato nulla.');
     }
@@ -189,17 +181,24 @@ class ImportEstrattiController extends Controller
         $decisione = $request->validate(['decisione' => ['required', Rule::in(array_keys(ImportConflitto::DECISIONI))]])['decisione'];
 
         DB::transaction(function () use ($request, $conflitto, $decisione) {
+            // Prima il conto, come conferma e annulla: due decisioni sulla stessa riga di import sovrapposti si mettono in fila.
+            $conto = Conto::lockForUpdate()->findOrFail($conflitto->importEstratto->conto_id);
             $conflitto = ImportConflitto::lockForUpdate()->findOrFail($conflitto->id);
             $import = $conflitto->importEstratto;
             if ($conflitto->decisione !== null || $import->stato !== 'confermato') {
                 $this->rifiuta('Questo conflitto è già deciso o l’import non c’è più.');
             }
-            if ($decisione === 'importa_a_parte' && $import->conto->chiuso()) {
+            if ($decisione === 'importa_a_parte' && $conto->chiuso()) {
                 $this->rifiuta('Il conto è chiuso: non si importano nuovi movimenti.');
             }
 
             if ($decisione === 'importa_a_parte') {
-                $movimento = (new Movimento)->forceFill($import->attributiMovimento($conflitto->rigaEstratto(), $request->user()->id));
+                $riga = $conflitto->rigaEstratto();
+                // Lo stesso conflitto può esserci in due import sovrapposti: la riga entra una volta sola.
+                if ($conto->movimenti()->where(['chiave' => $riga->chiave(), 'data_valuta' => $riga->dataValuta, 'causale' => $riga->causale])->exists()) {
+                    $this->rifiuta('Questa riga è già entrata, da un altro import o da un’altra decisione: tieni il movimento già presente.');
+                }
+                $movimento = (new Movimento)->forceFill($import->attributiMovimento($riga, $request->user()->id));
                 $movimento->save();
                 $this->registraMovimenti($request->user(), collect([$movimento]), 'importato', null);
             }
@@ -229,12 +228,28 @@ class ImportEstrattiController extends Controller
         }
     }
 
-    /** Le anteprime lasciate lì da più di un giorno: su un hosting condiviso non c'è un'attività pianificata che le pulisca. */
+    /** Le anteprime lasciate lì da più di un giorno: l'ADR 0001 prevede il cron solo come chiamata HTTP e non c'è ancora, quindi si puliscono al caricamento. */
     private function scartaAnteprimeVecchie(): void
     {
-        foreach (ImportEstratto::where('stato', 'anteprima')->where('created_at', '<', now()->subDay())->get() as $vecchia) {
-            Storage::disk('local')->delete($vecchia->percorso);
-            $vecchia->delete();
+        foreach (ImportEstratto::where('stato', 'anteprima')->where('created_at', '<', now()->subDay())->pluck('id') as $id) {
+            $this->scartaAnteprima($id);
+        }
+    }
+
+    /** Riletta con il lock: una conferma arrivata nel frattempo non deve perdere il file né l'import. */
+    private function scartaAnteprima(int $id): void
+    {
+        $percorso = DB::transaction(function () use ($id) {
+            $attuale = ImportEstratto::lockForUpdate()->find($id);
+            if ($attuale?->stato !== 'anteprima') {
+                return null;
+            }
+            $attuale->delete();
+
+            return $attuale->percorso;
+        });
+        if ($percorso) {
+            Storage::disk('local')->delete($percorso);
         }
     }
 

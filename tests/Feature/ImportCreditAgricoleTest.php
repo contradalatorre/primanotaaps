@@ -392,6 +392,42 @@ class ImportCreditAgricoleTest extends TestCase
         $this->assertSame(1, ImportEstratto::count());
     }
 
+    public function test_la_pulizia_non_butta_un_import_confermato_nel_frattempo(): void
+    {
+        $this->carica($this->fixture());
+        $vecchia = ImportEstratto::firstOrFail();
+        $this->travel(2)->days();
+        // Una conferma arriva dopo che la pulizia ha letto l'elenco delle anteprime vecchie.
+        $simulata = false;
+        ImportEstratto::retrieved(function (ImportEstratto $letta) use (&$simulata, $vecchia) {
+            if (! $simulata && $letta->id === $vecchia->id) {
+                $simulata = true;
+                Storage::disk('local')->delete($vecchia->percorso);
+                ImportEstratto::whereKey($vecchia->id)->update(['stato' => 'confermato', 'percorso' => null]);
+            }
+        });
+
+        $this->carica($this->fixture())->assertSessionHasNoErrors();
+
+        $this->assertSame('confermato', $vecchia->refresh()->stato);
+    }
+
+    public function test_due_import_con_lo_stesso_conflitto_non_fanno_entrare_la_riga_due_volte(): void
+    {
+        $this->importa($this->fixture());
+        $variante = str_replace('15/04/2026;14/04/2026;COMMISSIONI', '15/04/2026;15/04/2026;COMMISSIONI', $this->fixture());
+        $this->importa($variante);
+        $this->importa($variante);
+        [$primo, $secondo] = ImportConflitto::orderBy('id')->get()->all();
+
+        $this->post("/import/conflitti/{$primo->id}/decisione", ['decisione' => 'importa_a_parte'])->assertSessionHasNoErrors();
+        $this->post("/import/conflitti/{$secondo->id}/decisione", ['decisione' => 'importa_a_parte'])->assertSessionHasErrors('estratto');
+
+        $this->assertSame(6, Movimento::count());
+        $this->assertNull($secondo->refresh()->decisione);
+        $this->post("/import/conflitti/{$secondo->id}/decisione", ['decisione' => 'tieni_esistente'])->assertSessionHasNoErrors();
+    }
+
     public function test_chi_non_ha_il_permesso_di_importare_non_carica_il_file(): void
     {
         foreach (['Consigliere', 'Lettore esterno'] as $ruolo) {
