@@ -45,6 +45,7 @@ class RegistroModifica extends Model
                 $oggetto instanceof Attivita => 'attivita',
                 $oggetto instanceof Iniziativa => 'iniziativa',
                 $oggetto instanceof Tag => 'tag',
+                $oggetto instanceof ImportEstratto => 'import',
                 default => throw new LogicException('Oggetto non previsto nel registro: '.$oggetto::class),
             },
             'oggetto_id' => $oggetto->getKey(),
