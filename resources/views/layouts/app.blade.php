@@ -63,7 +63,7 @@
                     <span>{{ $stabili === 1 ? 'C’è un solo Amministratore senza scadenza: se perde l’accesso' : 'Nessun Amministratore è senza scadenza: quando le loro assegnazioni scadranno' }} nessuno potrà più gestire utenti e ruoli. Assegna il ruolo, senza scadenza, a un’altra persona.</span>
                 </p>
             @endif
-            @php($senzaConti = \App\Models\Assegnazione::attive()->senzaConti()->with('user')->get()->pluck('user.name')->unique()->sort())
+            @php($senzaConti = \App\Models\User::senzaConti()->orderBy('name')->pluck('name'))
             @if ($senzaConti->isNotEmpty())
                 <p class="avviso" role="status">
                     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l10 18H2zM12 10v5M12 18h.01"/></svg>

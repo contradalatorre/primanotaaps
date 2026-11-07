@@ -22,6 +22,7 @@ class EuroTest extends TestCase
         yield 'migliaia senza decimali' => ['1.234', null];
         yield 'lettere' => ['abc', null];
         yield 'vuoto' => ['', null];
+        yield 'troppo grande' => ['99999999999999999999', null];
     }
 
     #[DataProvider('importi')]

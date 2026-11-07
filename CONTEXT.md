@@ -23,7 +23,7 @@ L'etichetta breve con cui il fornitore del conto indica il tipo di operazione (e
 _Avoid_: tipo operazione, codice
 
 **Descrizione**:
-Il testo libero che accompagna un movimento nell'estratto conto, scritto dal fornitore del conto; non va confusa con la nota, scritta da un utente.
+Il testo libero che accompagna un movimento: nell'estratto conto lo scrive il fornitore del conto, in un movimento di cassa lo scrive chi lo inserisce; non va confusa con la nota, scritta da un utente su un movimento già registrato.
 _Avoid_: dettaglio
 
 **Controparte**:

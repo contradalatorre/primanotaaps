@@ -45,10 +45,14 @@ class Movimento extends Model
         return $this->stato === 'confermato';
     }
 
-    /** Con il segno, per mostrarlo e per i saldi. */
-    public function importoConSegno(): int
+    /**
+     * L'autore modifica e ritira il proprio movimento manuale, sui conti del suo ambito, finché nessuno lo ha
+     * confermato e il conto è aperto. Una sola regola per il controllore e per i pulsanti della pagina.
+     */
+    public function modificabileDa(User $utente): bool
     {
-        return $this->verso === 'uscita' ? -$this->importo : $this->importo;
+        return $this->manuale && $this->inserito_da === $utente->id && ! $this->confermato()
+            && ! $this->conto->chiuso() && $utente->can('modificare_movimenti_propri', $this->conto_id);
     }
 
     /** I campi che il registro delle modifiche conserva prima e dopo ogni cambiamento. */

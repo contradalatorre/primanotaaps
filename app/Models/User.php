@@ -67,6 +67,16 @@ class User extends Authenticatable
         });
     }
 
+    /**
+     * Chi è rimasto senza conti: ha un'assegnazione attiva senza conti (i suoi conti si sono chiusi) e nessun'altra
+     * attiva che valga su qualche conto. Chi ne ha un'altra su tutti i conti scrive ancora, quindi non va avvisato.
+     */
+    public static function senzaConti(): Builder
+    {
+        return static::whereHas('assegnazioniAttive', fn (Builder $a) => $a->senzaConti())
+            ->whereDoesntHave('assegnazioniAttive', fn (Builder $a) => $a->conConti());
+    }
+
     public function assegnazioni(): HasMany
     {
         return $this->hasMany(Assegnazione::class);

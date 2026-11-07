@@ -51,6 +51,13 @@ class Assegnazione extends Model
         );
     }
 
+    public function scopeConConti(Builder $query): void
+    {
+        $query->where(fn (Builder $q) => $q->where('tutti_i_conti', true)->orWhereExists(
+            fn ($e) => $e->from('assegnazione_conto')->whereColumn('assegnazione_conto.assegnazione_id', 'assegnazioni.id'),
+        ));
+    }
+
     /** L'ambito come testo per le liste e per l'elenco degli autorizzati. */
     public function descrizioneAmbito(): string
     {

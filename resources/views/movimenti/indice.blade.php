@@ -40,7 +40,7 @@
                     <br>Inserito da {{ $movimento->autore->name }} il {{ $movimento->created_at->format('d/m/Y') }}
                 </p>
                 <p class="azioni">
-                    @if ($movimento->manuale && $movimento->inserito_da === auth()->id() && ! $movimento->confermato() && auth()->user()->can('modificare_movimenti_propri', $movimento->conto_id))
+                    @if ($movimento->modificabileDa(auth()->user()))
                         <a href="{{ route('movimenti.modifica', $movimento) }}" class="link">Modifica</a>
                         <form method="POST" action="{{ route('movimenti.ritira', $movimento) }}">@csrf <button type="submit" class="link">Ritira</button></form>
                     @endif

@@ -117,15 +117,9 @@ class MovimentiController extends Controller
         });
     }
 
-    /** L'autore modifica e ritira il proprio movimento, sui conti del suo ambito, finché nessuno lo ha confermato. */
     private function controllaAutore(Request $request, Movimento $movimento): void
     {
-        $utente = $request->user();
-        abort_unless(
-            $movimento->manuale && $movimento->inserito_da === $utente->id && ! $movimento->confermato()
-                && $utente->can('modificare_movimenti_propri', $movimento->conto_id),
-            403,
-        );
+        abort_unless($movimento->modificabileDa($request->user()), 403);
     }
 
     private function controllaCassaAperta(Conto $conto): void

@@ -180,6 +180,17 @@ class MovimentiTest extends TestCase
         $this->assertSame(1250, $proprio->fresh()->importo);
     }
 
+    public function test_su_un_conto_chiuso_nemmeno_l_autore_modifica_o_ritira(): void
+    {
+        $autore = $this->utenteCon('Consigliere'); // su tutti i conti: la chiusura non gli toglie l'assegnazione
+        $movimento = $this->movimentoDi($autore);
+        $this->festa->update(['chiuso_il' => '2026-05-15']);
+
+        $this->actingAs($autore)->put("/movimenti/{$movimento->id}", $this->dati())->assertForbidden();
+        $this->actingAs($autore)->post("/movimenti/{$movimento->id}/ritiro")->assertForbidden();
+        $this->assertSame(1, Movimento::count());
+    }
+
     public function test_un_movimento_importato_non_si_modifica_nemmeno_dall_autore(): void
     {
         $autore = $this->utenteCon('Consigliere');

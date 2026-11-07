@@ -38,7 +38,11 @@ class RegistroModifica extends Model
     {
         return static::create([
             'user_id' => $utente->id,
-            'oggetto_tipo' => $oggetto instanceof Conto ? 'conto' : 'movimento',
+            'oggetto_tipo' => match (true) {
+                $oggetto instanceof Conto => 'conto',
+                $oggetto instanceof Movimento => 'movimento',
+                default => throw new LogicException('Oggetto non previsto nel registro: '.$oggetto::class),
+            },
             'oggetto_id' => $oggetto->getKey(),
             'azione' => $azione,
             'prima' => $prima,

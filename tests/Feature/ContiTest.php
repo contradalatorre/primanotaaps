@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Conto;
+use App\Models\Movimento;
 use App\Models\RegistroModifica;
 use App\Models\Ruolo;
 use App\Models\User;
@@ -156,6 +157,30 @@ class ContiTest extends TestCase
 
         $this->actingAs($admin)->get('/utenti')->assertSee('Dario Gialli')->assertSee('senza conti', false);
         $this->actingAs($admin)->get('/')->assertSee('senza conti', false);
+    }
+
+    public function test_chi_ha_un_altra_assegnazione_su_tutti_i_conti_non_resta_senza_conti(): void
+    {
+        $festa = Conto::factory()->create();
+        $mario = $this->utenteCon('Consigliere', ['conti' => [$festa->id]], ['name' => 'Mario Rossi']);
+        $this->assegna($mario, 'Consigliere');
+        $admin = $this->utenteCon('Amministratore');
+
+        $this->actingAs($this->utenteCon('Tesoriere'))->post("/conti/{$festa->id}/chiusura", ['chiuso_il' => today()->toDateString()])
+            ->assertSessionMissing('avviso');
+        $this->actingAs($admin)->get('/')->assertDontSee('senza conti', false);
+        // la persona resta nel registro come chi aveva l'ambito sul conto chiuso
+        $this->assertStringContainsString('Mario Rossi', RegistroModifica::where('azione', 'chiuso')->firstOrFail()->motivazione);
+    }
+
+    public function test_il_conto_non_si_chiude_prima_dell_ultimo_movimento(): void
+    {
+        $conto = Conto::factory()->create(['aperto_il' => '2026-01-01']);
+        Movimento::factory()->create(['conto_id' => $conto->id, 'data' => '2026-03-05']);
+
+        $this->actingAs($this->utenteCon('Tesoriere'))->post("/conti/{$conto->id}/chiusura", ['chiuso_il' => '2026-03-01'])
+            ->assertSessionHasErrors('chiuso_il');
+        $this->assertNull($conto->fresh()->chiuso_il);
     }
 
     public function test_la_chiusura_non_puo_essere_nel_futuro_ne_prima_dell_apertura(): void
