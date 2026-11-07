@@ -381,12 +381,12 @@ class ImportCreditAgricoleTest extends TestCase
         $this->assertNotNull($inizio);
         $lock = null;
         foreach (array_slice($query, $inizio) as $q) {
-            if (str_contains($q['query'], 'from `movimenti`') && str_contains($q['query'], 'for update')) {
-                $lock = $q;
-                break;
+            if (! str_contains($q['query'], 'for update')) {
+                $this->fail('Lettura semplice prima del lock dei movimenti: '.$q['query']);
             }
             if (str_contains($q['query'], 'from `movimenti`')) {
-                $this->fail('Lettura semplice dei movimenti prima del lock: '.$q['query']);
+                $lock = $q;
+                break;
             }
         }
         $this->assertNotNull($lock, 'nessun lock sui movimenti dell’import');
