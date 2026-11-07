@@ -30,6 +30,7 @@ class ClassificazioneController extends Controller
 
         // Si scelgono gli elementi attivi; quelli archiviati restano nell'elenco solo dove il movimento li ha già.
         $conservati = fn (string $campo) => $imputazioni->pluck($campo)->filter()->all();
+
         return view('movimenti.classificazione', [
             'movimento' => $movimento->load('conto', 'autore', 'proponente', 'giustificativi'),
             'imputazioni' => $imputazioni,

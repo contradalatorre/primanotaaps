@@ -69,7 +69,7 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
     Route::delete('/giustificativi/{giustificativo}', [ClassificazioneController::class, 'rimuoviGiustificativo'])->name('giustificativi.elimina');
     Route::post('/movimenti/{movimento}/conferma', [ClassificazioneController::class, 'conferma'])
         ->middleware('can:importare_e_confermare')->name('movimenti.conferma');
-    Route::post('/movimenti/{movimento}/ritiro',[MovimentiController::class, 'ritira'])->name('movimenti.ritira');
+    Route::post('/movimenti/{movimento}/ritiro', [MovimentiController::class, 'ritira'])->name('movimenti.ritira');
     Route::post('/movimenti/{movimento}/eliminazione', [MovimentiController::class, 'elimina'])
         ->middleware('can:eliminare_movimento_manuale')->name('movimenti.elimina');
     Route::get('/movimenti/{movimento}/storia', [MovimentiController::class, 'storia'])
