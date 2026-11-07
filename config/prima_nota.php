@@ -4,7 +4,8 @@ return [
 
     /*
     | Indirizzi del Workspace che diventano Amministratore al primo accesso, ma solo finché nell'app nessuno ha
-    | mai avuto un ruolo con la gestione utenti (avvio a freddo: su Aruba non c'è una riga di comando per crearlo).
+    | mai avuto un ruolo con la gestione utenti (avvio a freddo: su Aruba non c'è una riga di comando per crearlo),
+    | e una volta sola: lo ricorda la riga `amministratore_iniziale` del registro degli accessi.
     | In .env: AMMINISTRATORI_INIZIALI=nome.cognome@dominio.it,altro@dominio.it
     */
     'amministratori_iniziali' => array_values(array_filter(array_map(

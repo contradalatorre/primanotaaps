@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Assegnazione;
+use App\Models\RegistroAccesso;
 use App\Models\Ruolo;
 use App\Models\User;
 use App\Permesso;
@@ -122,7 +123,7 @@ class AccessoController extends Controller
             'google_verificato_il' => now(),
         ])->save();
 
-        $this->assegnaAmministratoreIniziale($utente);
+        $this->assegnaAmministratoreIniziale($utente, $request);
 
         Auth::login($utente);
         $request->session()->regenerate();
@@ -153,10 +154,11 @@ class AccessoController extends Controller
 
     /**
      * Avvio a freddo: vedi config/prima_nota.php. Vale una volta sola, finché nessuno ha mai avuto un ruolo con la
-     * gestione utenti (scadenza ignorata). Se poi gli Amministratori scadono tutti, il recupero è dell'account di
+     * gestione utenti (scadenza ignorata). Lo ricorda il registro degli accessi: la potatura a 12 mesi (#65) deve
+     * lasciare le righe `amministratore_iniziale`, se no l'elenco tornerebbe a scattare. Se poi gli Amministratori scadono tutti, il recupero è dell'account di
      * emergenza (#36), che lascia traccia nel registro e avvisa gli Amministratori: non di questo elenco, in silenzio.
      */
-    private function assegnaAmministratoreIniziale(User $utente): void
+    private function assegnaAmministratoreIniziale(User $utente, Request $request): void
     {
         if ($utente->esterno || ! in_array(strtolower($utente->email), config('prima_nota.amministratori_iniziali'), true)) {
             return;
@@ -164,12 +166,17 @@ class AccessoController extends Controller
 
         // Il ruolo si sceglie dal permesso, non dal nome: l'Amministratore può averlo rinominato.
         $conGestioneUtenti = fn ($ruoli) => $ruoli->whereJsonContains('permessi', Permesso::GestireUtenti->value);
-        if (Assegnazione::whereHas('ruolo', $conGestioneUtenti)->exists()) {
+        // Le assegnazioni attuali non bastano: l'emergenza può revocare quelle scadute. Il registro ricorda che è già scattato.
+        if (RegistroAccesso::where('evento', 'amministratore_iniziale')->exists()
+            || Assegnazione::whereHas('ruolo', $conGestioneUtenti)->exists()) {
             return;
         }
 
         $ruolo = $conGestioneUtenti(Ruolo::query())->orderBy('id')->first();
-        $ruolo && $utente->assegnazioni()->create(['ruolo_id' => $ruolo->id]);
+        if ($ruolo) {
+            $utente->assegnazioni()->create(['ruolo_id' => $ruolo->id]);
+            RegistroAccesso::registra('amministratore_iniziale', $request, $utente);
+        }
     }
 
     private function dominio(): ?string

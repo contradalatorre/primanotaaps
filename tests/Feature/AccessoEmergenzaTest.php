@@ -130,6 +130,7 @@ class AccessoEmergenzaTest extends TestCase
 
     public function test_un_codice_gia_usato_non_vale_due_volte(): void
     {
+        $this->freezeTime(); // senza, il cambio di passo di 30 s tra i due tentativi lo fa fallire a caso
         $this->entra()->assertRedirect(route('home'));
         $this->post(route('esci'));
 
