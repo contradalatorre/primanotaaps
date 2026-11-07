@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 /**
- * Una sezione del manuale di classificazione (glossario: Manuale). Il `codice` è il suo numero, quello di
+ * Una sezione del manuale di classificazione (glossario: Manuale di classificazione). Il `codice` è il suo numero, quello di
  * «manuale § 9»: lo dà l'app alla creazione e non cambia più.
  */
 #[Fillable(['titolo', 'corpo'])]
