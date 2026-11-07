@@ -84,6 +84,8 @@ return new class extends Migration
     private function caricaDatiIniziali(): void
     {
         $ora = ['created_at' => now(), 'updated_at' => now()];
+        // shortcut: solo l'esercizio 2026 (voci e predefiniti delle iniziative); dal 1/1/2027 nessun movimento si classifica finché
+        // non si carica la tabella del nuovo esercizio (#55 e seguenti, o la pagina della tabella delle voci, storia 79).
         $esercizio = 2026;
 
         // Area A: le lettere dell'art. 5 CTS previste dallo statuto. Area B: lo statuto non le elenca, i nomi

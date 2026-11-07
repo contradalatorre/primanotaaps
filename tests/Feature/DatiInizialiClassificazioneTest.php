@@ -3,9 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Attivita;
-use App\Models\Imputazione;
 use App\Models\Iniziativa;
-use App\Models\Movimento;
 use App\Models\Tag;
 use App\Models\Tipologia;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -32,11 +30,7 @@ class DatiInizialiClassificazioneTest extends TestCase
 
     private function voce(string $area, string $tipologia, int $esercizio = 2026): ?string
     {
-        $movimento = Movimento::factory()->make(['data' => "$esercizio-05-10"]);
-        $imputazione = new Imputazione(['area' => $area, 'tipologia_id' => Tipologia::where('nome', $tipologia)->value('id')]);
-        $imputazione->setRelation('movimento', $movimento);
-
-        return $imputazione->voce();
+        return \DB::table('voci_modello_d')->where(['esercizio' => $esercizio, 'area' => $area, 'tipologia_id' => Tipologia::where('nome', $tipologia)->value('id')])->value('voce');
     }
 
     public function test_le_tipologie_sono_quelle_della_tabella_di_conversione(): void

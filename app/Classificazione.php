@@ -34,6 +34,7 @@ final class Classificazione
         $imputazioni = self::risolvi($movimento, $righe);
 
         DB::transaction(function () use ($utente, $movimento, $tipoControparte, $imputazioni) {
+            self::blocca($movimento);
             $prima = $movimento->istantanea();
             $movimento->imputazioni()->delete(); // le righe dei tag seguono con la chiave esterna
             foreach ($imputazioni as $dati) {
@@ -60,32 +61,41 @@ final class Classificazione
      */
     public static function conferma(User $utente, Movimento $movimento): void
     {
-        $imputazioni = $movimento->imputazioni()->with('tipologia')->get();
-        $problemi = [];
-        if ($imputazioni->isEmpty()) {
-            $problemi[] = 'Il movimento non ha imputazioni: classificalo prima di confermarlo.';
-        }
-        if ($imputazioni->contains(fn (Imputazione $i) => $i->tipologia_id === null)) {
-            $problemi[] = 'Ogni imputazione ha bisogno della tipologia: senza non si conferma.';
-        }
-        if ($imputazioni->isNotEmpty() && $imputazioni->sum('importo') !== $movimento->importo) {
-            $problemi[] = 'La somma delle imputazioni non è più l’importo del movimento: rifai la classificazione.';
-        }
-        if ($imputazioni->contains(fn (Imputazione $i) => $i->tipologia && $i->tipologia->verso !== $movimento->verso)) {
-            $problemi[] = 'Il verso del movimento non corrisponde più alla tipologia: rifai la classificazione.';
-        }
-        if ($imputazioni->contains(fn (Imputazione $i) => $i->tipologia_id !== null && $i->voce() === null)) {
-            $problemi[] = 'La combinazione di area e tipologia non è ammessa per l’esercizio del movimento: rifai la classificazione.';
-        }
-        if ($problemi !== []) {
-            throw ValidationException::withMessages(['conferma' => $problemi]);
-        }
-
+        // Controlli e scrittura nella stessa transazione, a riga bloccata: un salvataggio che arriva in mezzo
+        // non può lasciare confermata un'imputazione senza tipologia.
         DB::transaction(function () use ($utente, $movimento) {
+            self::blocca($movimento);
+            $movimento->refresh();
+            $imputazioni = $movimento->imputazioni()->with('tipologia')->get();
+            $problemi = [];
+            if ($imputazioni->isEmpty()) {
+                $problemi[] = 'Il movimento non ha imputazioni: classificalo prima di confermarlo.';
+            }
+            if ($imputazioni->contains(fn (Imputazione $i) => $i->tipologia_id === null)) {
+                $problemi[] = 'Ogni imputazione ha bisogno della tipologia: senza non si conferma.';
+            }
+            if ($imputazioni->isNotEmpty() && $imputazioni->sum('importo') !== $movimento->importo) {
+                $problemi[] = 'La somma delle imputazioni non è più l’importo del movimento: rifai la classificazione.';
+            }
+            if ($imputazioni->contains(fn (Imputazione $i) => $i->tipologia && $i->tipologia->verso !== $movimento->verso)) {
+                $problemi[] = 'Il verso del movimento non corrisponde più alla tipologia: rifai la classificazione.';
+            }
+            if ($imputazioni->contains(fn (Imputazione $i) => $i->tipologia_id !== null && $i->voce() === null)) {
+                $problemi[] = 'La combinazione di area e tipologia non è ammessa per l’esercizio del movimento: rifai la classificazione.';
+            }
+            if ($problemi !== []) {
+                throw ValidationException::withMessages(['conferma' => $problemi]);
+            }
+
             $prima = $movimento->istantanea();
             $movimento->forceFill(['stato' => 'confermato', 'confermato_da' => $utente->id, 'confermato_il' => now()])->save();
             RegistroModifica::registra($utente, $movimento, 'confermato', $prima, $movimento->istantanea());
         });
+    }
+
+    private static function blocca(Movimento $movimento): void
+    {
+        Movimento::whereKey($movimento->id)->lockForUpdate()->first();
     }
 
     /**

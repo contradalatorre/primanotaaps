@@ -164,12 +164,11 @@ class ClassificazioneMovimentiTest extends TestCase
         $riga = ['tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E'];
 
         $this->put($this->url($movimento), ['imputazioni' => [$riga]]);
-        $senza = $movimento->imputazioni()->sole()->voce();
+        $this->get('/movimenti')->assertSee('Uscite E2');
         $this->put($this->url($movimento), ['imputazioni' => [$riga + ['tag' => [$tag->id]]]]);
 
-        $imputazione = $movimento->imputazioni()->with('tag')->sole();
-        $this->assertSame(['Microprogetto'], $imputazione->tag->pluck('nome')->all());
-        $this->assertSame($senza, $imputazione->voce());
+        $this->assertSame(['Microprogetto'], $movimento->imputazioni()->with('tag')->sole()->tag->pluck('nome')->all());
+        $this->get('/movimenti')->assertSee('Uscite E2')->assertSee('Microprogetto');
     }
 
     public function test_elementi_archiviati_non_si_scelgono_ma_restano_su_cio_che_li_aveva_gia(): void

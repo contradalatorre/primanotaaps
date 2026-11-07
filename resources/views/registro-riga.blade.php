@@ -16,7 +16,7 @@
 <li class="scheda">
     <p>
         <strong>{{ $riga->user->name }}</strong> {{ $azioni[$riga->azione] ?? $riga->azione }}
-        {{ $oggetti[$riga->oggetto_tipo] }} n. {{ $riga->oggetto_id }}
+        {{ $oggetti[$riga->oggetto_tipo] ?? 'il movimento' }} n. {{ $riga->oggetto_id }}
         <span class="nota">· {{ $riga->created_at->format('d/m/Y H:i') }}</span>
     </p>
     @if ($riga->motivazione) <p>Motivazione: {{ $riga->motivazione }}</p> @endif
