@@ -1,4 +1,5 @@
-{{-- ✓ di un movimento: conferma lui e porta al successivo (`$dopo`). Senza tipologia resta visibile ma spento: un popover dice perché. --}}
+{{-- ✓ di un movimento: conferma lui e porta al successivo (`$dopo`). Senza tipologia resta visibile ma spento: un popover dice perché.
+     Chi lo include passa sempre `$etichetta`, anche vuota: quella del gruppo che lo contiene non deve filtrare qui. --}}
 @if ($movimento->confermato())
     @include('revisione.icona', ['nome' => 'ok'])
 @elseif ($movimento->confermabile())

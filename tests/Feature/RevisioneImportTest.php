@@ -150,7 +150,7 @@ class RevisioneImportTest extends TestCase
 
         // la pagina offre i pulsanti: del gruppo, e delle proposte pronte
         $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione?passo=pronte")
-            ->assertSeeText('Conferma il gruppo')
+            ->assertSeeText('Conferma il gruppo')->assertSee('<span class="testo-conferma"></span>', false) // la ✓ della riga non prende il nome del gruppo
             ->assertSeeText('Utenze · Carnevale')->assertSeeText('Materiali e beni di consumo · Carnevale');
 
         $this->confermaVia(['movimenti' => $this->versioni($utenze), 'passo' => 'pronte'])

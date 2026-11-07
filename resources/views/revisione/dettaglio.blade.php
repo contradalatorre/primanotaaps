@@ -34,7 +34,7 @@
         @unless ($dettaglio->confermato())
             <span class="conferma-dettaglio">@include('revisione.conferma', ['movimento' => $dettaglio, 'dove' => 'dettaglio', 'dopo' => $successivo, 'etichetta' => 'Conferma'])</span>
         @endunless
-        <a href="{{ route('movimenti.classificazione', $dettaglio) }}" class="bottone">{{ $dettaglio->stato === 'da_classificare' ? 'Classifica' : 'Rivedi la classificazione' }}</a>
+        <a href="{{ route('movimenti.classificazione', $dettaglio) }}" class="bottone-piccolo">{{ $dettaglio->stato === 'da_classificare' ? 'Classifica' : 'Rivedi la classificazione' }}</a>
         @if ($precedente)<a href="{{ $url(['movimento' => $precedente->id]) }}#riga-{{ $precedente->id }}" class="link" data-precedente>Precedente</a>@endif
         @if ($successivo)<a href="{{ $url(['movimento' => $successivo->id]) }}#riga-{{ $successivo->id }}" class="link" data-successivo>Successivo</a>@endif
     </div>
