@@ -1,4 +1,4 @@
-# Avvia o riprende l'orchestratore. Pianificato ogni ora; se una sessione e' gia' in corso non fa nulla.
+﻿# Avvia o riprende l'orchestratore. Pianificato ogni ora; se una sessione e' gia' in corso non fa nulla.
 # Registrazione (una volta):
 #   schtasks /Create /SC HOURLY /TN "PrimaNota-Orchestratore" /TR "powershell -NoProfile -ExecutionPolicy Bypass -File \"<percorso>\riprendi.ps1\""
 param(
@@ -75,9 +75,10 @@ try {
 
     # Errori che un nuovo tentativo non risolve: ci si ferma invece di riprovare ogni ora.
     $nuovo = [System.IO.File]::ReadAllText($Jsonl).Substring($inizio)
-    if ($nuovo -match 'authentication failed|exhausted credits|model unavailable') {
-        Set-Content -Path (Join-Path $Stato "FERMO") -Value "errore non recuperabile: $($Matches[0])"
-        Scrivi "FERMO: $($Matches[0])"
+    # Solo il messaggio di sistema di Claude Code: le stesse parole possono comparire nel codice che l'orchestratore legge.
+    if ($nuovo -match '"subtype":"informational","content":"Goal cleared after an unrecoverable error \((authentication failed|exhausted credits|model unavailable)') {
+        Set-Content -Path (Join-Path $Stato "FERMO") -Value "errore non recuperabile: $($Matches[1])"
+        Scrivi "FERMO: $($Matches[1])"
         exit 1
     }
 
