@@ -40,7 +40,7 @@
                 <p>{{ $tipologia->spiegazione }}</p>
                 <p class="nota">
                     Voce Modello D {{ $esercizio }}:
-                    {{ ($voci[$tipologia->id] ?? collect())->sortBy('area')->map(fn ($v) => "area $v->area → $v->voce")->join(' · ') ?: 'nessuna (tabella delle voci non caricata per questo esercizio)' }}
+                    {{ ($voci[$tipologia->id] ?? collect())->sortBy('area')->map(fn ($v) => "area $v->area → $v->voce")->join(' · ') ?: 'nessuna: la tipologia si potrà usare quando la tabella delle voci avrà una riga per lei (vedi riclassificazione in blocco)' }}
                 </p>
                 @can('gestire_regole')
                     <details>
@@ -50,8 +50,10 @@
                             <label>Nome <input type="text" name="nome" value="{{ $tipologia->nome }}" maxlength="255" required></label>
                             <label>Spiegazione semplice <textarea name="spiegazione" rows="2" maxlength="2000" required>{{ $tipologia->spiegazione }}</textarea></label>
                             @foreach (\App\Models\Tipologia::PROPRIETA as $valore => $etichetta)
-                                <label class="spunta"><input type="checkbox" name="proprieta[]" value="{{ $valore }}" @checked(in_array($valore, $tipologia->proprieta, true))> <span>{{ $etichetta }}</span></label>
+                                <label class="spunta"><input type="checkbox" name="proprieta[]" value="{{ $valore }}" @checked(in_array($valore, $tipologia->proprieta, true)) @disabled($tipologia->usata())> <span>{{ $etichetta }}</span></label>
+                                @if ($tipologia->usata() && in_array($valore, $tipologia->proprieta, true)) <input type="hidden" name="proprieta[]" value="{{ $valore }}"> @endif
                             @endforeach
+                            @if ($tipologia->usata()) <p class="nota">Già usata: le proprietà fiscali non si cambiano da qui.</p> @endif
                             <button type="submit" class="bottone">Salva</button>
                         </form>
                     </details>

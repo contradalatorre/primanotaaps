@@ -1,6 +1,6 @@
 {{-- Archivia o ripristina; cancella solo se mai usato. Variabili: $tipo (indirizzo), $elemento. --}}
 <div class="azioni">
-    <form method="POST" action="{{ route('classificazione.archivia', [$tipo, $elemento->id]) }}">
+    <form method="POST" action="{{ route($elemento->archiviata() ? 'classificazione.ripristina' : 'classificazione.archivia', [$tipo, $elemento->id]) }}">
         @csrf
         <button type="submit" class="link">{{ $elemento->archiviata() ? 'Ripristina' : 'Archivia' }}</button>
     </form>

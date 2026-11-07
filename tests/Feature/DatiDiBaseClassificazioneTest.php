@@ -119,9 +119,54 @@ class DatiDiBaseClassificazioneTest extends TestCase
         $this->assertTrue($tag->refresh()->archiviata());
         $this->assertSame(['Microprogetto'], Tag::attive()->pluck('nome')->all());
 
-        $this->post("/classificazione/tag/{$tag->id}/archiviazione")->assertRedirect();
+        $this->post("/classificazione/tag/{$tag->id}/ripristino")->assertRedirect();
         $this->assertFalse($tag->refresh()->archiviata());
         $this->assertSame(['archiviato', 'ripristinato'], RegistroModifica::where('oggetto_tipo', 'tag')->orderBy('id')->pluck('azione')->all());
+    }
+
+    public function test_archiviare_e_ripristinare_sono_idempotenti(): void
+    {
+        $this->actingAs($this->utenteCon('Tesoriere'));
+        $tag = Tag::firstWhere('nome', 'Gruppo CLT');
+
+        $this->post("/classificazione/tag/{$tag->id}/archiviazione");
+        $this->post("/classificazione/tag/{$tag->id}/archiviazione")->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertTrue($tag->refresh()->archiviata());
+
+        $this->post("/classificazione/tag/{$tag->id}/ripristino");
+        $this->post("/classificazione/tag/{$tag->id}/ripristino")->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertFalse($tag->refresh()->archiviata());
+        $this->assertSame(['archiviato', 'ripristinato'], RegistroModifica::where('oggetto_tipo', 'tag')->orderBy('id')->pluck('azione')->all());
+    }
+
+    public function test_le_proprieta_fiscali_di_una_tipologia_si_cambiano_solo_se_mai_usata(): void
+    {
+        $this->actingAs($this->utenteCon('Tesoriere'));
+        $usata = Tipologia::firstWhere('nome', 'Utenze');
+        $usata->update(['proprieta' => []]);
+        Imputazione::create(['movimento_id' => Movimento::factory()->create()->id, 'importo' => 1250, 'area' => 'E', 'tipologia_id' => $usata->id]);
+        $libera = Tipologia::firstWhere('nome', 'Libri e pubblicazioni');
+        $libera->update(['proprieta' => []]);
+        $dati = fn (Tipologia $t, array $proprieta) => ['nome' => $t->nome.' bis', 'spiegazione' => 'Nuova spiegazione.', 'proprieta' => $proprieta];
+
+        $this->put("/classificazione/tipologie/{$usata->id}", $dati($usata, ['commerciale_per_natura']))->assertSessionHasErrors('proprieta');
+        $this->assertSame([], $usata->refresh()->proprieta);
+        $this->assertSame('Utenze', $usata->nome);
+
+        $this->put("/classificazione/tipologie/{$usata->id}", $dati($usata, []))->assertSessionHasNoErrors();
+        $this->assertSame('Utenze bis', $usata->refresh()->nome);
+
+        $this->put("/classificazione/tipologie/{$libera->id}", $dati($libera, ['commerciale_per_natura']))->assertSessionHasNoErrors();
+        $this->assertSame(['commerciale_per_natura'], $libera->refresh()->proprieta);
+    }
+
+    public function test_una_tipologia_nuova_senza_voci_lo_dice_senza_parlare_di_tabella_non_caricata(): void
+    {
+        $this->actingAs($this->utenteCon('Tesoriere'));
+        $this->post('/classificazione/tipologie', ['nome' => 'Vendita gadget', 'verso' => 'entrata', 'spiegazione' => 'Gadget.'])->assertSessionHasNoErrors();
+
+        $this->get('/classificazione')->assertOk()->assertDontSee('tabella delle voci non caricata')
+            ->assertSee('la tipologia si potrà usare quando la tabella delle voci avrà una riga per lei', false);
     }
 
     public function test_si_cancella_solo_cio_che_non_e_mai_stato_usato(): void

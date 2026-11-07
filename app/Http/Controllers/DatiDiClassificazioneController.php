@@ -60,6 +60,10 @@ class DatiDiClassificazioneController extends Controller
     {
         $elemento = $this->trova($tipo, $id);
         $dati = $request->validate($this->regole($tipo, $elemento));
+        // Le proprietà fiscali riclassificano all'indietro: una tipologia già usata le cambia solo con la riclassificazione in blocco (#62).
+        if ($tipo === 'tipologie' && $elemento->usata() && $this->insieme($dati['proprieta'] ?? []) !== $this->insieme($elemento->proprieta)) {
+            throw ValidationException::withMessages(['proprieta' => '«'.$elemento->nome.'» è già stata usata: le sue proprietà fiscali non si cambiano da qui, ma con la riclassificazione in blocco.']);
+        }
 
         DB::transaction(function () use ($request, $tipo, $dati, $elemento) {
             $prima = $elemento->istantanea();
@@ -77,15 +81,29 @@ class DatiDiClassificazioneController extends Controller
 
     public function archivia(Request $request, string $tipo, int $id): RedirectResponse
     {
-        $elemento = $this->trova($tipo, $id);
+        $this->imposta($request, $this->trova($tipo, $id), true);
 
-        DB::transaction(function () use ($request, $elemento) {
+        return redirect()->route('classificazione')->with('ok', 'Archiviato: non si sceglie più, ma resta dove è già stato usato.');
+    }
+
+    public function ripristina(Request $request, string $tipo, int $id): RedirectResponse
+    {
+        $this->imposta($request, $this->trova($tipo, $id), false);
+
+        return redirect()->route('classificazione')->with('ok', 'Ripristinato.');
+    }
+
+    /** Azione esplicita e idempotente: chi la ripete (doppio clic, pagina vecchia) non fa nulla e non scrive nel registro. */
+    private function imposta(Request $request, Model $elemento, bool $archiviata): void
+    {
+        if ($elemento->archiviata() === $archiviata) {
+            return;
+        }
+        DB::transaction(function () use ($request, $elemento, $archiviata) {
             $prima = $elemento->istantanea();
-            $elemento->forceFill(['archiviata_il' => $elemento->archiviata() ? null : now()])->save();
-            RegistroModifica::registra($request->user(), $elemento, $elemento->archiviata() ? 'archiviato' : 'ripristinato', $prima, $elemento->istantanea());
+            $elemento->forceFill(['archiviata_il' => $archiviata ? now() : null])->save();
+            RegistroModifica::registra($request->user(), $elemento, $archiviata ? 'archiviato' : 'ripristinato', $prima, $elemento->istantanea());
         });
-
-        return redirect()->route('classificazione')->with('ok', $elemento->archiviata() ? 'Archiviato: non si sceglie più, ma resta dove è già stato usato.' : 'Ripristinato.');
     }
 
     public function elimina(Request $request, string $tipo, int $id): RedirectResponse
@@ -102,6 +120,13 @@ class DatiDiClassificazioneController extends Controller
         });
 
         return redirect()->route('classificazione')->with('ok', 'Eliminato.');
+    }
+
+    private function insieme(array $proprieta): array
+    {
+        sort($proprieta);
+
+        return $proprieta;
     }
 
     private function trova(string $tipo, int $id): Model

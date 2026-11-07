@@ -54,6 +54,7 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
         Route::post('/classificazione/{tipo}', [DatiDiClassificazioneController::class, 'crea'])->name('classificazione.crea');
         Route::put('/classificazione/{tipo}/{id}', [DatiDiClassificazioneController::class, 'salva'])->name('classificazione.salva');
         Route::post('/classificazione/{tipo}/{id}/archiviazione', [DatiDiClassificazioneController::class, 'archivia'])->name('classificazione.archivia');
+        Route::post('/classificazione/{tipo}/{id}/ripristino', [DatiDiClassificazioneController::class, 'ripristina'])->name('classificazione.ripristina');
         Route::delete('/classificazione/{tipo}/{id}', [DatiDiClassificazioneController::class, 'elimina'])->name('classificazione.elimina');
     });
     Route::middleware('can:inserire_movimenti_cassa,conto')->group(function () {
@@ -65,6 +66,7 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
     // Classificazione (#39): il Tesoriere sempre, l'autore sul proprio movimento non confermato (controllo nel controllore).
     Route::get('/movimenti/{movimento}/classificazione', [ClassificazioneController::class, 'modifica'])->name('movimenti.classificazione');
     Route::put('/movimenti/{movimento}/classificazione', [ClassificazioneController::class, 'salva'])->name('movimenti.classificazione.salva');
+    Route::put('/movimenti/{movimento}/classificazione/riga', [ClassificazioneController::class, 'aggiungiRiga'])->name('movimenti.classificazione.riga'); // PUT: il form porta _method=PUT
     Route::post('/movimenti/{movimento}/giustificativi', [ClassificazioneController::class, 'aggiungiGiustificativo'])->name('movimenti.giustificativi');
     Route::delete('/giustificativi/{giustificativo}', [ClassificazioneController::class, 'rimuoviGiustificativo'])->name('giustificativi.elimina');
     Route::post('/movimenti/{movimento}/conferma', [ClassificazioneController::class, 'conferma'])

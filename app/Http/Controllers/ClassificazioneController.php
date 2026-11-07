@@ -63,6 +63,14 @@ class ClassificazioneController extends Controller
         return redirect()->route('movimenti.classificazione', $movimento)->with('ok', 'Classificazione salvata.');
     }
 
+    /** «Aggiungi un'imputazione»: non salva, torna alla pagina con una riga in più e quello che si era scritto. */
+    public function aggiungiRiga(Request $request, Movimento $movimento): RedirectResponse
+    {
+        $this->controlla($request, $movimento);
+
+        return redirect()->route('movimenti.classificazione', [$movimento, 'righe' => count((array) $request->input('imputazioni')) + 1])->withInput();
+    }
+
     /** Conferma manuale: solo chi ha `importare_e_confermare` (la rotta); la proposta di un consigliere vale come proposta. */
     public function conferma(Request $request, Movimento $movimento): RedirectResponse
     {

@@ -93,8 +93,9 @@
             </fieldset>
         @endfor
 
-        <p><a href="{{ route('movimenti.classificazione', [$movimento, 'righe' => $righe + 1]) }}" class="link">Aggiungi un’imputazione</a></p>
+        {{-- «Salva» resta il primo pulsante: è quello che parte con Invio. --}}
         <button type="submit" class="bottone">Salva la classificazione</button>
+        @if ($righe < 10) <button type="submit" formaction="{{ route('movimenti.classificazione.riga', $movimento) }}" class="link">Aggiungi un’imputazione</button> @endif
         <a href="{{ route('movimenti', ['conto' => $movimento->conto_id]) }}" class="link">Torna ai movimenti</a>
     </form>
 

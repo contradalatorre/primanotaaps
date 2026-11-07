@@ -383,6 +383,18 @@ class ClassificazioneMovimentiTest extends TestCase
         $this->assertSame('confermato', $movimento->refresh()->stato);
     }
 
+    public function test_aggiungere_un_imputazione_non_perde_quello_che_si_e_scritto(): void
+    {
+        $this->actingAs($this->utenteCon('Tesoriere'));
+        $movimento = $this->movimento();
+        $dati = ['tipo_controparte' => 'socio', 'imputazioni' => [['importo' => '5', 'tipologia_id' => $this->tipologia('Utenze')], ['importo' => '7,50']]];
+
+        $this->put($this->url($movimento).'/riga', $dati)->assertRedirect($this->url($movimento).'?righe=3')->assertSessionHasInput('imputazioni.0.importo', '5');
+        $this->get($this->url($movimento).'?righe=3')->assertOk()->assertSee('Imputazione 3')->assertSee('value="5"', false);
+
+        $this->assertSame(0, $movimento->imputazioni()->count()); // non salva: aggiunge solo una riga
+    }
+
     public function test_una_data_spostata_in_un_esercizio_senza_voce_impedisce_la_conferma(): void
     {
         $this->actingAs($this->utenteCon('Tesoriere'));
