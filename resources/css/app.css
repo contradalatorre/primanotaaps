@@ -350,9 +350,9 @@
         @apply my-0;
     }
 
-    /* Tabella e Schede si scelgono solo dai 900 px: sotto, c'è una sola disposizione, a schede. */
+    /* Schede è la vista di partenza sotto i 900 px, ma Tabella si può scegliere a ogni larghezza (scelta ricordata). */
     .vista {
-        @apply hidden gap-1 min-[900px]:flex;
+        @apply flex gap-1;
     }
 
     .vista button {
@@ -491,14 +491,31 @@
         }
     }
 
-    /* Tabella: dai 900 px una riga per movimento. Con il pannello a fianco (dai 1320 px) l'elenco è stretto:
-       resta a schede, una per riga. */
-    @media (min-width: 900px) {
-        [data-vista='tabella'] .revisione:not([data-dettaglio]) .riga {
-            grid-template-columns: 1.5rem 3rem minmax(0, 2fr) 6.5rem minmax(0, 2fr) 8rem 2.5rem;
-            grid-template-areas: 'sel data desc importo classe stato azione';
+    /* Tabella: una riga per movimento. Dove non c'è spazio (telefono) scorre solo dentro il suo riquadro, mai la pagina:
+       le righe riempiono una pista larga almeno quanto le sette colonne. Con il pannello a fianco (dai 1320 px)
+       l'elenco è largo poco più di 600 px: ogni movimento prende due linee, la classificazione sotto la descrizione. */
+    [data-vista='tabella'] .righe {
+        @apply grid overflow-x-auto;
+        grid-template-columns: minmax(46rem, 1fr);
+    }
+
+    [data-vista='tabella'] .riga {
+        grid-template-columns: 1.5rem 3rem minmax(0, 2fr) 6.5rem minmax(0, 2fr) 8rem 2.5rem;
+        grid-template-areas: 'sel data desc importo classe stato azione';
+    }
+
+    @media (min-width: 1320px) {
+        [data-vista='tabella'] [data-dettaglio] .righe {
+            grid-template-columns: minmax(0, 1fr);
         }
 
+        [data-vista='tabella'] [data-dettaglio] .riga {
+            grid-template-columns: 1.5rem 3rem minmax(0, 1fr) 6.5rem 8rem 2.5rem;
+            grid-template-areas: 'sel data desc importo stato azione' '. . classe classe classe .';
+        }
+    }
+
+    @media (min-width: 900px) {
         [data-vista='schede'] .revisione:not([data-dettaglio]) .righe {
             @apply grid grid-cols-2 gap-3;
         }
@@ -509,11 +526,6 @@
     }
 
     @media (min-width: 900px) and (max-width: 1319px) {
-        [data-vista='tabella'] .revisione[data-dettaglio] .riga {
-            grid-template-columns: 1.5rem 3rem minmax(0, 2fr) 6.5rem minmax(0, 2fr) 8rem 2.5rem;
-            grid-template-areas: 'sel data desc importo classe stato azione';
-        }
-
         [data-vista='schede'] .revisione[data-dettaglio] .righe {
             @apply grid grid-cols-2 gap-3;
         }
