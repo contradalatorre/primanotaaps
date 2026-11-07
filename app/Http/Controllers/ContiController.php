@@ -85,7 +85,7 @@ class ContiController extends Controller
             DB::table('assegnazione_conto')->where('conto_id', $conto->id)->delete();
             // Le righe tolte da assegnazione_conto non hanno un registro proprio: si riassumono qui, chi ne aveva l'ambito.
             RegistroModifica::registra($request->user(), $conto, 'chiuso', $prima, $conto->istantanea(),
-                $persone->isEmpty() ? null : 'Assegnazioni decadute su questo conto: '.$persone->pluck('name')->join(', ').'.');
+                $persone->isEmpty() ? null : 'Assegnazioni decadute su questo conto, per ripristinarle a mano: '.$persone->pluck('name')->join(', ').' (assegnazioni n. '.$toccate->sort()->join(', ').').');
 
             return User::senzaConti()->whereIn('id', $persone->pluck('id'))->orderBy('name')->pluck('name');
         });

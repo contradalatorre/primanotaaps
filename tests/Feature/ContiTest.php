@@ -83,6 +83,23 @@ class ContiTest extends TestCase
             ->assertSee('Cassa Festa')->assertSee('1.234,56');
     }
 
+    public function test_la_chiusura_chiede_conferma_perche_non_si_riapre(): void
+    {
+        Conto::factory()->create();
+
+        $this->actingAs($this->utenteCon('Tesoriere'))->get('/conti')->assertSee('onsubmit="return confirm(', false);
+    }
+
+    public function test_un_tesoriere_limitato_a_un_conto_chiuso_non_gestisce_piu_i_conti(): void
+    {
+        $festa = Conto::factory()->create();
+        $limitato = $this->utenteCon('Tesoriere', ['conti' => [$festa->id]]);
+        $this->actingAs($this->utenteCon('Tesoriere'))->post("/conti/{$festa->id}/chiusura", ['chiuso_il' => today()->toDateString()]);
+
+        $this->actingAs($limitato->fresh())->post('/conti', $this->dati())->assertForbidden();
+        $this->assertSame(1, Conto::count());
+    }
+
     public function test_il_formato_deve_essere_quello_del_tipo_di_conto(): void
     {
         $this->actingAs($this->utenteCon('Tesoriere'))->post('/conti', $this->dati(['formato_import' => 'paypal_csv']))
@@ -170,7 +187,9 @@ class ContiTest extends TestCase
             ->assertSessionMissing('avviso');
         $this->actingAs($admin)->get('/')->assertDontSee('senza conti', false);
         // la persona resta nel registro come chi aveva l'ambito sul conto chiuso
-        $this->assertStringContainsString('Mario Rossi', RegistroModifica::where('azione', 'chiuso')->firstOrFail()->motivazione);
+        $registro = RegistroModifica::where('azione', 'chiuso')->firstOrFail()->motivazione;
+        $this->assertStringContainsString('Mario Rossi', $registro);
+        $this->assertStringContainsString('assegnazioni n. '.$mario->assegnazioni()->where('tutti_i_conti', false)->value('id'), $registro);
     }
 
     public function test_il_conto_non_si_chiude_prima_dell_ultimo_movimento(): void

@@ -175,6 +175,26 @@ class PermessiTest extends TestCase
         $this->actingAs($this->utenteCon('Consigliere'))->get('/prova/inserire_movimenti_cassa/99')->assertOk();
     }
 
+    public function test_un_assegnazione_decaduta_resta_in_sola_lettura_anche_per_i_permessi_senza_ambito(): void
+    {
+        $tesoriere = $this->utenteCon('Tesoriere', ['conti' => []]);
+
+        $this->assertTrue($tesoriere->puo(Permesso::Vedere));
+        $this->assertTrue($tesoriere->puo(Permesso::Note));
+        foreach ([Permesso::GestireRegole, Permesso::EliminareMovimentoManuale, Permesso::ImportareEConfermare, Permesso::GestireEsercizio, Permesso::InserireMovimentiCassa] as $permesso) {
+            $this->assertFalse($tesoriere->puo($permesso), $permesso->value);
+        }
+    }
+
+    public function test_un_amministratore_limitato_a_un_conto_chiuso_non_gestisce_piu_e_non_conta(): void
+    {
+        $admin = $this->utenteCon('Amministratore', ['conti' => []]);
+
+        $this->assertFalse($admin->puo(Permesso::GestireUtenti));
+        $this->assertSame(0, User::amministratoriAttivi()->count());
+        $this->assertSame(0, User::amministratoriAttivi(true)->count());
+    }
+
     public function test_un_assegnazione_rimasta_senza_conti_non_vale_su_nessuno(): void
     {
         $utente = $this->utenteCon('Consigliere', ['conti' => []]);

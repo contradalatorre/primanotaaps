@@ -27,7 +27,7 @@
                 @can('gestire_regole')
                     @unless ($conto->chiuso())
                         <p><a href="{{ route('conti.modifica', $conto) }}" class="link">Modifica</a></p>
-                        <form method="POST" action="{{ route('conti.chiudi', $conto) }}" class="modulo-in-riga">
+                        <form method="POST" action="{{ route('conti.chiudi', $conto) }}" class="modulo-in-riga" onsubmit="return confirm('Chiudere il conto? Non si può riaprire e le assegnazioni limitate a questo conto decadono.')">
                             @csrf
                             <label>Chiudi il conto il
                                 <input type="date" name="chiuso_il" value="{{ today()->toDateString() }}" min="{{ $conto->aperto_il->toDateString() }}" max="{{ today()->toDateString() }}" required>
