@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 export APP_URL=https://sito.example/contabilita APP_KEY=base64:abc DB_HOST=db DB_DATABASE=d DB_USERNAME=u
 export DB_PASSWORD='p#a$s"w' GOOGLE_CLIENT_ID=i GOOGLE_CLIENT_SECRET=s GOOGLE_WORKSPACE_DOMAIN=associazione.example
 export AMMINISTRATORI_INIZIALI=maria@associazione.example MIGRAZIONI_TOKEN=t
-export MAIL_MAILER=smtp MAIL_HOST=smtp.associazione.example MAIL_PORT=587 MAIL_USERNAME=posta@associazione.example MAIL_PASSWORD=m MAIL_FROM_ADDRESS=prima-nota@associazione.example
+export MAIL_MAILER=smtp MAIL_HOST=smtp.associazione.example MAIL_PORT=465 MAIL_USERNAME=posta@associazione.example MAIL_PASSWORD=m MAIL_FROM_ADDRESS=prima-nota@associazione.example
 export EMERGENZA_PASSWORD_HASH='$2y$12$abcDEF.ghi/JKL' EMERGENZA_TOTP_SECRET=JBSWY3DPEHPK3PXP
 
 fallimenti=0
@@ -20,6 +20,10 @@ verifica 'echo "$env_scritto" | grep -qxF "GOOGLE_REDIRECT_URI='"'"'https://sito
 verifica '! (DB_PASSWORD="a'"'"'b" sh ./scrivi-env.sh >/dev/null 2>&1)' "un apice singolo in un valore è rifiutato"
 verifica '! (DB_PASSWORD="$(printf "a\nb")" sh ./scrivi-env.sh >/dev/null 2>&1)' "un a capo in un valore è rifiutato"
 verifica 'APP_URL=https://sito.example/contabilita/ sh ./scrivi-env.sh | grep -qxF "GOOGLE_REDIRECT_URI='"'"'https://sito.example/contabilita/accesso/google/ritorno'"'"'"' "la barra finale di APP_URL non finisce nel redirect"
+verifica 'echo "$env_scritto" | grep -qxF "SESSION_PATH='"'"'/contabilita'"'"'"' "il cookie di sessione è limitato al percorso dell app"
+verifica 'APP_URL=https://sito.example/contabilita-test/ sh ./scrivi-env.sh | grep -qxF "SESSION_PATH='"'"'/contabilita-test'"'"'"' "la prova ha un percorso di sessione diverso dalla produzione"
+verifica 'APP_URL=https://sito.example sh ./scrivi-env.sh | grep -qxF "SESSION_PATH='"'"'/'"'"'"' "senza percorso nell indirizzo la sessione vale per tutto il sito"
+verifica 'echo "$env_scritto" | grep -qxF "QUEUE_CONNECTION=sync"' "le code girano in modo sincrono, senza worker"
 verifica 'echo "$env_scritto" | grep -qxF "MAIL_MAILER='"'"'smtp'"'"'"' "il trasporto della posta è scritto nel .env"
 verifica '! (MAIL_HOST= sh ./scrivi-env.sh >/dev/null 2>&1)' "la posta mancante è rifiutata"
 verifica '! (EMERGENZA_PASSWORD_HASH=password-in-chiaro sh ./scrivi-env.sh >/dev/null 2>&1)' "un hash che non è bcrypt è rifiutato"
