@@ -29,6 +29,10 @@ Nessun valore va scritto nel repo. I valori non possono contenere l'apice singol
 
 Di suo `scripts/scrivi-env.sh` scrive anche `SESSION_PATH` (il percorso di `SITO_URL`) e `QUEUE_CONNECTION=sync`. Il primo tiene separati i cookie di produzione e prova, che stanno sullo stesso host; il secondo serve perché su Aruba non gira nessun worker (ADR 0001) e le email messe in coda (oggi nessuna, ma #46 ne manderà) non partirebbero mai.
 
+## Estensioni PHP richieste
+
+Da verificare sul piano Aruba (pannello, o `phpinfo()` da togliere subito dopo) prima della prima pubblicazione: `fileinfo` (controllo del contenuto dei file caricati: senza, l'import degli estratti, #40, rifiuta il file con un messaggio che lo dice), `gd` (immagini dei PDF con mPDF, #35), più `pdo_mysql`, `mbstring`, `openssl`, `tokenizer`, `xml`, `ctype`, `json` che Laravel dà per scontate. Docker locale le ha tutte (`docker/web/Dockerfile`).
+
 ## Account di emergenza
 
 Serve quando Google non funziona o non resta nessun Amministratore (`/accesso/emergenza`). Il comando `emergenza:credenziali`, da lanciare in locale e mai sul server, stampa una password lunga, il suo hash e il segreto TOTP. La password e il segreto (da aggiungere a un'app di autenticazione) restano all'associazione, per esempio in una busta chiusa; sui segreti di GitHub vanno solo l'hash e il segreto TOTP. Se si perdono o si temono compromessi, si rigenerano e si ripubblica.

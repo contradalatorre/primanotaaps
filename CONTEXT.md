@@ -26,6 +26,18 @@ _Avoid_: tipo operazione, codice
 Il testo libero che accompagna un movimento: nell'estratto conto lo scrive il fornitore del conto, in un movimento di cassa lo scrive chi lo inserisce; non va confusa con la nota, scritta da un utente su un movimento già registrato.
 _Avoid_: dettaglio
 
+**Import**:
+Un caricamento di un estratto conto: prima un'anteprima, poi la conferma, dopo la quale i suoi movimenti entrano da classificare; si annulla per intero, e solo se nessun suo movimento è confermato. Un movimento già presente nell'app (stessa chiave) si salta e si conta.
+_Avoid_: caricamento, upload
+
+**Conflitto**:
+Una riga dell'estratto con la stessa chiave di un movimento già presente (data operazione, importo, descrizione, saldo parziale) ma con data valuta o causale diverse; non entra finché un operatore non decide se tenere il movimento presente o importare anche la riga, e non si sovrascrive mai nulla.
+_Avoid_: doppione, duplicato
+
+**Riconciliazione**:
+L'accordo tra il saldo dell'app e quello dichiarato dall'estratto; il conto è riconciliato fino all'ultima data in cui i due saldi coincidono, e un buco tra due estratti lo fa arretrare.
+_Avoid_: quadratura
+
 **Controparte**:
 Chi paga o riceve il denaro di un movimento, come risulta dall'estratto o dichiarato da chi registra il movimento.
 _Avoid_: beneficiario, mittente, cliente, fornitore
