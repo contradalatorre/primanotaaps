@@ -46,7 +46,7 @@ echo "APP_DEBUG=false"
 echo "DB_CONNECTION=mysql"
 echo "SESSION_DRIVER=database"
 echo "CACHE_STORE=database"
-echo "QUEUE_CONNECTION=sync" # su Aruba non gira nessun worker (ADR 0001)
+echo "QUEUE_CONNECTION=sync" # su Aruba solo cron via HTTP, nessun worker (ADR 0001)
 echo "SESSION_PATH='$percorso'"
 echo "GOOGLE_REDIRECT_URI='${APP_URL}/accesso/google/ritorno'"
 for chiave in $chiavi; do

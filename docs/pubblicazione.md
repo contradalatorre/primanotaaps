@@ -27,7 +27,7 @@ In Settings > Environments crea `produzione` e `prova`. Su ciascuno imposta *Dep
 
 Nessun valore va scritto nel repo. I valori non possono contenere l'apice singolo `'`.
 
-Di suo `scripts/scrivi-env.sh` scrive anche `SESSION_PATH` (il percorso di `SITO_URL`) e `QUEUE_CONNECTION=sync`. Il primo tiene separati i cookie di produzione e prova, che stanno sullo stesso host; il secondo serve perché su Aruba non gira nessun worker (ADR 0001) e le email in coda non partirebbero mai.
+Di suo `scripts/scrivi-env.sh` scrive anche `SESSION_PATH` (il percorso di `SITO_URL`) e `QUEUE_CONNECTION=sync`. Il primo tiene separati i cookie di produzione e prova, che stanno sullo stesso host; il secondo serve perché su Aruba non gira nessun worker (ADR 0001) e le email messe in coda (oggi nessuna, ma #46 ne manderà) non partirebbero mai.
 
 ## Account di emergenza
 

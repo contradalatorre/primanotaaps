@@ -153,8 +153,9 @@ class AccessoController extends Controller
     }
 
     /**
-     * Avvio a freddo: vedi config/prima_nota.php. Vale una volta sola (lo ricorda il registro degli accessi), finché nessuno ha mai avuto un ruolo con la
-     * gestione utenti (scadenza ignorata). Se poi gli Amministratori scadono tutti, il recupero è dell'account di
+     * Avvio a freddo: vedi config/prima_nota.php. Vale una volta sola, finché nessuno ha mai avuto un ruolo con la
+     * gestione utenti (scadenza ignorata). Lo ricorda il registro degli accessi: la potatura a 12 mesi (#65) deve
+     * lasciare le righe `amministratore_iniziale`, se no l'elenco tornerebbe a scattare. Se poi gli Amministratori scadono tutti, il recupero è dell'account di
      * emergenza (#36), che lascia traccia nel registro e avvisa gli Amministratori: non di questo elenco, in silenzio.
      */
     private function assegnaAmministratoreIniziale(User $utente, Request $request): void
