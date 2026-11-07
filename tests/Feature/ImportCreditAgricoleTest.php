@@ -283,6 +283,19 @@ class ImportCreditAgricoleTest extends TestCase
         $this->assertSame(5, Movimento::count());
         $this->assertSame('2026-04-14', $prima->refresh()->data_valuta->toDateString(), 'I dati originali non si modificano.');
         $this->post("/import/conflitti/{$conflitto->id}/decisione", ['decisione' => 'importa_a_parte'])->assertSessionHasErrors('estratto');
+        // deciso una volta, il conflitto non si riapre se si ricarica lo stesso file
+        $this->anteprima($variante)->assertSeeInOrder(['Già presenti', '5'])->assertSeeInOrder(['In conflitto', '0']);
+    }
+
+    public function test_su_un_conto_chiuso_un_conflitto_non_si_importa_a_parte(): void
+    {
+        $this->importa($this->fixture());
+        $this->importa(str_replace('15/04/2026;14/04/2026;COMMISSIONI', '15/04/2026;15/04/2026;COMMISSIONI', $this->fixture()));
+        $this->banca->update(['chiuso_il' => '2026-06-30']);
+
+        $this->post('/import/conflitti/'.ImportConflitto::firstOrFail()->id.'/decisione', ['decisione' => 'importa_a_parte'])->assertSessionHasErrors('estratto');
+
+        $this->assertSame(5, Movimento::count());
     }
 
     public function test_un_conflitto_si_puo_importare_a_parte_e_poi_il_file_risulta_presente(): void

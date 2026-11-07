@@ -60,8 +60,8 @@ class Conto extends Model
 
     /**
      * La data fino a cui l'app concorda con la banca: l'ultimo estratto confermato il cui saldo finale è quello
-     * dell'app a fine periodo. Un buco, un conflitto non deciso o un import annullato lo fanno arretrare, senza
-     * nulla da correggere a mano. Null se nessun estratto concorda.
+     * dell'app a fine periodo. Un buco o un import annullato lo fanno arretrare, senza nulla da correggere a mano.
+     * Un conflitto non deciso no: il movimento già presente ha lo stesso importo. Null se nessun estratto concorda.
      * shortcut: se un movimento con data operazione dentro un estratto compare solo in quello successivo,
      * l'estratto precedente risulta non riconciliato; da rivedere con estratti veri (#11, punto 6).
      */
@@ -79,20 +79,24 @@ class Conto extends Model
     /**
      * Le righe dell'estratto divise in nuove, già presenti (stessa chiave e stessi dati) e in conflitto (stessa
      * chiave, dati diversi: data valuta o causale). Con la stessa chiave la data operazione, l'importo, la
-     * descrizione e il saldo parziale sono già uguali.
+     * descrizione e il saldo parziale sono già uguali; sono presenti anche le righe con un conflitto già deciso.
      *
      * @return array{nuove: list<RigaEstratto>, presenti: list<RigaEstratto>, conflitti: list<array{riga: RigaEstratto, movimento: Movimento}>}
      */
     public function classifica(Estratto $estratto): array
     {
         $esistenti = $this->movimenti()->whereIn('chiave', array_map(fn (RigaEstratto $r) => $r->chiave(), $estratto->righe))->get()->groupBy('chiave');
+        // Un conflitto già deciso «tieni il presente» non si riapre a ogni file che si sovrappone.
+        $tenuti = ImportConflitto::where('decisione', 'tieni_esistente')->whereIn('movimento_id', $esistenti->flatten()->pluck('id'))->get()
+            ->map(fn (ImportConflitto $c) => $c->movimento_id.'|'.$c->riga['dataValuta'].'|'.$c->riga['causale'])->flip();
         $risultato = ['nuove' => [], 'presenti' => [], 'conflitti' => []];
 
         foreach ($estratto->righe as $riga) {
             $uguali = $esistenti->get($riga->chiave(), collect());
             if ($uguali->isEmpty()) {
                 $risultato['nuove'][] = $riga;
-            } elseif ($uguali->contains(fn (Movimento $m) => $m->data_valuta?->toDateString() === $riga->dataValuta && $m->causale === $riga->causale)) {
+            } elseif ($uguali->contains(fn (Movimento $m) => ($m->data_valuta?->toDateString() === $riga->dataValuta && $m->causale === $riga->causale)
+                || $tenuti->has($m->id.'|'.$riga->dataValuta.'|'.$riga->causale))) {
                 $risultato['presenti'][] = $riga;
             } else {
                 $risultato['conflitti'][] = ['riga' => $riga, 'movimento' => $uguali->first()];

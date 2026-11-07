@@ -116,14 +116,19 @@ class ImportEstrattiController extends Controller
             $this->registraMovimenti($request->user(), $import->movimenti()->get(), 'importato', null);
 
             $prima = $import->istantanea();
-            Storage::disk('local')->delete($import->percorso);
+            $percorso = $import->percorso;
             $import->update(['stato' => 'confermato', 'percorso' => null, 'confermato_il' => now()]);
             RegistroModifica::registra($request->user(), $import, 'confermato', $prima, $import->istantanea() + [
                 'nuovi' => count($classi['nuove']), 'gia_presenti' => count($classi['presenti']), 'in_conflitto' => count($classi['conflitti']),
             ]);
 
-            return $import;
+            return [$import, $percorso];
         });
+        // Il file si butta solo a transazione conclusa: se fallisce, l'anteprima ha ancora le sue righe.
+        if ($esito) {
+            Storage::disk('local')->delete($esito[1]);
+            $import = $esito[0];
+        }
 
         return redirect()->route('import.mostra', $import)->with('ok', $esito
             ? 'Import confermato: i movimenti nuovi sono da classificare.'
@@ -133,9 +138,18 @@ class ImportEstrattiController extends Controller
     /** Si butta un'anteprima che non si vuole più: l'import e le sue righe in attesa spariscono. */
     public function scarta(ImportEstratto $import): RedirectResponse
     {
-        if ($import->stato === 'anteprima') {
-            Storage::disk('local')->delete($import->percorso);
-            $import->delete();
+        // Riletto con il lock: una conferma arrivata nel frattempo non deve perdere il file né l'import.
+        $percorso = DB::transaction(function () use ($import) {
+            $attuale = ImportEstratto::lockForUpdate()->findOrFail($import->id);
+            if ($attuale->stato !== 'anteprima') {
+                return null;
+            }
+            $attuale->delete();
+
+            return $attuale->percorso;
+        });
+        if ($percorso) {
+            Storage::disk('local')->delete($percorso);
         }
 
         return redirect()->route('import.indice', $import->conto_id)->with('ok', 'Anteprima scartata: non è entrato nulla.');
@@ -145,6 +159,7 @@ class ImportEstrattiController extends Controller
     public function annulla(Request $request, ImportEstratto $import): RedirectResponse
     {
         DB::transaction(function () use ($request, $import) {
+            Conto::lockForUpdate()->findOrFail($import->conto_id); // stesso ordine di conferma: prima il conto
             $import = ImportEstratto::lockForUpdate()->findOrFail($import->id);
             if (! $import->annullabile()) {
                 $this->rifiuta($import->stato === 'confermato'
@@ -155,7 +170,8 @@ class ImportEstrattiController extends Controller
             $movimenti = $import->movimenti()->get();
             $this->registraMovimenti($request->user(), $movimenti, 'eliminato', 'Import annullato', true);
             $import->movimenti()->update(['eliminato_da' => $request->user()->id, 'motivazione_eliminazione' => 'Import annullato', 'eliminato_il' => now()]);
-            $import->conflitti()->delete();
+            // Restano le decisioni già prese: il file ricaricato non rimette in discussione un conflitto deciso.
+            $import->conflitti()->whereNull('decisione')->delete();
 
             $prima = $import->istantanea();
             $import->update(['stato' => 'annullato', 'annullato_il' => now()]);
@@ -175,6 +191,9 @@ class ImportEstrattiController extends Controller
             $import = $conflitto->importEstratto;
             if ($conflitto->decisione !== null || $import->stato !== 'confermato') {
                 $this->rifiuta('Questo conflitto è già deciso o l’import non c’è più.');
+            }
+            if ($decisione === 'importa_a_parte' && $import->conto->chiuso()) {
+                $this->rifiuta('Il conto è chiuso: non si importano nuovi movimenti.');
             }
 
             if ($decisione === 'importa_a_parte') {
