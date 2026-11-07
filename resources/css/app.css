@@ -40,8 +40,9 @@
         @apply hidden rounded p-1 hover:bg-white/10;
     }
 
+    /* Va a capo: da 360 px le voci del menu non devono far scorrere la pagina in orizzontale. */
     .menu-voci {
-        @apply flex flex-1 gap-1;
+        @apply flex flex-1 flex-wrap gap-1;
     }
 
     .menu-utente {
