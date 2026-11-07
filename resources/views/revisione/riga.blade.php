@@ -2,6 +2,8 @@
     $versione = \App\Classificazione::versione($movimento, true);
     $voci = $movimento->imputazioni->map->etichettaVoce()->filter()->unique()->join(', ');
     $classificazione = $movimento->imputazioni->map(fn ($i) => collect([$i->tipologia?->nome ?? 'tipologia da scegliere', $i->iniziativa?->nome])->filter()->join(' · '))->join('; ');
+    $posizione = $ordine->search(fn ($m) => $m->id === $movimento->id);
+    $dopo = $ordine->get($posizione + 1);
 @endphp
 <li class="riga {{ $movimento->confermato() ? 'riga-fatta' : '' }}" id="riga-{{ $movimento->id }}" @if ($dettaglio?->id === $movimento->id) aria-current="true" @endif>
     <span class="riga-sel">
@@ -15,9 +17,10 @@
         <span class="nota">{{ collect([$movimento->causale, $movimento->fonteProposta()])->filter()->join(' · ') }}</span>
     </span>
     <strong class="riga-importo importo">{{ $movimento->verso === 'uscita' ? '−' : '+' }}{{ $euro($movimento->importo) }}</strong>
-    <span class="riga-classe">{{ $classificazione ?: 'Da classificare' }}</span>
-    <span class="riga-voce">{{ $voci ?: '—' }}</span>
-    <span class="riga-stato">
-        @include('revisione.pill')
+    <span class="riga-classe">
+        {{ $classificazione ?: 'Da classificare' }}
+        @if ($voci)<span class="nota">{{ $voci }}</span>@endif
     </span>
+    <span class="riga-stato">@include('revisione.pill')</span>
+    <span class="riga-azione">@include('revisione.conferma', ['dove' => 'riga', 'dopo' => $dopo])</span>
 </li>

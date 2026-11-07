@@ -70,6 +70,8 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
         Route::get('/import/{import}', [ImportEstrattiController::class, 'mostra'])->name('import.mostra');
         // Revisione dei movimenti di un import (#41)
         Route::get('/import/{import}/revisione', [RevisioneImportController::class, 'mostra'])->name('import.revisione');
+        Route::post('/import/{import}/conferme', [RevisioneImportController::class, 'conferma'])->name('import.conferme');
+        Route::post('/import/{import}/iniziativa', [RevisioneImportController::class, 'iniziativa'])->name('import.iniziativa');
         Route::post('/import/{import}/conferma', [ImportEstrattiController::class, 'conferma'])->name('import.conferma');
         Route::post('/import/{import}/scarto', [ImportEstrattiController::class, 'scarta'])->name('import.scarta');
         Route::post('/import/{import}/annullamento', [ImportEstrattiController::class, 'annulla'])->name('import.annulla');

@@ -264,4 +264,258 @@
     .menu :focus-visible {
         @apply outline-giallo;
     }
+
+    /* Revisione dei movimenti (#41). Il giallo è solo della barra dei confermati e dell'unica azione primaria;
+       gli stati hanno pill verde, blu, grigia e gialla chiara, mai rossa, e dicono la cosa anche con icona e testo. */
+    .revisione,
+    .elenco,
+    .revisione-lavoro {
+        @apply min-w-0;
+    }
+
+    .revisione {
+        @apply flex flex-col gap-4;
+    }
+
+    .revisione-testa {
+        @apply flex flex-wrap items-start justify-between gap-3;
+    }
+
+    .catena-e-barra {
+        @apply grid items-start gap-4 min-[900px]:grid-cols-[2fr_1fr];
+    }
+
+    .catena summary {
+        @apply flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1;
+    }
+
+    .catena-termini {
+        @apply mt-2 flex flex-col gap-1 text-sm;
+    }
+
+    .catena-termini div {
+        @apply flex justify-between gap-3 border-b border-neutral-300 py-1;
+    }
+
+    .barra {
+        @apply flex flex-col gap-1;
+    }
+
+    .barra-pista {
+        @apply h-3 overflow-hidden rounded-full border border-nero bg-white;
+    }
+
+    .barra-pista span {
+        @apply block h-full bg-giallo;
+    }
+
+    .pill {
+        @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-sm font-semibold;
+        overflow-wrap: anywhere;
+    }
+
+    .pill-confermato {
+        @apply bg-[#dcf5e3] text-[#0b3d1c];
+    }
+
+    .pill-proposto {
+        @apply bg-[#e2ecff] text-[#0b3a8a];
+    }
+
+    .pill-da-classificare {
+        @apply bg-[#ececea] text-[#333330];
+    }
+
+    .pill-attenzione {
+        @apply bg-[#fff7cc] text-nero ring-1 ring-nero;
+    }
+
+    .passi {
+        @apply flex flex-wrap gap-2;
+    }
+
+    .passo {
+        @apply flex items-center gap-2 rounded border-2 border-nero px-3 py-2 hover:bg-neutral-100;
+    }
+
+    .passo[aria-current='page'] {
+        @apply bg-nero text-white;
+    }
+
+    .elenco-testa {
+        @apply flex flex-wrap items-center justify-between gap-2;
+    }
+
+    .elenco-testa h2 {
+        @apply my-0;
+    }
+
+    /* Tabella e Schede si scelgono solo dai 900 px: sotto, c'è una sola disposizione, a schede. */
+    .vista {
+        @apply hidden gap-1 min-[900px]:flex;
+    }
+
+    .vista button {
+        @apply rounded border-2 border-nero px-3 py-1 text-sm font-semibold;
+    }
+
+    .vista button[aria-pressed='true'] {
+        @apply bg-nero text-white;
+    }
+
+    .gruppo {
+        @apply mt-4 flex flex-wrap items-center justify-between gap-2 rounded bg-neutral-100 p-2;
+    }
+
+    .gruppo > div:first-child {
+        @apply flex min-w-0 flex-1 flex-col;
+    }
+
+    .bottone-piccolo {
+        @apply rounded bg-white px-3 py-1.5 text-sm font-semibold ring-2 ring-nero hover:bg-nero hover:text-white;
+    }
+
+    .bottone-piccolo:disabled {
+        @apply cursor-not-allowed opacity-50 hover:bg-white hover:text-nero;
+    }
+
+    .selezione {
+        @apply sticky top-0 z-10 my-3 flex flex-wrap items-center gap-2 rounded border-2 border-nero bg-white p-2;
+    }
+
+    .selezione-iniziativa {
+        @apply flex items-center gap-2 text-sm font-semibold;
+    }
+
+    .selezione-iniziativa select {
+        @apply max-w-48;
+    }
+
+    .righe {
+        @apply flex flex-col;
+    }
+
+    /* Una riga è una scheda: casella, data e importo, poi descrizione, classificazione, stato e ✓. */
+    .riga {
+        @apply grid min-w-0 items-center gap-x-3 gap-y-1 border-b border-neutral-300 p-3;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-areas: 'sel data importo' '. desc desc' '. classe classe' '. stato azione';
+        overflow-wrap: anywhere;
+    }
+
+    .riga-sel {
+        grid-area: sel;
+    }
+
+    .riga-data {
+        grid-area: data;
+    }
+
+    .riga-desc {
+        grid-area: desc;
+        @apply flex min-w-0 flex-col;
+    }
+
+    .riga-importo {
+        grid-area: importo;
+        @apply text-right;
+    }
+
+    .riga-classe {
+        grid-area: classe;
+        @apply flex min-w-0 flex-col;
+    }
+
+    .riga-stato {
+        grid-area: stato;
+    }
+
+    .riga-azione {
+        grid-area: azione;
+        @apply justify-self-end;
+    }
+
+    .riga-fatta {
+        @apply bg-neutral-50 text-neutral-600;
+    }
+
+    .riga[aria-current='true'] {
+        @apply bg-giallo/20;
+    }
+
+    .spunta-conferma {
+        @apply inline-flex min-h-9 min-w-9 items-center justify-center gap-1 rounded border-2 border-nero px-1.5 font-semibold hover:bg-nero hover:text-white;
+    }
+
+    .spunta-conferma[aria-disabled='true'] {
+        @apply cursor-not-allowed border-neutral-400 text-neutral-500 hover:bg-transparent hover:text-neutral-500;
+    }
+
+    .testo-conferma:empty {
+        @apply hidden;
+    }
+
+    .popover-conferma {
+        @apply rounded border-2 border-nero bg-white p-3 text-sm;
+    }
+
+    .dettaglio {
+        @apply fixed inset-x-0 bottom-0 z-20 flex max-h-[70vh] flex-col gap-3 overflow-y-auto border-t-4 border-nero bg-white p-4 shadow-lg min-[1100px]:left-64;
+    }
+
+    .dettaglio-testa {
+        @apply flex items-start justify-between gap-3;
+    }
+
+    .dettaglio-originale {
+        @apply rounded bg-neutral-100 p-2;
+        overflow-wrap: anywhere;
+    }
+
+    .dettaglio .tasti {
+        @apply hidden min-[900px]:block;
+    }
+
+    /* Sotto i 1320 px il dettaglio è un cassetto in fondo e l'elenco gli lascia posto; sopra, un pannello a fianco. */
+    [data-dettaglio] .elenco {
+        @apply pb-[60vh] min-[1320px]:pb-0;
+    }
+
+    @media (min-width: 1320px) {
+        .revisione-lavoro:has(.dettaglio) {
+            @apply grid grid-cols-[minmax(0,1fr)_24rem] items-start gap-4;
+        }
+
+        .dettaglio {
+            @apply sticky top-4 inset-x-auto bottom-auto max-h-[calc(100vh-2rem)] rounded border-2 shadow-none;
+        }
+    }
+
+    /* Tabella: dai 900 px una riga per movimento. Con il pannello a fianco (dai 1320 px) l'elenco è stretto:
+       resta a schede, una per riga. */
+    @media (min-width: 900px) {
+        [data-vista='tabella'] .revisione:not([data-dettaglio]) .riga {
+            grid-template-columns: 1.5rem 3rem minmax(0, 2fr) 6.5rem minmax(0, 2fr) 8rem 2.5rem;
+            grid-template-areas: 'sel data desc importo classe stato azione';
+        }
+
+        [data-vista='schede'] .revisione:not([data-dettaglio]) .righe {
+            @apply grid grid-cols-2 gap-3;
+        }
+
+        [data-vista='schede'] .riga {
+            @apply rounded border-2 border-nero;
+        }
+    }
+
+    @media (min-width: 900px) and (max-width: 1319px) {
+        [data-vista='tabella'] .revisione[data-dettaglio] .riga {
+            grid-template-columns: 1.5rem 3rem minmax(0, 2fr) 6.5rem minmax(0, 2fr) 8rem 2.5rem;
+            grid-template-areas: 'sel data desc importo classe stato azione';
+        }
+
+        [data-vista='schede'] .revisione[data-dettaglio] .righe {
+            @apply grid grid-cols-2 gap-3;
+        }
+    }
 }

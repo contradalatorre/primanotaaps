@@ -1,7 +1,7 @@
 @php
-    $posizione = $movimenti->values()->search(fn ($m) => $m->id === $dettaglio->id);
-    $precedente = $posizione !== false && $posizione > 0 ? $movimenti->values()[$posizione - 1] : null;
-    $successivo = $posizione !== false ? $movimenti->values()->get($posizione + 1) : null;
+    $posizione = $ordine->values()->search(fn ($m) => $m->id === $dettaglio->id);
+    $precedente = $posizione !== false && $posizione > 0 ? $ordine->values()[$posizione - 1] : null;
+    $successivo = $posizione !== false ? $ordine->values()->get($posizione + 1) : null;
 @endphp
 <aside class="dettaglio" aria-label="Dettaglio del movimento" id="dettaglio">
     <div class="dettaglio-testa">
@@ -31,6 +31,9 @@
     </dl>
 
     <div class="azioni">
+        @unless ($dettaglio->confermato())
+            <span class="conferma-dettaglio">@include('revisione.conferma', ['movimento' => $dettaglio, 'dove' => 'dettaglio', 'dopo' => $successivo, 'etichetta' => 'Conferma'])</span>
+        @endunless
         <a href="{{ route('movimenti.classificazione', $dettaglio) }}" class="bottone">{{ $dettaglio->stato === 'da_classificare' ? 'Classifica' : 'Rivedi la classificazione' }}</a>
         @if ($precedente)<a href="{{ $url(['movimento' => $precedente->id]) }}#riga-{{ $precedente->id }}" class="link" data-precedente>Precedente</a>@endif
         @if ($successivo)<a href="{{ $url(['movimento' => $successivo->id]) }}#riga-{{ $successivo->id }}" class="link" data-successivo>Successivo</a>@endif

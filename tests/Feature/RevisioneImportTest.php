@@ -7,6 +7,7 @@ use App\Models\Conto;
 use App\Models\ImportEstratto;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
+use App\Models\RegistroModifica;
 use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -140,5 +141,99 @@ class RevisioneImportTest extends TestCase
 
         $this->import->update(['stato' => 'anteprima']);
         $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione")->assertNotFound();
+    }
+
+    public function test_la_conferma_di_gruppo_e_quella_di_tutte_le_proposte_pronte(): void
+    {
+        $s = $this->scenario();
+        $utenze = $this->movimento('Bolletta del gas', 900, 'uscita', 'Utenze', 'Carnevale');
+
+        // la pagina offre i pulsanti: del gruppo, e delle proposte pronte
+        $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione?passo=pronte")
+            ->assertSeeText('Conferma il gruppo')
+            ->assertSeeText('Utenze · Carnevale')->assertSeeText('Materiali e beni di consumo · Carnevale');
+
+        $this->confermaVia(['movimenti' => $this->versioni($utenze), 'passo' => 'pronte'])
+            ->assertRedirect(route('import.revisione', [$this->import, 'passo' => 'pronte']))->assertSessionHas('ok', '1 movimento confermato.');
+        $this->assertSame('confermato', $utenze->refresh()->stato);
+        $this->assertSame('proposto', $s['ghiaccio']->refresh()->stato);
+
+        $this->confermaVia(['movimenti' => $this->versioni($s['ghiaccio'], $s['gazebo'])])->assertSessionHas('ok', '2 movimenti confermati.');
+        $this->assertSame(['confermato', 'confermato'], [$s['ghiaccio']->refresh()->stato, $s['gazebo']->refresh()->stato]);
+        $this->assertSame(4, RegistroModifica::where('azione', 'confermato')->count());
+    }
+
+    public function test_con_un_movimento_che_non_si_conferma_non_se_ne_conferma_nessuno(): void
+    {
+        $s = $this->scenario();
+
+        $this->confermaVia(['movimenti' => $this->versioni($s['ghiaccio'], $s['contributo'])])
+            ->assertSessionHasErrors('conferma');
+
+        $this->assertSame('proposto', $s['ghiaccio']->refresh()->stato);
+        $this->assertStringContainsString('Contributo del Comune', session('errors')->first('conferma'));
+    }
+
+    public function test_una_conferma_su_una_versione_superata_si_rifiuta(): void
+    {
+        $s = $this->scenario();
+        $vista = $this->versioni($s['ghiaccio']);
+        Classificazione::salva($this->tesoriere, $s['ghiaccio'], null, [['tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id'), 'iniziativa_id' => Iniziativa::where('nome', 'Carnevale')->value('id')]]);
+
+        $this->confermaVia(['movimenti' => $vista])->assertSessionHasErrors('conferma');
+        $this->assertSame('proposto', $s['ghiaccio']->refresh()->stato);
+    }
+
+    public function test_non_si_confermano_movimenti_di_un_altro_import_e_nemmeno_se_si_e_senza_permesso(): void
+    {
+        $s = $this->scenario();
+        $altro = $this->nuovoImport(99950);
+        $estraneo = $this->movimento('Altro estratto', 700, 'uscita', 'Utenze', 'Carnevale', import: $altro);
+
+        $this->confermaVia(['movimenti' => $this->versioni($s['ghiaccio'], $estraneo)])->assertNotFound();
+        $this->assertSame('proposto', $s['ghiaccio']->refresh()->stato);
+        $this->assertSame('proposto', $estraneo->refresh()->stato);
+
+        $this->actingAs($this->utenteCon('Consigliere'))->post("/import/{$this->import->id}/conferme", ['movimenti' => $this->versioni($s['ghiaccio'])])->assertForbidden();
+    }
+
+    public function test_si_imposta_l_iniziativa_ai_selezionati_senza_toccare_il_resto(): void
+    {
+        $s = $this->scenario();
+        $festa = Iniziativa::where('nome', 'Festa della Torre')->value('id');
+
+        $this->actingAs($this->tesoriere)->post("/import/{$this->import->id}/iniziativa", [
+            'movimenti' => $this->versioni($s['ghiaccio'], $s['contributo']), 'iniziativa_id' => $festa, 'passo' => 'decidere',
+        ])->assertRedirect(route('import.revisione', [$this->import, 'passo' => 'decidere']))->assertSessionHas('ok', 'Iniziativa impostata su 2 movimenti.');
+
+        $ghiaccio = $s['ghiaccio']->refresh()->load('imputazioni');
+        $this->assertSame($festa, $ghiaccio->imputazioni->sole()->iniziativa_id);
+        $this->assertSame(Tipologia::where('nome', 'Materiali e beni di consumo')->value('id'), $ghiaccio->imputazioni->sole()->tipologia_id);
+        $contributo = $s['contributo']->refresh()->load('imputazioni');
+        $this->assertSame($festa, $contributo->imputazioni->sole()->iniziativa_id);
+        $this->assertSame(5000, $contributo->imputazioni->sole()->importo);
+        $this->assertSame('proposto', $contributo->stato);
+    }
+
+    public function test_il_dettaglio_mostra_fonte_voce_e_natura(): void
+    {
+        $s = $this->scenario();
+
+        $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione?passo=pronte&movimento={$s['gazebo']->id}")
+            ->assertOk()->assertSeeText('Proposta da Tina Verdi')->assertSeeText('Uscite A1')->assertSeeText('Natura')
+            ->assertSeeText('Da calcolare')->assertSee('data-successivo', false);
+    }
+
+    public function test_la_pagina_dell_import_confermato_porta_alla_revisione(): void
+    {
+        $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}")->assertSee(route('import.revisione', $this->import), false);
+    }
+
+    public function test_senza_tipologia_la_spunta_e_spenta_con_il_suo_perche(): void
+    {
+        $this->scenario();
+
+        $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione?passo=decidere")
+            ->assertSee('aria-disabled="true"', false)->assertSeeText('Per confermare serve la tipologia');
     }
 }

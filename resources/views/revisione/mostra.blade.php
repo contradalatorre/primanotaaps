@@ -12,6 +12,10 @@
         $totale = $revisione->movimenti->count();
         $pronte = $revisione->conteggio('pronte');
         $url = fn (array $parametri = []) => route('import.revisione', [$import, 'passo' => $passo] + $parametri);
+        // Nell'ordine in cui le righe sono disegnate: «Successivo», J/K e il movimento da aprire dopo una conferma lo seguono.
+        $ordine = $passo === 'pronte' ? $revisione->gruppi($movimenti)->flatten() : $movimenti;
+        $pronteDaConfermare = $revisione->passo('pronte');
+        $versioniDi = fn ($elenco) => $elenco->mapWithKeys(fn ($m) => [$m->id => \App\Classificazione::versione($m, true)]);
     @endphp
 
     <div class="revisione" data-revisione @if ($dettaglio) data-dettaglio @endif>
@@ -22,11 +26,18 @@
                     · <a href="{{ route('import.mostra', $import) }}" class="link">Vedi l’import</a></p>
                 <p>{{ ($resta = $revisione->cosaResta()) ? 'Restano '.$resta.'.' : 'Tutti i movimenti sono confermati.' }}</p>
             </div>
+            @if ($pronte > 0)
+                <form method="POST" action="{{ route('import.conferme', $import) }}">
+                    @csrf
+                    @foreach ($versioniDi($pronteDaConfermare) as $id => $versione)<input type="hidden" name="movimenti[{{ $id }}]" value="{{ $versione }}">@endforeach
+                    <button type="submit" class="bottone">Conferma {{ $pronte }} {{ $pronte === 1 ? 'proposta pronta' : 'proposte pronte' }}</button>
+                </form>
+            @endif
         </header>
 
         {{-- Catena del saldo e barra dei confermati. Sul telefono la catena si riduce alla riga del saldo e si espande. --}}
         <section class="catena-e-barra" aria-label="Saldo e avanzamento">
-            <details class="catena" open data-catena>
+            <details class="catena" data-catena>
                 <summary>
                     <span>Saldo al {{ $import->periodo_al->format('d/m/Y') }} <strong class="importo">{{ $euro($catena['finale']) }}</strong></span>
                     @if ($catena['uguale'])
@@ -75,6 +86,24 @@
                     'tutti' => 'Tutti i movimenti dell’import, in ordine di data.',
                 ][$passo] }}</p>
 
+                @if ($movimenti->isNotEmpty() && $passo !== 'giroconti')
+                    {{-- Le caselle delle righe puntano a questo modulo (`form="selezione"`): i moduli non si annidano. --}}
+                    <form method="POST" action="{{ route('import.conferme', $import) }}" id="selezione" class="selezione" data-selezione>
+                        @csrf
+                        <input type="hidden" name="passo" value="{{ $passo }}">
+                        <span class="nota" role="status" data-selezionati>Seleziona i movimenti con le caselle per agire su più insieme.</span>
+                        <label class="selezione-iniziativa">
+                            <span>Iniziativa</span>
+                            <select name="iniziativa_id">
+                                <option value="">Scegli…</option>
+                                @foreach ($iniziative as $iniziativa)<option value="{{ $iniziativa->id }}">{{ $iniziativa->nome }}</option>@endforeach
+                            </select>
+                        </label>
+                        <button type="submit" formaction="{{ route('import.iniziativa', $import) }}" class="bottone-piccolo" data-su-selezionati>Imposta l’iniziativa</button>
+                        <button type="submit" class="bottone-piccolo" data-su-selezionati>Conferma i selezionati</button>
+                    </form>
+                @endif
+
                 @if ($movimenti->isEmpty())
                     <p class="vuoto">{{ [
                         'giroconti' => 'Nessun giroconto da controllare.',
@@ -89,7 +118,13 @@
                                 <strong>{{ $etichetta }}</strong>
                                 <span class="nota">{{ $gruppo->count() }} {{ $gruppo->count() === 1 ? 'movimento' : 'movimenti' }} · {{ $gruppo->map->fonteProposta()->unique()->join(', ') }}</span>
                             </div>
-                            <strong class="importo">{{ $euro($gruppo->sum(fn ($m) => $m->verso === 'uscita' ? -$m->importo : $m->importo)) }}</strong>
+                            <strong class="importo">{{ ($somma = $gruppo->sum(fn ($m) => $m->verso === 'uscita' ? -$m->importo : $m->importo)) < 0 ? '−' : '+' }}{{ $euro(abs($somma)) }}</strong>
+                            <form method="POST" action="{{ route('import.conferme', $import) }}">
+                                @csrf
+                                <input type="hidden" name="passo" value="pronte">
+                                @foreach ($versioniDi($gruppo) as $id => $versione)<input type="hidden" name="movimenti[{{ $id }}]" value="{{ $versione }}">@endforeach
+                                <button type="submit" class="bottone-piccolo">Conferma il gruppo<span class="sr-only"> {{ $etichetta }}</span></button>
+                            </form>
                         </div>
                         <ul class="righe">
                             @foreach ($gruppo as $movimento) @include('revisione.riga') @endforeach
