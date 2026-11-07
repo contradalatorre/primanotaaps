@@ -26,6 +26,12 @@ class ManualeSezione extends Model
         return $this->only(['codice', 'titolo', 'corpo']);
     }
 
+    /** Un'impronta del testo visto: chi salva rimanda quella che ha letto, e se nel frattempo è cambiata non sovrascrive. */
+    public function versione(): string
+    {
+        return hash('sha256', json_encode($this->only(['titolo', 'corpo'])));
+    }
+
     /** Il manuale intero in Markdown, con le spiegazioni delle tipologie attive: l'esportazione, e il testo che riceverà l'AI. */
     public static function testo(): string
     {

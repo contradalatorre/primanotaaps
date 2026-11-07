@@ -9,7 +9,9 @@ use App\Models\Tipologia;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /** Il manuale di classificazione (#44): lo legge chi vede, lo scrive chi ha `gestire_regole`. Le sezioni non si cancellano. */
 class ManualeController extends Controller
@@ -28,7 +30,7 @@ class ManualeController extends Controller
         DB::transaction(function () use ($request, $dati) {
             $sezione = new ManualeSezione($dati);
             // shortcut: max+1 senza blocco, due creazioni simultanee danno un errore sul vincolo unico; da rivedere se serve scrivere in parallelo.
-            $sezione->codice =(string) (ManualeSezione::pluck('codice')->max(fn ($c) => (int) $c) + 1);
+            $sezione->codice = (string) (ManualeSezione::pluck('codice')->max(fn ($c) => (int) $c) + 1);
             $sezione->save();
             RegistroModifica::registra($request->user(), $sezione, 'creato', null, $sezione->istantanea());
         });
@@ -38,14 +40,21 @@ class ManualeController extends Controller
 
     public function salva(Request $request, ManualeSezione $sezione): RedirectResponse
     {
-        $sezione->fill($request->validate(self::REGOLE));
-        if ($sezione->isDirty()) { // salvare senza cambiare nulla non è una modifica
-            DB::transaction(function () use ($request, $sezione) {
-                $prima = collect($sezione->getOriginal())->only(['codice', 'titolo', 'corpo'])->all();
+        $dati = $request->validate(self::REGOLE + ['versione' => ['required', 'string', 'size:64']]);
+        $dati['corpo'] = preg_replace('/\r\n?/', "\n", $dati['corpo']); // il browser manda CRLF: senza questo ogni salvataggio sembrerebbe una modifica
+
+        DB::transaction(function () use ($request, $sezione, $dati) {
+            $sezione = ManualeSezione::lockForUpdate()->findOrFail($sezione->id);
+            if (! hash_equals($sezione->versione(), $dati['versione'])) {
+                throw ValidationException::withMessages(['versione' => 'La sezione è cambiata dopo che l’hai aperta: rileggila prima di salvare.']);
+            }
+            $prima = $sezione->istantanea();
+            $sezione->fill(Arr::only($dati, ['titolo', 'corpo']));
+            if ($sezione->isDirty()) { // salvare senza cambiare nulla non è una modifica
                 $sezione->save();
                 RegistroModifica::registra($request->user(), $sezione, 'modificato', $prima, $sezione->istantanea());
-            });
-        }
+            }
+        });
 
         return redirect()->route('manuale')->with('ok', 'Salvato.');
     }

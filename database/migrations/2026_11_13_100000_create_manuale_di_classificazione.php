@@ -108,9 +108,9 @@ T],
 T],
 
             ['Contributi e 5 per mille', <<<'T'
-- **Contributo a fondo perduto di un ente pubblico** (Comune, Regione, ministero): «Contributi da enti pubblici», voce **A8**. Vale se l'ente non riceve nulla in cambio.
+- **Contributo a fondo perduto di un ente pubblico** (Comune, Regione, ministero): «Contributi da enti pubblici», voce **A8**. Vale se l'ente non riceve nulla in cambio. Se il contributo è destinato a un'attività commerciale (area B) la voce è **B4**.
 - **Somma pagata da un ente pubblico per un servizio reso** (convenzione, appalto): non è un contributo ma un corrispettivo, e il Modello D ha per questo caso una riga propria, A9, che oggi la tabella delle voci non prevede. Se capita, si usa «Corrispettivi da terzi» e si segna il dubbio.
-- **Contributo di un'azienda, una fondazione o un privato** per un'iniziativa: «Contributi da privati», voce **A6**.
+- **Contributo di un'azienda, una fondazione o un privato** per un'iniziativa: «Contributi da privati», voce **A6**. Se il contributo è destinato a un'attività commerciale (area B) la voce è **B2**.
 - **5 per mille**: «5 per mille», voce **A5**.
 - **Altre entrate** (A10) è la riga di chi non sa dove mettere: si usa solo se nessuna delle altre si applica.
 
@@ -126,7 +126,7 @@ Per un'APS la somministrazione di pasti e bevande è **un'attività commerciale*
 - **Somministrazione al pubblico**: tipologia «Somministrazione».
 - **Acquisti di cibo e bevande**: «Acquisti per la somministrazione».
 
-**La Festa della Torre** è una scelta del tesoriere: tutte le entrate, compresa la somministrazione, vanno in **A7** (area A, tipologia «Somministrazione»), e le uscite restano nell'area A. La ragione: la festa di piazza con musica dal vivo è un'attività di interesse generale; la somministrazione serve a finanziare i costi della parte ricreativa e le entrate seguono l'attività principale. La somministrazione resta comunque commerciale. Il controllo che conta è il test dell'art. 79 c. 2-bis: i corrispettivi dell'attività non devono superare i costi effettivi più il 6%, per al massimo tre esercizi consecutivi. Per questo l'iniziativa deve raccogliere **tutti** i costi, compresi musica, palco, service, SIAE e permessi, così che il conto per iniziativa mostri quanto si avvicina al pareggio. **Da confermare con il commercialista**; se cambierà, lo si cambia in blocco spostando l'iniziativa di area.
+**La Festa della Torre** è una scelta del tesoriere: tutte le entrate, compresa la somministrazione, vanno in **A7** (area A, tipologia «Somministrazione»), e le uscite restano nell'area A. La ragione: la festa di piazza con musica dal vivo è un'attività di interesse generale; la somministrazione serve a finanziare i costi della parte ricreativa e le entrate seguono l'attività principale. La somministrazione resta comunque commerciale. Il controllo che conta è il test dell'art. 79 c. 2-bis: i corrispettivi dell'attività non devono superare i costi effettivi; è tollerato uno scarto fino al 6%, ma al massimo per tre esercizi consecutivi, poi si applica la soglia piena. Per questo l'iniziativa deve raccogliere **tutti** i costi, compresi musica, palco, service, SIAE e permessi, così che il conto per iniziativa mostri quanto si avvicina al pareggio. **Da confermare con il commercialista**; se cambierà, lo si cambia in blocco spostando l'iniziativa di area.
 
 *Esempio.* Il sabato sera i tavoli incassano 1.200 euro: «Somministrazione», iniziativa Festa della Torre, A7. Gli 800 euro di carne e bibite comprati per la sera: «Acquisti per la somministrazione», stessa iniziativa. Il noleggio del palco da 500 euro: «Affitti e noleggi», stessa iniziativa.
 T],
@@ -236,9 +236,9 @@ T],
             ['I test dell\'esercizio e le scelte di classificazione', <<<'T'
 I test non si inseriscono: l'app li calcola dalle imputazioni, e per questo ogni scelta di classificazione ha un effetto. Questa sezione dice dove guardare; la spiegazione di ciascun test, con la sua base normativa, rimanda qui.
 
-- **Test di secondarietà** (art. 6 CTS, DM 107/2021): ha due criteri, quello del 30% e quello del 66%; l'app li calcola entrambi e propone quello rispettato con più margine. Le sponsorizzazioni **contano** (§ 10); le imposte non entrano tra i costi complessivi del criterio del 66%.
-- **Test dell'art. 79 c. 2-bis**, sulla natura non commerciale dell'area A: i corrispettivi dell'attività non devono superare i costi effettivi più il 6%, per al massimo tre esercizi consecutivi. I costi effettivi sono le uscite dell'area A più la quota delle spese generali, senza costi figurativi. Se il test non è rispettato, i corrispettivi dell'area A diventano commerciali. Per questo le iniziative raccolgono **tutti** i loro costi (§ 9) e le spese generali stanno in area E (§ 15).
-- **Test dell'art. 79 c. 5**, sulla natura non commerciale dell'ente: le sponsorizzazioni sono neutre (§ 10).
+- **Test di secondarietà** (art. 6 CTS, DM 107/2021): ha due criteri, quello del 30% e quello del 66%; l'app li calcola entrambi e propone quello rispettato con più margine. Le sponsorizzazioni **contano** (§ 10); le imposte non entrano tra i costi complessivi del criterio del 66% e i proventi figurativi restano fuori dal denominatore del criterio del 30%.
+- **Test dell'art. 79 c. 2-bis**, sulla natura non commerciale dell'area A: i corrispettivi dell'attività non devono superare i costi effettivi; è tollerato uno scarto fino al 6%, ma al massimo per tre esercizi consecutivi, poi si applica la soglia piena. I costi effettivi sono le uscite dell'area A più la quota delle spese generali, comprese imposte e oneri finanziari, senza costi figurativi. Se il test non è rispettato, i corrispettivi dell'area A diventano commerciali. Per questo le iniziative raccolgono **tutti** i loro costi (§ 9) e le spese generali stanno in area E (§ 15).
+- **Test dell'art. 79 c. 5**, sulla natura non commerciale dell'ente: le sponsorizzazioni sono neutre (§ 10), mentre i contributi in B2 e B4 contano come entrate commerciali.
 
 Una **forzatura** della natura commerciale cambia l'esito dei test: serve una motivazione, e finché la scelta è in dubbio si segue la soluzione prudente (§ 17).
 T],
