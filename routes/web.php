@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\AccessoController;
+use App\Http\Controllers\ClassificazioneController;
 use App\Http\Controllers\ContiController;
+use App\Http\Controllers\DatiDiClassificazioneController;
 use App\Http\Controllers\EmergenzaController;
 use App\Http\Controllers\ImportEstrattiController;
 use App\Http\Controllers\MigrazioniController;
@@ -38,6 +40,7 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
     Route::middleware('can:vedere')->group(function () {
         Route::get('/conti', [ContiController::class, 'index'])->name('conti');
         Route::get('/movimenti', [MovimentiController::class, 'index'])->name('movimenti');
+        Route::get('/classificazione', [DatiDiClassificazioneController::class, 'index'])->name('classificazione');
     });
     // I dati di base (conti) sono di chi ha `gestire_regole`: #16 non ha un permesso a parte.
     Route::middleware('can:gestire_regole')->group(function () {
@@ -46,6 +49,14 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
         Route::get('/conti/{conto}/modifica', [ContiController::class, 'modifica'])->name('conti.modifica');
         Route::put('/conti/{conto}', [ContiController::class, 'salva'])->name('conti.salva');
         Route::post('/conti/{conto}/chiusura', [ContiController::class, 'chiudi'])->name('conti.chiudi');
+    });
+    // Tipologie, attività, iniziative e tag (#39): anche questi sono dati di base, quindi `gestire_regole`.
+    Route::middleware('can:gestire_regole')->where(['tipo' => 'tipologie|attivita|iniziative|tag', 'id' => '[0-9]+'])->group(function () {
+        Route::post('/classificazione/{tipo}', [DatiDiClassificazioneController::class, 'crea'])->name('classificazione.crea');
+        Route::put('/classificazione/{tipo}/{id}', [DatiDiClassificazioneController::class, 'salva'])->name('classificazione.salva');
+        Route::post('/classificazione/{tipo}/{id}/archiviazione', [DatiDiClassificazioneController::class, 'archivia'])->name('classificazione.archivia');
+        Route::post('/classificazione/{tipo}/{id}/ripristino', [DatiDiClassificazioneController::class, 'ripristina'])->name('classificazione.ripristina');
+        Route::delete('/classificazione/{tipo}/{id}', [DatiDiClassificazioneController::class, 'elimina'])->name('classificazione.elimina');
     });
     Route::middleware('can:inserire_movimenti_cassa,conto')->group(function () {
         Route::get('/conti/{conto}/movimenti/nuovo', [MovimentiController::class, 'nuovo'])->name('movimenti.nuovo');
@@ -63,6 +74,14 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
     });
     Route::get('/movimenti/{movimento}/modifica', [MovimentiController::class, 'modifica'])->name('movimenti.modifica');
     Route::put('/movimenti/{movimento}', [MovimentiController::class, 'salva'])->name('movimenti.salva');
+    // Classificazione (#39): il Tesoriere sempre, l'autore sul proprio movimento non confermato (controllo nel controllore).
+    Route::get('/movimenti/{movimento}/classificazione', [ClassificazioneController::class, 'modifica'])->name('movimenti.classificazione');
+    Route::put('/movimenti/{movimento}/classificazione', [ClassificazioneController::class, 'salva'])->name('movimenti.classificazione.salva');
+    Route::put('/movimenti/{movimento}/classificazione/riga', [ClassificazioneController::class, 'aggiungiRiga'])->name('movimenti.classificazione.riga'); // PUT: il form porta _method=PUT
+    Route::post('/movimenti/{movimento}/giustificativi', [ClassificazioneController::class, 'aggiungiGiustificativo'])->name('movimenti.giustificativi');
+    Route::delete('/giustificativi/{giustificativo}', [ClassificazioneController::class, 'rimuoviGiustificativo'])->name('giustificativi.elimina');
+    Route::post('/movimenti/{movimento}/conferma', [ClassificazioneController::class, 'conferma'])
+        ->middleware('can:importare_e_confermare')->name('movimenti.conferma');
     Route::post('/movimenti/{movimento}/ritiro', [MovimentiController::class, 'ritira'])->name('movimenti.ritira');
     Route::post('/movimenti/{movimento}/eliminazione', [MovimentiController::class, 'elimina'])
         ->middleware('can:eliminare_movimento_manuale')->name('movimenti.elimina');

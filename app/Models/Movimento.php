@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -25,6 +26,8 @@ class Movimento extends Model
 
     public const VERSI = ['entrata' => 'Entrata', 'uscita' => 'Uscita'];
 
+    public const TIPI_CONTROPARTE = ['socio' => 'Socio', 'terzo' => 'Terzo', 'non_pertinente' => 'Non pertinente'];
+
     protected function casts(): array
     {
         return ['data' => 'date', 'data_valuta' => 'date', 'importo' => 'integer', 'saldo_parziale' => 'integer', 'manuale' => 'boolean', 'confermato_il' => 'datetime'];
@@ -38,6 +41,21 @@ class Movimento extends Model
     public function autore(): BelongsTo
     {
         return $this->belongsTo(User::class, 'inserito_da');
+    }
+
+    public function imputazioni(): HasMany
+    {
+        return $this->hasMany(Imputazione::class)->chaperone();
+    }
+
+    public function giustificativi(): HasMany
+    {
+        return $this->hasMany(Giustificativo::class);
+    }
+
+    public function proponente(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'proposto_da');
     }
 
     public function confermato(): bool
@@ -55,13 +73,32 @@ class Movimento extends Model
             && ! $this->conto->chiuso() && $utente->can('modificare_movimenti_propri', $this->conto_id);
     }
 
-    /** I campi che il registro delle modifiche conserva prima e dopo ogni cambiamento. */
-    public function istantanea(): array
+    /**
+     * Classifica (e carica giustificativi) chi ha `importare_e_confermare`, sempre; l'autore con `proporre_classificazioni`
+     * sul conto, solo sul proprio movimento non ancora confermato (#16: «da lì l'autore non lo modifica più»).
+     */
+    public function classificabileDa(User $utente): bool
     {
+        return $utente->can('importare_e_confermare')
+            || ($this->manuale && $this->inserito_da === $utente->id && ! $this->confermato() && $utente->can('proporre_classificazioni', $this->conto_id));
+    }
+
+    /**
+     * I campi che il registro delle modifiche conserva prima e dopo ogni cambiamento. Con `$relazioniCaricate` legge
+     * imputazioni (con attività, iniziativa, tipologia e tag) e giustificativi già caricati, senza query: solo per
+     * chi non scrive dopo (la lista); le relazioni caricate non seguono le scritture.
+     */
+    public function istantanea(bool $relazioniCaricate = false): array
+    {
+        $imputazioni = $relazioniCaricate ? $this->imputazioni->sortBy('id') : $this->imputazioni()->with('attivita', 'iniziativa', 'tipologia', 'tag')->orderBy('id')->get();
+        $giustificativi = $relazioniCaricate ? $this->giustificativi->sortBy('id')->pluck('riferimento') : $this->giustificativi()->orderBy('id')->pluck('riferimento');
+
         return [
             'conto_id' => $this->conto_id, 'data' => $this->data->toDateString(), 'importo' => $this->importo,
             'verso' => $this->verso, 'descrizione' => $this->descrizione, 'valuta_originale' => $this->valuta_originale,
-            'stato' => $this->stato,
+            'stato' => $this->stato, 'tipo_controparte' => $this->tipo_controparte,
+            'imputazioni' => $imputazioni->map->riassunto()->join('; ') ?: null,
+            'giustificativi' => $giustificativi->join('; ') ?: null,
         ];
     }
 }
