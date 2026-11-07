@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 
 @source '../views';
+/* L'elenco dei movimenti e il registro sono a pagine: servono gli stili della paginazione di Laravel. */
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 
 /* Colori della contrada: giallo, nero e bianco. Mai il rosso, nemmeno per gli errori:
    gli stati si leggono dal testo e dall'icona, non dal colore. */
