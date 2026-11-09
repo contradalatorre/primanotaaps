@@ -92,6 +92,10 @@ _Avoid_: override, eccezione
 Un'etichetta trasversale libera da qualunque effetto sul Modello D e sui test, usata per raggruppare imputazioni (es. "Bando Fondazione X").
 _Avoid_: etichetta, parola chiave
 
+**Regola**:
+Una condizione sul movimento (conto, verso, causale, testo della descrizione, importo o intervallo, periodo; tutte da soddisfare, senza espressioni regolari) con una classificazione da proporre (tipologia, iniziativa o area e attività, socio o terzo, tag; mai la natura commerciale). Le regole sono in un elenco ordinato e vince la prima che corrisponde. Una regola propone soltanto sui movimenti *da classificare* o già *proposti da una regola*: non tocca mai i confermati né le scelte a mano.
+_Avoid_: automatismo, filtro
+
 **Manuale di classificazione**:
 Il testo, nell'app, che spiega come si classificano i movimenti; diviso in sezioni dal numero stabile, che si cita come «manuale § 9», lo legge chiunque e lo modifica chi gestisce le regole, e ogni modifica lascia una versione nel registro delle modifiche. Il manuale è anche ciò che l'AI riceve quando propone una classificazione.
 _Avoid_: regolamento, linee guida

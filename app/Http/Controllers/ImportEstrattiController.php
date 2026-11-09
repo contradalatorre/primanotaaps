@@ -9,6 +9,7 @@ use App\Models\ImportEstratto;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
 use App\Models\User;
+use App\Regole;
 use Carbon\CarbonInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -119,7 +120,10 @@ class ImportEstrattiController extends Controller
             foreach ($classi['conflitti'] as $c) {
                 $import->conflitti()->create(['movimento_id' => $c['movimento']->id, 'riga' => $c['riga']->toArray()]);
             }
-            $this->registraMovimenti($request->user(), $import->movimenti()->get(), 'importato', null);
+            $nuovi = $import->movimenti()->get();
+            $this->registraMovimenti($request->user(), $nuovi, 'importato', null);
+            // Le regole subito, a conto bloccato: un salvataggio di regole (che blocca tutti i conti) aspetta e poi rifà le proposte.
+            Regole::applicaAiNuovi($request->user(), $nuovi);
 
             $prima = $import->istantanea();
             $percorso = $import->percorso;
@@ -182,9 +186,12 @@ class ImportEstrattiController extends Controller
     {
         $decisione = $request->validate(['decisione' => ['required', Rule::in(array_keys(ImportConflitto::DECISIONI))]])['decisione'];
 
-        DB::transaction(function () use ($request, $conflitto, $decisione) {
+        // Fuori dalla transazione: una lettura semplice prima del lock del conto fisserebbe la fotografia di MySQL, e le regole lette dopo sarebbero vecchie.
+        $contoId = $conflitto->importEstratto->conto_id;
+
+        DB::transaction(function () use ($request, $conflitto, $decisione, $contoId) {
             // Prima il conto, come conferma e annulla: due decisioni sulla stessa riga di import sovrapposti si mettono in fila.
-            $conto = Conto::lockForUpdate()->findOrFail($conflitto->importEstratto->conto_id);
+            $conto = Conto::lockForUpdate()->findOrFail($contoId);
             $conflitto = ImportConflitto::lockForUpdate()->findOrFail($conflitto->id);
             $import = $conflitto->importEstratto;
             if ($conflitto->decisione !== null || $import->stato !== 'confermato') {
@@ -205,6 +212,7 @@ class ImportEstrattiController extends Controller
                 $movimento = (new Movimento)->forceFill($import->attributiMovimento($riga, $request->user()->id));
                 $movimento->save();
                 $this->registraMovimenti($request->user(), collect([$movimento]), 'importato', null);
+                Regole::applicaAiNuovi($request->user(), collect([$movimento->refresh()]));
             }
             $conflitto->update(['decisione' => $decisione, 'deciso_da' => $request->user()->id, 'deciso_il' => now()]);
             RegistroModifica::registra($request->user(), $import, 'conflitto_deciso', null, ['conflitto' => $conflitto->id, 'decisione' => $decisione]);

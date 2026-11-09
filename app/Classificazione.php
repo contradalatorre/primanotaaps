@@ -81,6 +81,10 @@ final class Classificazione
      */
     public static function imputazioniDellaRegola(Movimento $movimento, Regola $regola): ?array
     {
+        // Una regola con un elemento archiviato non propone più, nemmeno dove la proposta c'è già (`risolvi` lascia ripetere quello che il movimento ha).
+        if ($regola->archiviata()) {
+            return null;
+        }
         try {
             return self::risolvi($movimento, [[
                 'tipologia_id' => $regola->tipologia_id, 'iniziativa_id' => $regola->iniziativa_id, 'area' => $regola->area,

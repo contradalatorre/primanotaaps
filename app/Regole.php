@@ -145,7 +145,7 @@ final class Regole
         [$attributi, $tag] = self::leggi($input, $regola?->loadMissing('tag'));
 
         return DB::transaction(function () use ($utente, $regola, $attributi, $tag) {
-            $candidati = self::blocca();
+            $candidati = self::blocca($utente);
             $regola = $regola ? Regola::with('tag')->findOrFail($regola->id) : new Regola(['posizione' => (int) Regola::max('posizione') + 1]);
             $prima = $regola->exists ? $regola->istantanea() : null;
             $regola->fill($attributi)->save();
@@ -167,7 +167,7 @@ final class Regole
     public static function riordina(User $utente, array $ordine): int
     {
         return DB::transaction(function () use ($utente, $ordine) {
-            $candidati = self::blocca();
+            $candidati = self::blocca($utente);
             $regole = Regola::orderBy('posizione')->orderBy('id')->get();
             $ids = $regole->modelKeys();
             if (count($ordine) !== count(array_unique($ordine)) || array_diff($ids, $ordine) !== [] || array_diff($ordine, $ids) !== []) {
@@ -215,7 +215,8 @@ final class Regole
         $vecchia = $prima->firstWhere('id', $regola?->id);
         $dopo = $regola ? $prima->map(fn (Regola $r) => $r->is($regola) ? $bozza : $r) : $prima->concat([$bozza]);
 
-        $presi = $lasciati = collect();
+        $presi = collect();
+        $lasciati = collect();
         foreach (self::candidati()->get() as $movimento) {
             $era = self::efficace($prima, $movimento);
             $sara = self::efficace($dopo, $movimento);
@@ -230,15 +231,18 @@ final class Regole
     }
 
     /**
-     * Blocca i conti e poi i candidati, e restituisce questi ultimi com'erano a riga bloccata.
+     * Blocca i conti e poi i candidati, ricontrolla il permesso di chi scrive (riletto: `puo` si ricorda le assegnazioni
+     * già caricate) e restituisce i candidati com'erano a riga bloccata.
      *
      * @return Collection<int, Movimento>
      */
-    private static function blocca(): Collection
+    private static function blocca(User $utente): Collection
     {
         Conto::orderBy('id')->lockForUpdate()->get(['id']);
+        $candidati = self::candidati()->lockForUpdate()->get();
+        abort_unless(User::find($utente->id)?->can('gestire_regole'), 403);
 
-        return self::candidati()->lockForUpdate()->get();
+        return $candidati;
     }
 
     /**
