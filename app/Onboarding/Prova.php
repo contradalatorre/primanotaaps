@@ -29,6 +29,8 @@ final class Prova
 
     private ?string $mailPrima = null;
 
+    private bool $httpPrima = false;
+
     public function attiva(): bool
     {
         return $this->reale !== null;
@@ -68,6 +70,7 @@ final class Prova
         try {
             DB::connection(self::CONNESSIONE)->getPdo();
         } catch (Throwable $e) {
+            DB::purge(self::CONNESSIONE); // senza, la connessione fallita resterebbe in memoria con il database sbagliato
             report($e);
             throw new RuntimeException('Lo spazio di prova non è disponibile: il database di prova non risponde.', previous: $e);
         }
@@ -77,6 +80,7 @@ final class Prova
         $this->mailPrima = config('mail.default');
         // Nessuna chiamata esterna: niente email (il mailer scrive in memoria) e nessuna richiesta HTTP in uscita.
         config(['mail.default' => 'array']);
+        $this->httpPrima = Http::preventingStrayRequests();
         Http::preventStrayRequests();
         DB::setDefaultConnection(self::CONNESSIONE);
         $utente->unsetRelations();
@@ -89,7 +93,7 @@ final class Prova
         }
         DB::setDefaultConnection($this->reale);
         DB::purge(self::CONNESSIONE);
-        Http::preventStrayRequests(false);
+        Http::preventStrayRequests($this->httpPrima);
         config(['mail.default' => $this->mailPrima]);
         $this->reale = $this->missione = $this->mailPrima = null;
         $utente?->unsetRelations();

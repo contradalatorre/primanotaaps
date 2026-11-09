@@ -29,14 +29,14 @@
                 <form method="POST" action="{{ route('import.revisione.conferma-pronte', $import) }}">
                     @csrf
                     <input type="hidden" name="impronta" value="{{ $revisione->improntaPronte() }}">
-                    <button type="submit" class="bottone">Conferma {{ $pronte }} {{ $pronte === 1 ? 'proposta pronta' : 'proposte pronte' }}</button>
+                    <button type="submit" class="bottone" data-merlo="conferma-pronte">Conferma {{ $pronte }} {{ $pronte === 1 ? 'proposta pronta' : 'proposte pronte' }}</button>
                 </form>
             @endif
         </header>
 
         {{-- Catena del saldo e barra dei confermati. Sul telefono la catena si riduce alla riga del saldo e si espande. --}}
         <section class="catena-e-barra" aria-label="Saldo e avanzamento">
-            <details class="catena" data-catena>
+            <details class="catena" data-catena data-merlo="catena-saldo">
                 <summary>
                     <span>Saldo al {{ $import->periodo_al->format('d/m/Y') }} <strong class="importo">{{ $euro($catena['finale']) }}</strong></span>
                     @if ($catena['uguale'])
@@ -52,7 +52,7 @@
                     <div><dt>= Saldo al {{ $import->periodo_al->format('d/m/Y') }}</dt><dd>{{ $euro($catena['finale']) }}</dd></div>
                 </dl>
             </details>
-            <div class="barra">
+            <div class="barra" data-merlo="barra-confermati">
                 <span class="nota">Confermati {{ $revisione->confermati() }} su {{ $totale }}</span>
                 <div class="barra-pista" role="progressbar" aria-label="Movimenti confermati" aria-valuemin="0" aria-valuenow="{{ $revisione->confermati() }}" aria-valuemax="{{ $totale }}">
                     <span style="width: {{ $totale ? round($revisione->confermati() / $totale * 100) : 0 }}%"></span>

@@ -21,7 +21,9 @@ final class Catalogo
 
     public static function predefinito(): self
     {
-        return new self(resource_path('onboarding'));
+        static $catalogo;
+
+        return $catalogo ??= new self(resource_path('onboarding'));
     }
 
     /** @return Collection<string, Missione> per id, nell'ordine dei percorsi e poi della missione */

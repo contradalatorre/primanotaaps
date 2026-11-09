@@ -38,7 +38,7 @@ final class Scenario
 
         // L'utente vero ricopiato con lo stesso id, senza token né credenziali: le chiavi esterne `user_id` valgono in prova.
         User::unguarded(fn () => User::create([
-            'id' => $utente->id, 'name' => $utente->name, 'email' => $utente->email, 'esterno' => $utente->esterno,
+            'id' => $utente->id, 'name' => $utente->name, 'email' => $utente->email, 'esterno' => (bool) $utente->esterno,
         ]));
 
         $finti = [];

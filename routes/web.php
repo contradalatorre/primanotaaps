@@ -13,6 +13,7 @@ use App\Http\Controllers\RegistroController;
 use App\Http\Controllers\RevisioneImportController;
 use App\Http\Controllers\RuoliController;
 use App\Http\Controllers\UtentiController;
+use App\Http\Middleware\ProvaMiddleware;
 use App\Http\Middleware\VerificaAccountGoogle;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Session\Middleware\StartSession;
@@ -31,7 +32,7 @@ Route::middleware('guest')->group(function () {
 Route::get('/accesso/google', [AccessoController::class, 'vaiAGoogle'])->name('accesso.google');
 Route::get('/accesso/google/ritorno', [AccessoController::class, 'ritornoDaGoogle'])->name('accesso.ritorno');
 
-Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
+Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class])->group(function () {
     Route::view('/', 'home')->name('home');
     Route::post('/esci', [AccessoController::class, 'esci'])->name('esci');
     Route::get('/riautentica', [AccessoController::class, 'riautentica'])->name('riautentica');
@@ -130,3 +131,6 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
 // Prima installazione: il database è vuoto, quindi niente sessione (la tabella `sessions` non c'è) né CSRF.
 Route::post('/manutenzione/migrazioni/prima-installazione', [MigrazioniController::class, 'primaInstallazione'])
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class]);
+
+// Onboarding (#71): il menu Impara e la guida di Merlo, fuori dal gruppo sopra perché lavorano anche sul database vero.
+require __DIR__.'/impara.php';

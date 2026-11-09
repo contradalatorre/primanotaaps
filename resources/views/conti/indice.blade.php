@@ -9,7 +9,7 @@
         <p><a href="{{ route('conti.nuovo') }}" class="bottone">Nuovo conto</a></p>
     @endcan
 
-    <ul class="schede">
+    <ul class="schede" data-merlo="conti-elenco">
         @forelse ($conti as $conto)
             <li class="scheda">
                 <div class="scheda-testa">
@@ -30,7 +30,7 @@
                 </dl>
                 @if (\App\Models\ImportEstratto::lettorePer($conto))
                     @can('importare_e_confermare')
-                        <p><a href="{{ route('import.indice', $conto) }}" class="link">Importa un estratto</a></p>
+                        <p><a href="{{ route('import.indice', $conto) }}" class="link" data-merlo="importa-estratto">Importa un estratto</a></p>
                     @endcan
                 @endif
                 @can('gestire_regole')

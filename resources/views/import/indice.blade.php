@@ -23,6 +23,14 @@
             </label>
             <button type="submit" class="bottone">Carica e mostra l’anteprima</button>
         </form>
+        @if (app(\App\Onboarding\Prova::class)->attiva())
+            {{-- Solo in prova (#71): al posto del file scaricato dalla banca, l'estratto inventato dello scenario, che passa dallo stesso caricamento. --}}
+            <form method="POST" action="{{ route('prova.estratto', $conto) }}" class="modulo-in-riga">
+                @csrf
+                <button type="submit" class="bottone" data-merlo="prova-estratto">Usa l’estratto di prova</button>
+                <span class="nota">Movimenti inventati, nel formato vero di Crédit Agricole.</span>
+            </form>
+        @endif
     @endif
 
     <h2>Import precedenti</h2>

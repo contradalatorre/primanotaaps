@@ -22,7 +22,7 @@
         </details>
     @endcan
 
-    <nav aria-label="Indice del manuale">
+    <nav aria-label="Indice del manuale" data-merlo="manuale-sezioni">
         <ol class="indice-manuale">
             @foreach ($sezioni as $sezione)
                 <li><a href="#sezione-{{ $sezione->codice }}">§ {{ $sezione->codice }} {{ $sezione->titolo }}</a></li>

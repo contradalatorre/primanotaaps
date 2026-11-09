@@ -1,8 +1,9 @@
 @extends('layouts.base')
 
 @section('corpo')
+@include('impara.merlo')
 <div class="shell">
-    <aside class="menu" aria-label="Menu principale">
+    <aside class="menu" aria-label="Menu principale" data-merlo="menu">
         <div class="menu-testa">
             <span class="marchio">Prima nota</span>
             <button type="button" class="menu-comprimi" data-menu-toggle aria-expanded="true" aria-label="Comprimi il menu">
@@ -32,6 +33,10 @@
                     <span class="voce-testo">Manuale</span>
                 </a>
             @endcan
+            <a href="{{ route('impara') }}" class="voce" data-merlo="menu-impara" @if (request()->routeIs('impara*')) aria-current="page" @endif>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 21V9H5V5h3v2h2V5h4v2h2V5h3v4h-2v12zM12 21v-5"/></svg>
+                <span class="voce-testo">Impara</span>
+            </a>
             @can('vedere_registro_modifiche')
                 <a href="{{ route('registro') }}" class="voce" @if (request()->routeIs('registro*')) aria-current="page" @endif>
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg>
