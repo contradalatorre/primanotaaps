@@ -10,6 +10,7 @@ use App\Http\Controllers\ManualeController;
 use App\Http\Controllers\MigrazioniController;
 use App\Http\Controllers\MovimentiController;
 use App\Http\Controllers\RegistroController;
+use App\Http\Controllers\RegoleController;
 use App\Http\Controllers\RevisioneImportController;
 use App\Http\Controllers\RuoliController;
 use App\Http\Controllers\UtentiController;
@@ -66,6 +67,16 @@ Route::middleware(['auth', VerificaAccountGoogle::class])->group(function () {
     Route::middleware('can:gestire_regole')->group(function () {
         Route::post('/manuale', [ManualeController::class, 'crea'])->name('manuale.crea');
         Route::put('/manuale/{sezione}', [ManualeController::class, 'salva'])->name('manuale.salva');
+    });
+    // Regole del tesoriere (#42): `gestire_regole`, come il manuale. Il riordino e il salvataggio rifanno le proposte.
+    Route::middleware('can:gestire_regole')->group(function () {
+        Route::get('/regole', [RegoleController::class, 'index'])->name('regole');
+        Route::get('/regole/nuova', [RegoleController::class, 'nuova'])->name('regole.nuova');
+        Route::post('/regole', [RegoleController::class, 'crea'])->name('regole.crea');
+        Route::post('/regole/anteprima', [RegoleController::class, 'anteprima'])->name('regole.anteprima');
+        Route::post('/regole/ordine', [RegoleController::class, 'ordina'])->name('regole.ordine');
+        Route::get('/regole/{regola}/modifica', [RegoleController::class, 'modifica'])->name('regole.modifica');
+        Route::put('/regole/{regola}', [RegoleController::class, 'salva'])->name('regole.salva');
     });
     Route::middleware('can:inserire_movimenti_cassa,conto')->group(function () {
         Route::get('/conti/{conto}/movimenti/nuovo', [MovimentiController::class, 'nuovo'])->name('movimenti.nuovo');
