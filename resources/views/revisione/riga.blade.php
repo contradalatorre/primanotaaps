@@ -22,5 +22,5 @@
         @if ($voci)<span class="nota">{{ $voci }}</span>@endif
     </span>
     <span class="riga-stato">@include('revisione.pill')@if ($movimento->inDubbio()) @include('note.pill-dubbio') @endif</span>
-    <div class="riga-azione">@include('revisione.dubbio')@include('revisione.conferma', ['dove' => 'riga', 'dopo' => $dopo, 'etichetta' => ''])</div>
+    <div class="riga-azione">@can('note') @include('note.icona', ['href' => $url(['movimento' => $movimento->id]).'#note']) @endcan @include('revisione.dubbio')@include('revisione.conferma', ['dove' => 'riga', 'dopo' => $dopo, 'etichetta' => ''])</div>
 </li>

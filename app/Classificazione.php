@@ -61,6 +61,9 @@ final class Classificazione
             }
             $movimento->forceFill(['tipo_controparte' => $tipoControparte ?: null] + $stato)->save();
             RegistroModifica::registra($utente, $movimento, 'classificato', $prima, $movimento->istantanea());
+            if ($cambiata && $movimento->confermato()) {
+                Note::chiudiDubbi($utente, $movimento); // riclassificare un confermato lo riconferma: scioglie il dubbio come la conferma
+            }
         });
     }
 

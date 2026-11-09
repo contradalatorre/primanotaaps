@@ -34,15 +34,15 @@ final class Note
             $nota = $movimento->note()->create(['user_id' => $utente->id, 'testo' => $testo, 'dubbio' => $dubbio]);
             self::sincronizzaMenzioni($nota);
             // Chi risponde chiude le menzioni a lui rivolte sullo stesso movimento (non quella appena scritta, che non lo cita).
-            Menzione::whereNull('vista_il')->rivolteA($utente)->where('nota_id', '!=', $nota->id)
-                ->whereIn('nota_id', $movimento->note()->select('id'))->update(['vista_da' => $utente->id, 'vista_il' => now()]);
+            Menzione::whereNull('vista_il')->rivolteA($utente)
+                ->whereIn('nota_id', $movimento->note()->where('user_id', '!=', $utente->id)->select('id'))->update(['vista_da' => $utente->id, 'vista_il' => now()]);
             RegistroModifica::registra($utente, $nota, 'scritta', null, $nota->istantanea());
 
             return $nota;
         });
     }
 
-    /** @throws \Illuminate\Auth\Access\AuthorizationException via abort 403 */
+    /** Solo l'autore, entro 24 ore: altrimenti 403 (`abort`). */
     public static function modifica(User $utente, Nota $nota, string $testo): void
     {
         DB::transaction(function () use ($utente, $nota, $testo) {
@@ -119,8 +119,7 @@ final class Note
     {
         $nota = $menzione->nota; // letta prima della transazione: serve solo a sapere quali righe bloccare
         DB::transaction(function () use ($utente, $menzione, $nota) {
-            self::blocca($nota);
-            Menzione::whereKey($menzione->id)->lockForUpdate()->firstOrFail();
+            self::blocca($nota, $menzione);
             $menzione->refresh();
             self::controllaPuoScrivere($utente);
             abort_unless(Menzione::whereKey($menzione->id)->rivolteA($utente)->exists() && ! $nota->eliminata() && ! $nota->oscurata(), 403);
@@ -143,7 +142,8 @@ final class Note
                 $nomi['u'.$utente->id] = $utente->name;
             }
         }
-        foreach (Ruolo::all() as $ruolo) {
+        // Un ruolo senza `note` non ha nessuno che legga: la menzione resterebbe «da vedere» per sempre.
+        foreach (Ruolo::all()->filter->haPermesso(Permesso::Note) as $ruolo) {
             $nomi['r'.$ruolo->id] = $ruolo->nome;
         }
         $citati = Menzioni::trova($nota->testo, $nomi);
@@ -161,11 +161,14 @@ final class Note
         }
     }
 
-    /** Blocca nell'ordine fisso, oggetto poi nota, e rilegge la nota: un oggetto eliminato nel frattempo dà 404. */
-    private static function blocca(Nota $nota): void
+    /** Blocca nell'ordine fisso, oggetto, nota, menzione, e solo dopo rilegge la nota: un oggetto eliminato nel frattempo dà 404. */
+    private static function blocca(Nota $nota, ?Menzione $menzione = null): void
     {
         $nota->oggetto()->lockForUpdate()->firstOrFail();
         Nota::whereKey($nota->id)->lockForUpdate()->firstOrFail();
+        if ($menzione) {
+            Menzione::whereKey($menzione->id)->lockForUpdate()->firstOrFail();
+        }
         $nota->refresh();
     }
 

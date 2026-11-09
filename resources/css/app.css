@@ -529,7 +529,7 @@
     }
 
     [data-vista='tabella'] .riga {
-        grid-template-columns: 1.5rem 3rem minmax(0, 2fr) 6.5rem minmax(0, 2fr) 8rem 5.5rem;
+        grid-template-columns: 1.5rem 3rem minmax(0, 2fr) 6.5rem minmax(0, 2fr) 8rem 8rem;
         grid-template-areas: 'sel data desc importo classe stato azione';
     }
 
@@ -539,7 +539,7 @@
         }
 
         [data-vista='tabella'] [data-dettaglio] .riga {
-            grid-template-columns: 1.5rem 3rem minmax(0, 1fr) 6.5rem 8rem 5.5rem;
+            grid-template-columns: 1.5rem 3rem minmax(0, 1fr) 6.5rem 8rem 8rem;
             grid-template-areas: 'sel data desc importo stato azione' '. . classe classe classe .';
         }
     }

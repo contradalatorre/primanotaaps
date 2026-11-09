@@ -390,6 +390,15 @@ class RevisioneImportTest extends TestCase
         $this->actingAs($this->tesoriere)->get($url)->assertSee('data-passo="dubbi" data-conteggio="0"', false);
     }
 
+    public function test_le_righe_della_revisione_hanno_icona_e_conteggio_delle_note(): void
+    {
+        $s = $this->scenario();
+        $this->actingAs($this->tesoriere)->post('/movimenti/'.$s['gazebo']->id.'/note', ['testo' => 'Una nota']);
+
+        $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione?passo=tutti")
+            ->assertSee('data-note="1"', false)->assertSee('data-note="0"', false);
+    }
+
     public function test_il_punto_interrogativo_apre_una_nota_dubbio_o_toglie_il_dubbio(): void
     {
         $s = $this->scenario();

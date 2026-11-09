@@ -2,9 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\Movimento;
 use App\Models\User;
 use App\Permesso;
-use App\Models\Movimento;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Gate;

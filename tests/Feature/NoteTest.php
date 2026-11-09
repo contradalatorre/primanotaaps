@@ -285,6 +285,40 @@ class NoteTest extends TestCase
         $this->actingAs($tina)->get('/')->assertDontSee('Da vedere');
     }
 
+    public function test_scrivere_ancora_non_chiude_la_propria_menzione_a_un_ruolo(): void
+    {
+        $tina = $this->utenteCon('Tesoriere', [], ['name' => 'Tina Verdi']);
+        $tommaso = $this->utenteCon('Tesoriere', [], ['name' => 'Tommaso Neri']);
+        $this->scrivi($tina, '@Tesoriere chiedere lo scontrino');
+        $this->scrivi($tina, 'Aggiungo un dettaglio.');
+
+        $this->assertNull(\App\Models\Menzione::sole()->vista_il);
+        $this->actingAs($tommaso)->get('/')->assertSee('Da vedere')->assertSee('chiedere lo scontrino');
+    }
+
+    public function test_un_ruolo_senza_il_permesso_note_non_si_menziona(): void
+    {
+        $this->utenteCon(Ruolo::create(['nome' => 'Solo vista', 'permessi' => ['vedere']]));
+        $this->scrivi($this->utenteCon('Tesoriere'), '@Solo vista ci sei?');
+
+        $this->assertSame(0, \App\Models\Menzione::count());
+    }
+
+    public function test_riclassificare_un_confermato_chiude_il_dubbio(): void
+    {
+        $tina = $this->utenteCon('Tesoriere');
+        $carnevale = \App\Models\Iniziativa::where('nome', 'Carnevale')->value('id');
+        $tipologia = fn (string $nome) => \App\Models\Tipologia::where('nome', $nome)->value('id');
+        Classificazione::salva($tina, $this->movimento, null, [['tipologia_id' => $tipologia('Materiali e beni di consumo'), 'iniziativa_id' => $carnevale]]);
+        Classificazione::conferma($tina, $this->movimento, Classificazione::versione($this->movimento->refresh()));
+        $this->scrivi($tina, 'Forse era un affitto', ['dubbio' => '1']);
+        $this->assertTrue($this->movimento->refresh()->inDubbio());
+
+        Classificazione::salva($tina, $this->movimento, null, [['tipologia_id' => $tipologia('Affitti e noleggi'), 'iniziativa_id' => $carnevale]]);
+
+        $this->assertFalse($this->movimento->refresh()->inDubbio());
+    }
+
     public function test_una_nota_eliminata_oscurata_o_cambiata_toglie_la_menzione(): void
     {
         $maria = $this->utenteCon('Consigliere');
