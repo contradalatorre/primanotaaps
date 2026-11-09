@@ -96,6 +96,7 @@ final class Classificazione
             $prima = $movimento->istantanea();
             $movimento->forceFill(['stato' => 'confermato', 'confermato_da' => $utente->id, 'confermato_il' => now()])->save();
             RegistroModifica::registra($utente, $movimento, 'confermato', $prima, $movimento->istantanea());
+            Note::chiudiDubbi($utente, $movimento); // la conferma scioglie il dubbio (#16)
         });
     }
 

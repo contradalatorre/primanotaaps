@@ -5,7 +5,7 @@
         'valuta_originale' => 'Valuta originale', 'stato' => 'Stato', 'area' => 'Area',
         'spiegazione' => 'Spiegazione', 'codice' => 'Sezione', 'titolo' => 'Titolo', 'corpo' => 'Testo', 'proprieta' => 'Proprietà fiscali', 'archiviata_il' => 'Archiviata il', 'predefiniti' => 'Area e attività predefinite',
         'imputazioni' => 'Imputazioni', 'tipo_controparte' => 'La controparte è', 'giustificativi' => 'Giustificativi',
-        'saldo_finale' => 'Saldo finale', 'righe' => 'Righe',
+        'testo' => 'Testo della nota', 'dubbio' => 'Dubbio', 'saldo_finale' => 'Saldo finale', 'righe' => 'Righe',
         'periodo_dal' => 'Dal', 'periodo_al' => 'Al', 'nuovi' => 'Nuovi', 'gia_presenti' => 'Già presenti', 'in_conflitto' => 'In conflitto'];
     $valore = fn ($chiave, $v) => $v === null ? '–' : (in_array($chiave, ['importo', 'saldo_iniziale', 'saldo_finale'], true) ? \App\Euro::formatta($v).' €' : $v);
     // Le righe di una modifica elencano solo ciò che è cambiato; creazione ed eliminazione elencano tutto.
@@ -13,8 +13,9 @@
     $mostra = collect($chiavi)->filter(fn ($k) => ! ($riga->prima && $riga->dopo) || ($riga->prima[$k] ?? null) !== ($riga->dopo[$k] ?? null));
     $azioni = ['inserito' => 'ha inserito', 'modificato' => 'ha modificato', 'ritirato' => 'ha ritirato', 'eliminato' => 'ha eliminato', 'creato' => 'ha creato', 'chiuso' => 'ha chiuso',
         'archiviato' => 'ha archiviato', 'ripristinato' => 'ha ripristinato', 'classificato' => 'ha classificato', 'confermato' => 'ha confermato',
-        'importato' => 'ha importato', 'annullato' => 'ha annullato', 'conflitto_deciso' => 'ha deciso un conflitto di'];
-    $oggetti = ['conto' => 'il conto', 'movimento' => 'il movimento', 'tipologia' => 'la tipologia', 'attivita' => 'l’attività', 'iniziativa' => 'l’iniziativa', 'tag' => 'il tag', 'import' => 'l’import', 'manuale' => 'la sezione del manuale'];
+        'importato' => 'ha importato', 'annullato' => 'ha annullato', 'conflitto_deciso' => 'ha deciso un conflitto di',
+        'scritta' => 'ha scritto', 'eliminata' => 'ha eliminato', 'oscurata' => 'ha oscurato', 'dubbio_chiuso' => 'ha chiuso il dubbio di'];
+    $oggetti = ['conto' => 'il conto', 'movimento' => 'il movimento', 'tipologia' => 'la tipologia', 'attivita' => 'l’attività', 'iniziativa' => 'l’iniziativa', 'tag' => 'il tag', 'import' => 'l’import', 'manuale' => 'la sezione del manuale', 'nota' => 'la nota'];
 @endphp
 <li class="scheda">
     <p>

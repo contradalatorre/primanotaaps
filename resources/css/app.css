@@ -443,6 +443,21 @@
         @apply bg-giallo/20;
     }
 
+    /* Un movimento in dubbio (#45, verdetto di #20): tinta gialla e barra nera a sinistra in tutti gli elenchi,
+       più la pill «In dubbio» con icona e testo, perché il colore da solo non basta. */
+    .riga-dubbio,
+    .scheda.in-dubbio {
+        @apply border-l-8 border-l-nero bg-giallo/30;
+    }
+
+    .testo-nota {
+        @apply whitespace-pre-line;
+    }
+
+    .note-icona {
+        @apply inline-flex items-center gap-1;
+    }
+
     .spunta-conferma {
         @apply inline-flex min-h-9 min-w-9 items-center justify-center gap-1 rounded border-2 border-nero px-1.5 font-semibold hover:bg-nero hover:text-white;
     }
