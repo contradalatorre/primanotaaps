@@ -3,7 +3,7 @@
 use Illuminate\Support\Str;
 use Pdo\Mysql;
 
-return [
+$database = [
 
     /*
     |--------------------------------------------------------------------------
@@ -182,3 +182,13 @@ return [
     ],
 
 ];
+
+// Spazio di prova dell'onboarding (ADR 0003): un database separato con lo stesso schema; il prefisso di tabella per
+// utente lo imposta `App\Onboarding\Prova`. Sempre MySQL, come il database vero.
+$database['connections']['prova'] = [
+    ...$database['connections']['mysql'],
+    'url' => null, // un DB_URL porterebbe lì il nome del database vero
+    'database' => env('DB_PROVA_DATABASE', env('DB_DATABASE', 'laravel').'_prova'),
+];
+
+return $database;

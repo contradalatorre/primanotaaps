@@ -1,0 +1,12 @@
+# Scenario «base» (#71): tutto inventato, nessun dato dell'associazione. Si applica allo spazio di prova a ogni avvio
+# della missione che lo cita. Le date sono tra virgolette: senza, YAML le legge come numeri.
+utenti_finti:
+  - {chiave: tesoriera, nome: "Tina Esempio (finta)", email: "tina@prova.invalid", ruolo: Tesoriere}
+  - {chiave: consigliere, nome: "Carlo Prova (finto)", email: "carlo@prova.invalid", ruolo: Consigliere}
+conti:
+  - {chiave: cassa, tipo: cassa, nome: "Cassa contanti (prova)", formato_import: manuale, riga_modello_d: cassa, aperto_il: "2026-01-01", saldo_iniziale: 20000}
+  - {chiave: banca, tipo: banca, nome: "Conto corrente (prova)", formato_import: credit_agricole_csv, riga_modello_d: depositi, aperto_il: "2026-01-01", saldo_iniziale: 120000}
+movimenti:
+  - {conto: cassa, data: "2026-03-14", verso: uscita, importo: 1250, descrizione: "Ghiaccio per la festa", tipologia: "Acquisti per la somministrazione", iniziativa: "Festa della Torre", autore: tesoriera, confermato: true}
+  - {conto: cassa, data: "2026-03-14", verso: entrata, importo: 8000, descrizione: "Incasso della serata", tipologia: "Somministrazione", iniziativa: "Festa della Torre", autore: tesoriera, confermato: true}
+  - {conto: cassa, data: "2026-03-20", verso: uscita, importo: 2490, descrizione: "Nastro e addobbi", tipologia: "Materiali e beni di consumo", iniziativa: "Carnevale", autore: consigliere}

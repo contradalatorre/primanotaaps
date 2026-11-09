@@ -30,6 +30,9 @@
         <env name="DB_DATABASE" value="contabilita_test" force="true"/>
         <!-- anche in $_SERVER: dentro Docker DB_DATABASE è già nell'ambiente e vincerebbe -->
         <server name="DB_DATABASE" value="contabilita_test" force="true"/>
+        <!-- spazio di prova dell'onboarding (ADR 0003): un secondo database, separato anche in test -->
+        <env name="DB_PROVA_DATABASE" value="contabilita_test_prova" force="true"/>
+        <server name="DB_PROVA_DATABASE" value="contabilita_test_prova" force="true"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
