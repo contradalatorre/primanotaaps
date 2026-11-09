@@ -55,7 +55,7 @@ if (revisione) {
         const dentro = e.target.closest('.elenco, .dettaglio');
         // Invio e Esc, su un collegamento o un pulsante, fanno quello che fa il collegamento o il pulsante.
         if (tasto.length === 1 ? ! dentro : e.target.closest('button, a, summary')) return;
-        const azione = { j: '[data-successivo]', k: '[data-precedente]', Escape: '[data-chiudi]', Enter: '.dettaglio [data-conferma]' }[tasto];
+        const azione = { j: '[data-successivo]', k: '[data-precedente]', d: '.dettaglio [data-dubbio]', Escape: '[data-chiudi]', Enter: '.dettaglio [data-conferma]' }[tasto];
         // Senza dettaglio aperto, J apre il primo movimento dell'elenco.
         const elemento = azione && (document.querySelector(azione) ?? (tasto === 'j' && !document.querySelector('.dettaglio') ? document.querySelector('.riga-desc a') : null));
         if (elemento) {

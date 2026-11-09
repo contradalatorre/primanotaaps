@@ -19,14 +19,14 @@ use Illuminate\Validation\ValidationException;
 final class Revisione
 {
     /** Le schede, nell'ordine in cui si lavora. */
-    public const PASSI = ['giroconti' => 'Giroconti', 'pronte' => 'Proposte pronte', 'decidere' => 'Da decidere', 'tutti' => 'Tutti'];
+    public const PASSI = ['giroconti' => 'Giroconti', 'pronte' => 'Proposte pronte', 'decidere' => 'Da decidere', 'tutti' => 'Tutti', 'dubbi' => 'In dubbio'];
 
     /** @var Collection<int, Movimento> in ordine di data, con quello che serve a versione, voce e fonte già caricato */
     public readonly Collection $movimenti;
 
     public function __construct(public readonly ImportEstratto $import)
     {
-        $this->movimenti = $import->movimenti()
+        $this->movimenti = $import->movimenti()->conNote()
             ->with('proponente', 'giustificativi', 'imputazioni.attivita', 'imputazioni.iniziativa', 'imputazioni.tipologia', 'imputazioni.tag')
             ->orderBy('data')->orderBy('id')->get();
     }
@@ -40,13 +40,15 @@ final class Revisione
      */
     public function passo(string $passo): Collection
     {
-        $pronta = fn (Movimento $m) => $m->stato === 'proposto' && $m->confermabile();
+        // Un dubbio non si conferma in blocco: la conferma lo chiude (#16), quindi chi l'ha segnato conferma riga per riga.
+        $pronta = fn (Movimento $m) => $m->stato === 'proposto' && $m->confermabile() && ! $m->inDubbio();
 
         return match ($passo) {
             'giroconti' => collect(), // arrivano con #45
             'pronte' => $this->movimenti->filter($pronta)->values(),
             'decidere' => $this->movimenti->reject(fn (Movimento $m) => $m->confermato() || $pronta($m))->values(),
             'tutti' => $this->movimenti,
+            'dubbi' => $this->movimenti->filter->inDubbio()->values(),
         };
     }
 

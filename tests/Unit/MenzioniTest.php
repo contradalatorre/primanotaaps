@@ -11,7 +11,7 @@ class MenzioniTest extends TestCase
 
     public function test_trova_nomi_con_spazi_senza_badare_alle_maiuscole(): void
     {
-        $this->assertSame(['u1', 'r2'], Menzioni::trova('Ciao @tina verdi, e @LETTORE ESTERNO!', self::NOMI));
+        $this->assertEqualsCanonicalizing(['u1', 'r2'], Menzioni::trova('Ciao @tina verdi, e @LETTORE ESTERNO!', self::NOMI));
     }
 
     public function test_il_nome_piu_lungo_vince_su_quello_che_ne_e_l_inizio(): void

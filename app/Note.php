@@ -139,7 +139,7 @@ final class Note
     {
         $nomi = [];
         foreach (User::where('emergenza', false)->where('id', '!=', $nota->user_id)->get() as $utente) {
-            if ($utente->puo(Permesso::Note)) {
+            if ($utente->puo(Permesso::Vedere) && $utente->puo(Permesso::Note)) { // come chi può scrivere: leggere le note segue la visibilità (#16)
                 $nomi['u'.$utente->id] = $utente->name;
             }
         }

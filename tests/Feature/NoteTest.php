@@ -194,7 +194,7 @@ class NoteTest extends TestCase
     public function test_la_conferma_chiude_il_dubbio_e_la_nota_resta(): void
     {
         $tina = $this->utenteCon('Tesoriere', [], ['name' => 'Tina Verdi']);
-        Classificazione::salva($tina, $this->movimento, null, [['tipologia_id' => \App\Models\Tipologia::where('nome', 'Materiali e beni di consumo')->value('id')]]);
+        Classificazione::salva($tina, $this->movimento, null, [['tipologia_id' => \App\Models\Tipologia::where('nome', 'Materiali e beni di consumo')->value('id'), 'iniziativa_id' => \App\Models\Iniziativa::where('nome', 'Carnevale')->value('id')]]);
         $this->scrivi($tina, 'La tipologia è giusta?', ['dubbio' => '1']);
         $this->assertTrue($this->movimento->refresh()->inDubbio());
 

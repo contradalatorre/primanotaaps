@@ -62,7 +62,7 @@
 
         <nav class="passi" aria-label="Cosa resta da fare">
             @foreach (\App\Revisione::PASSI as $chiave => $etichetta)
-                <a href="{{ route('import.revisione', [$import, 'passo' => $chiave]) }}" class="passo" data-passo="{{ $chiave }}" data-conteggio="{{ $revisione->conteggio($chiave) }}" @if ($chiave === $passo) aria-current="page" @endif>
+                <a href="{{ route('import.revisione', [$import, 'passo' => $chiave]) }}" class="passo {{ $chiave === 'dubbi' ? 'passo-dubbio' : '' }}" data-passo="{{ $chiave }}" data-conteggio="{{ $revisione->conteggio($chiave) }}" @if ($chiave === $passo) aria-current="page" @endif>
                     <span>{{ $etichetta }}</span>
                     <strong>{{ $revisione->conteggio($chiave) }}</strong>
                 </a>
@@ -83,6 +83,7 @@
                     'pronte' => 'Raggruppate per tipologia e iniziativa. Controlla ogni gruppo e confermalo in un colpo; se un movimento è sbagliato, aprilo e correggilo prima.',
                     'decidere' => 'Apri ogni movimento e scegli la tipologia: senza non si conferma. Per più movimenti insieme, selezionali e imposta l’iniziativa.',
                     'tutti' => 'Tutti i movimenti dell’import, in ordine di data.',
+                    'dubbi' => 'Hanno una nota dubbio aperta. Confermare un movimento chiude il suo dubbio; il ? di una riga lo toglie senza confermare.',
                 ][$passo] }}</p>
 
                 @if ($movimenti->isNotEmpty() && $passo !== 'giroconti')
@@ -109,6 +110,7 @@
                         'pronte' => 'Nessuna proposta da confermare.',
                         'decidere' => 'Niente da decidere: ogni movimento ha una proposta o è confermato.',
                         'tutti' => 'Questo import non ha movimenti.',
+                        'dubbi' => 'Nessun movimento in dubbio.',
                     ][$passo] }}</p>
                 @elseif ($passo === 'pronte')
                     @foreach ($revisione->gruppi($movimenti) as $etichetta => $gruppo)

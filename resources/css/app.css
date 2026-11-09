@@ -428,11 +428,12 @@
 
     .riga-stato {
         grid-area: stato;
+        @apply flex flex-wrap gap-1;
     }
 
     .riga-azione {
         grid-area: azione;
-        @apply justify-self-end;
+        @apply flex items-center gap-1 justify-self-end;
     }
 
     .riga-fatta {
@@ -448,6 +449,19 @@
     .riga-dubbio,
     .scheda.in-dubbio {
         @apply border-l-8 border-l-nero bg-giallo/30;
+    }
+
+    /* La card «In dubbio» accanto ai passi: stessa tinta delle righe; lo stato attivo resta nero, come gli altri passi. */
+    .passo-dubbio:not([aria-current='page']) {
+        @apply bg-giallo/30;
+    }
+
+    .spunta-dubbio {
+        @apply no-underline;
+    }
+
+    .spunta-dubbio[aria-pressed='true'] {
+        @apply bg-giallo;
     }
 
     .testo-nota {
@@ -515,7 +529,7 @@
     }
 
     [data-vista='tabella'] .riga {
-        grid-template-columns: 1.5rem 3rem minmax(0, 2fr) 6.5rem minmax(0, 2fr) 8rem 2.5rem;
+        grid-template-columns: 1.5rem 3rem minmax(0, 2fr) 6.5rem minmax(0, 2fr) 8rem 5.5rem;
         grid-template-areas: 'sel data desc importo classe stato azione';
     }
 
@@ -525,7 +539,7 @@
         }
 
         [data-vista='tabella'] [data-dettaglio] .riga {
-            grid-template-columns: 1.5rem 3rem minmax(0, 1fr) 6.5rem 8rem 2.5rem;
+            grid-template-columns: 1.5rem 3rem minmax(0, 1fr) 6.5rem 8rem 5.5rem;
             grid-template-areas: 'sel data desc importo stato azione' '. . classe classe classe .';
         }
     }
