@@ -220,9 +220,10 @@ final class Regole
         foreach (self::candidati()->get() as $movimento) {
             $era = self::efficace($prima, $movimento);
             $sara = self::efficace($dopo, $movimento);
-            if ($sara === $bozza) {
+            $eraSuo = $vecchia && $era === $vecchia;
+            if ($sara === $bozza && ! $eraSuo) { // quelli che erano già suoi non sono «presi»
                 $presi->push(['movimento' => $movimento, 'da' => $era?->nome]);
-            } elseif ($vecchia && $era === $vecchia) {
+            } elseif ($eraSuo && $sara !== $bozza) {
                 $lasciati->push(['movimento' => $movimento, 'a' => $sara?->nome]);
             }
         }
@@ -272,6 +273,7 @@ final class Regole
      * @param  ?int  $toccata la regola salvata adesso: le sue proposte si rifanno anche se la regola è la stessa
      * @return int quanti movimenti hanno cambiato proposta
      */
+    // shortcut: `risolvi` rifà alcune query per ogni movimento e regola, dentro la transazione; un estratto mensile ha qualche centinaio di righe, da ripensare solo se diventano migliaia.
     private static function assegna(User $utente, Collection $movimenti, Collection $regole, ?int $toccata = null): int
     {
         $cambiati = 0;

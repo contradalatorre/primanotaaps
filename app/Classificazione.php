@@ -106,8 +106,12 @@ final class Classificazione
     {
         $prima = $movimento->istantanea();
         self::scriviImputazioni($movimento, $imputazioni);
-        // Una scelta a mano di socio o terzo su un movimento ancora da classificare resta (solo le proposte di regola si rifanno).
-        $tipo = $movimento->regola_id === null && $movimento->tipo_controparte !== null ? $movimento->tipo_controparte : $regola?->tipo_controparte;
+        // Socio o terzo: si toglie solo quello che aveva messo la regola di prima; una scelta a mano resta e vince sulla regola nuova.
+        $tipo = $movimento->tipo_controparte;
+        if ($tipo !== null && $movimento->regola_id !== null && $tipo === Regola::whereKey($movimento->regola_id)->value('tipo_controparte')) {
+            $tipo = null;
+        }
+        $tipo ??= $regola?->tipo_controparte;
         $movimento->forceFill(['stato' => $regola ? 'proposto' : 'da_classificare', 'proposto_da' => null, 'regola_id' => $regola?->id, 'tipo_controparte' => $tipo])->save();
         RegistroModifica::registra($utente, $movimento, $regola ? 'proposto_da_regola' : 'proposta_di_regola_tolta', $prima, $movimento->istantanea());
     }

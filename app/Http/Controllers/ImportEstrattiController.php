@@ -141,7 +141,7 @@ class ImportEstrattiController extends Controller
         }
 
         return redirect()->route('import.mostra', $import)->with('ok', $esito
-            ? 'Import confermato: i movimenti nuovi sono da classificare.'
+            ? 'Import confermato: i movimenti nuovi sono da classificare, con la proposta delle regole dove ce n’è una.'
             : 'Questo import era già stato confermato o scartato.');
     }
 

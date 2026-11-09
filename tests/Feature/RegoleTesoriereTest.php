@@ -167,6 +167,32 @@ class RegoleTesoriereTest extends TestCase
             ->assertSeeInOrder(['Non prenderebbe più', '2', 'Bolletta ENEL maggio', 'torna da classificare', 'Bolletta ACQUEDOTTO maggio', 'torna da classificare']);
     }
 
+    public function test_l_anteprima_non_conta_come_presi_i_movimenti_che_sono_gia_della_regola(): void
+    {
+        $this->movimento('Bolletta ENEL maggio');
+        $regola = $this->creaRegola();
+
+        $this->actingAs($this->tesoriere)->put('/regole/anteprima', $this->dati(['regola' => $regola->id]))->assertOk()
+            ->assertSee('Prenderebbe')->assertSee('0')->assertDontSee('Bolletta ENEL maggio')->assertDontSee('Non prenderebbe più');
+    }
+
+    public function test_il_socio_o_terzo_scelto_a_mano_resta_quando_la_regola_non_corrisponde_piu(): void
+    {
+        $movimento = $this->movimento('Bolletta ENEL maggio');
+        $movimento->forceFill(['tipo_controparte' => 'terzo'])->save();
+        $regola = $this->creaRegola(['tipo_controparte' => 'socio']);
+        $this->assertSame('terzo', $movimento->refresh()->tipo_controparte, 'la scelta a mano vince sulla regola');
+
+        $this->actingAs($this->tesoriere)->put("/regole/{$regola->id}", $this->dati(['testo' => 'ACQUEDOTTO']))->assertSessionHasNoErrors();
+        $this->assertSame('terzo', $movimento->refresh()->tipo_controparte);
+
+        $altro = $this->movimento('Bolletta ACQUEDOTTO');
+        $this->actingAs($this->tesoriere)->put("/regole/{$regola->id}", $this->dati(['testo' => 'ACQUEDOTTO', 'tipo_controparte' => 'socio']));
+        $this->assertSame('socio', $altro->refresh()->tipo_controparte);
+        $this->actingAs($this->tesoriere)->put("/regole/{$regola->id}", $this->dati(['testo' => 'ZZZ', 'tipo_controparte' => 'socio']));
+        $this->assertNull($altro->refresh()->tipo_controparte, 'quello messo dalla regola se ne va con lei');
+    }
+
     public function test_l_anteprima_non_mostra_i_confermati(): void
     {
         $confermato = $this->movimento('Bolletta ENEL aprile');

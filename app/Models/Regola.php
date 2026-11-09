@@ -80,7 +80,7 @@ class Regola extends Model
     {
         return collect([
             $this->conto?->nome ? 'conto '.$this->conto->nome : null,
-            $this->verso ? Movimento::VERSI[$this->verso] : null,
+            ($this->verso ?? $this->tipologia?->verso) ? Movimento::VERSI[$this->verso ?? $this->tipologia->verso] : null, // il verso della tipologia conta come condizione
             $this->causale !== null ? 'causale «'.$this->causale.'»' : null,
             $this->testo !== null ? 'descrizione contiene «'.$this->testo.'»' : null,
             match (true) {
