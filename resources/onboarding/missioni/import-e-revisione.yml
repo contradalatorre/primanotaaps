@@ -46,7 +46,7 @@ passi:
   - schermata: movimenti.classificazione
     elemento: tipologia
     posa: pensa
-    frase: "Questo non ha proposta: è la sponsorizzazione di una ditta. Scegli la tipologia «Sponsorizzazioni e pubblicità» e salva."
+    frase: "Questo non ha proposta: è la spesa al market per la cena dei soci. Scegli la tipologia «Acquisti per la somministrazione» e l'iniziativa «Aggregazione e convivialità», poi salva."
     verifica: nessun_da_classificare
   - schermata: import.revisione
     elemento: conferma-pronte

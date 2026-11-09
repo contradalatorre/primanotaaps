@@ -9,7 +9,7 @@ estratto: import-revisione-estratto.csv
 # Le proposte arrivano dopo la conferma dell'import, per le righe che contengono il testo; le altre restano da decidere.
 proponente: ai
 proposte:
-  - {contiene: FERRAMENTA, tipologia: "Materiali e beni di consumo"}
-  - {contiene: QUOTA ASSOCIATIVA, tipologia: "Quote associative"}
-  - {contiene: CANONE, tipologia: "Commissioni e oneri bancari"}
-  - {contiene: ENERGIA, tipologia: "Utenze"}
+  - {contiene: FERRAMENTA, tipologia: "Materiali e beni di consumo", iniziativa: "Festa della Torre"}
+  - {contiene: QUOTA ASSOCIATIVA, tipologia: "Quote associative", area: A}
+  - {contiene: CANONE, tipologia: "Commissioni e oneri bancari", area: D}
+  - {contiene: ENERGIA, tipologia: "Utenze", iniziativa: "La Casa"}

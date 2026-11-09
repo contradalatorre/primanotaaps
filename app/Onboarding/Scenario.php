@@ -11,6 +11,7 @@ use App\Models\Ruolo;
 use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Support\Arr;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -59,7 +60,7 @@ final class Scenario
             $autore = $finti[$m['autore']];
             $movimento = Movimento::make(['conto_id' => $conti[$m['conto']]->id] + Arr::only($m, ['data', 'importo', 'verso', 'descrizione']));
             $movimento->forceFill(['stato' => 'da_classificare', 'manuale' => true, 'inserito_da' => $autore->id])->save();
-            self::classifica($autore, $movimento, $m['tipologia'] ?? null, $m['iniziativa'] ?? null);
+            self::classifica($autore, $movimento, $m);
             if ($m['confermato'] ?? false) {
                 Classificazione::conferma($autore, $movimento, Classificazione::versione($movimento->refresh()));
             }
@@ -83,19 +84,25 @@ final class Scenario
         foreach ($daProporre as $movimento) {
             foreach ($dati['proposte'] as $p) {
                 if (str_contains(mb_strtoupper($movimento->descrizione), mb_strtoupper($p['contiene']))) {
-                    self::classifica($proponente, $movimento, $p['tipologia'], $p['iniziativa'] ?? null);
+                    try {
+                        self::classifica($proponente, $movimento, $p);
+                    } catch (ValidationException $e) {
+                        report($e); // una proposta preregistrata sbagliata non deve rompere la pagina: il movimento resta da decidere
+                    }
                     break;
                 }
             }
         }
     }
 
-    private static function classifica(User $utente, Movimento $movimento, ?string $tipologia, ?string $iniziativa): void
+    /** @param array{tipologia?: string, iniziativa?: string, area?: string} $riga i nomi, come nello scenario */
+    private static function classifica(User $utente, Movimento $movimento, array $riga): void
     {
-        if ($tipologia || $iniziativa) {
+        if (isset($riga['tipologia']) || isset($riga['iniziativa'])) {
             Classificazione::salva($utente, $movimento, null, [[
-                'tipologia_id' => $tipologia ? Tipologia::where('nome', $tipologia)->value('id') : null,
-                'iniziativa_id' => $iniziativa ? Iniziativa::where('nome', $iniziativa)->value('id') : null,
+                'tipologia_id' => isset($riga['tipologia']) ? Tipologia::where('nome', $riga['tipologia'])->value('id') : null,
+                'iniziativa_id' => isset($riga['iniziativa']) ? Iniziativa::where('nome', $riga['iniziativa'])->value('id') : null,
+                'area' => $riga['area'] ?? null,
             ]]);
         }
     }
