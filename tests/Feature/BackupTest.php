@@ -153,7 +153,7 @@ class BackupTest extends TestCase
     {
         foreach (range(1, 12) as $mese) { // 12 mensili riusciti, da giugno 2025 a maggio 2026
             $quando = now()->startOfMonth()->subMonths(12 - $mese + 1);
-            Backup::create(['tipo' => 'mensile', 'esito' => 'riuscito', 'avviato_il' => $quando, 'concluso_il' => $quando, 'drive_id' => "vecchio-$mese", 'file' => "v$mese.zip"]);
+            Backup::create(['tipo' => 'su_richiesta', 'esito' => 'riuscito', 'avviato_il' => $quando, 'concluso_il' => $quando, 'drive_id' => "vecchio-$mese", 'file' => "v$mese.zip"]);
         }
 
         $this->eseguiSuRichiesta();
