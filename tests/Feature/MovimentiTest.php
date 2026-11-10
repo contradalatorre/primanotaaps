@@ -293,6 +293,17 @@ class MovimentiTest extends TestCase
         $this->assertSame(0, Movimento::count());
     }
 
+    public function test_se_nel_frattempo_il_conto_si_chiude_il_movimento_non_si_salva(): void
+    {
+        $autore = $this->utenteCon('Consigliere');
+        $movimento = $this->movimentoDi($autore);
+        DB::beforeStartingTransaction(fn () => Conto::whereKey($this->festa->id)->update(['chiuso_il' => '2026-05-12']));
+
+        $this->actingAs($autore)->put("/movimenti/{$movimento->id}", $this->dati(['importo' => '99,00']))->assertForbidden();
+
+        $this->assertNotSame(9900, $movimento->refresh()->importo);
+    }
+
     public function test_il_tesoriere_elimina_un_movimento_manuale_anche_confermato_con_motivazione(): void
     {
         $tesoriere = $this->utenteCon('Tesoriere');

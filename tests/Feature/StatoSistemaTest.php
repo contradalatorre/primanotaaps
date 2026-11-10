@@ -14,6 +14,7 @@ use App\Permesso;
 use App\RegistroErrori;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
 use Tests\ConSpazioDiProva;
@@ -102,6 +103,24 @@ class StatoSistemaTest extends TestCase
         $this->assertSame(2, Errore::count());
         $this->assertSame(1, Errore::aperti()->count());
         Mail::assertSent(ErroreGrave::class, 2);
+    }
+
+    public function test_un_errore_risolto_mentre_si_registra_la_sua_ripetizione_si_riapre_come_nuovo(): void
+    {
+        RegistroErrori::registra('backup', 'Backup non riuscito', grave: true);
+        $fatto = false;
+        DB::listen(function ($query) use (&$fatto) {
+            if (! $fatto && str_contains(strtolower($query->sql), 'insert ignore')) {
+                $fatto = true; // un Amministratore preme «Risolto» proprio tra l'inserimento (ignorato) e la lettura a riga bloccata
+                Errore::query()->update(['risolto_il' => now(), 'impronta' => null]);
+            }
+        });
+
+        RegistroErrori::registra('backup', 'Backup non riuscito', grave: true);
+
+        $this->assertSame(2, Errore::count());
+        $this->assertSame(1, Errore::aperti()->count());
+        $this->assertSame(0, Errore::where('origine', 'posta')->count(), 'nessun errore del registro stesso');
     }
 
     public function test_chi_non_ha_il_permesso_non_risolve_gli_errori(): void

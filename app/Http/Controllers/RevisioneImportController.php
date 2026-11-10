@@ -26,8 +26,9 @@ class RevisioneImportController extends Controller
         return view('revisione.mostra', [
             'revisione' => $revisione, 'import' => $import, 'passo' => $passo, 'movimenti' => $revisione->passo($passo),
             'iniziative' => Iniziativa::whereNull('archiviata_il')->orderBy('nome')->get(),
-            // Il suggerimento di una regola è per chi può crearla, e solo nell'elenco: aprire un dettaglio non rifà il calcolo su tutto lo storico.
-            'suggerimenti' => $request->user()->can('gestire_regole') && ! $request->filled('movimento') ? Storico::regoleSuggerite() : collect(),
+            // Il suggerimento di una regola è per chi può crearla, e solo all'apertura (senza passo né dettaglio scelti): il calcolo
+            // legge tutto lo storico e non si rifà a ogni conferma o dettaglio. Il resto sta in /regole.
+            'suggerimenti' => $request->user()->can('gestire_regole') && ! $request->filled('movimento') && ! $request->filled('passo') ? Storico::regoleSuggerite() : collect(),
             'dettaglio' => $revisione->movimenti->firstWhere('id', $request->integer('movimento')),
         ]);
     }

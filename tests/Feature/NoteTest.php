@@ -208,13 +208,32 @@ class NoteTest extends TestCase
         $this->actingAs($tina)->get("/movimenti/{$this->movimento->id}/note")->assertSee('La tipologia è giusta?')->assertSee('Dubbio chiuso');
     }
 
+    /** Quello che il modulo manda: gli id dei dubbi aperti che la pagina mostrava. */
+    private function dubbiVisti(?Movimento $movimento = null): array
+    {
+        return ['dubbi_visti' => ($movimento ?? $this->movimento)->note()->dubbioAperto()->pluck('id')->all()];
+    }
+
+    public function test_togliere_il_dubbio_chiude_solo_quelli_che_l_utente_ha_visto(): void
+    {
+        $this->scrivi($this->utenteCon('Consigliere'), 'Il primo dubbio', ['dubbio' => '1']);
+        $visti = $this->dubbiVisti();
+        $this->scrivi($this->utenteCon('Consigliere'), 'Nato dopo che la pagina era aperta', ['dubbio' => '1']);
+
+        $this->actingAs($this->utenteCon('Tesoriere'))->post("/movimenti/{$this->movimento->id}/dubbio/chiusura", $visti)->assertRedirect();
+
+        $this->assertTrue($this->movimento->refresh()->inDubbio());
+        $this->assertSame(['Nato dopo che la pagina era aperta'], $this->movimento->note()->dubbioAperto()->pluck('testo')->all());
+        $this->actingAs($this->utenteCon('Tesoriere'))->post("/movimenti/{$this->movimento->id}/dubbio/chiusura")->assertSessionHasErrors('dubbi_visti');
+    }
+
     public function test_togliere_il_dubbio_e_di_chi_conferma_e_cancellare_la_nota_lo_toglie(): void
     {
         $maria = $this->utenteCon('Consigliere');
         $this->scrivi($maria, 'Boh', ['dubbio' => '1']);
 
-        $this->actingAs($maria)->post("/movimenti/{$this->movimento->id}/dubbio/chiusura")->assertForbidden();
-        $this->actingAs($this->utenteCon('Tesoriere'))->post("/movimenti/{$this->movimento->id}/dubbio/chiusura")->assertRedirect();
+        $this->actingAs($maria)->post("/movimenti/{$this->movimento->id}/dubbio/chiusura", $this->dubbiVisti())->assertForbidden();
+        $this->actingAs($this->utenteCon('Tesoriere'))->post("/movimenti/{$this->movimento->id}/dubbio/chiusura", $this->dubbiVisti())->assertRedirect();
         $this->assertFalse($this->movimento->refresh()->inDubbio());
 
         $this->scrivi($maria, 'Di nuovo', ['dubbio' => '1']);
@@ -255,7 +274,7 @@ class NoteTest extends TestCase
         $this->actingAs($this->utenteCon('Consigliere'))->get("/movimenti/{$this->movimento->id}/note")->assertOk()->assertDontSee($url);
         $tina = $this->utenteCon('Tesoriere');
         $this->actingAs($tina)->get("/movimenti/{$this->movimento->id}/note")->assertOk()->assertSee($url);
-        $this->actingAs($tina)->post($url)->assertRedirect();
+        $this->actingAs($tina)->post($url, $this->dubbiVisti())->assertRedirect();
         $this->assertFalse($this->movimento->refresh()->inDubbio());
         $this->actingAs($tina)->get("/movimenti/{$this->movimento->id}/note")->assertDontSee($url);
     }

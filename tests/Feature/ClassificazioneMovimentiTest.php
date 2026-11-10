@@ -557,6 +557,38 @@ class ClassificazioneMovimentiTest extends TestCase
         $this->assertSame(['Scontrino'], $movimento->giustificativi()->pluck('riferimento')->all());
     }
 
+    /** Il ruolo si revoca tra il controllo della rotta e il blocco della riga: i permessi già caricati sull'utente sono di prima. */
+    private function revocaNelMentre(User $utente): void
+    {
+        DB::beforeStartingTransaction(fn () => $utente->assegnazioni()->delete());
+    }
+
+    public function test_se_nel_frattempo_il_tesoriere_perde_il_ruolo_non_conferma(): void
+    {
+        $tesoriere = $this->utenteCon('Tesoriere');
+        $movimento = $this->movimento();
+        $movimento->imputazioni()->create(['importo' => $movimento->importo, 'tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E']);
+        $this->actingAs($tesoriere);
+        $versione = Classificazione::versione($movimento->refresh());
+        $this->revocaNelMentre($tesoriere);
+
+        $this->post("/movimenti/{$movimento->id}/conferma", ['versione' => $versione])->assertForbidden();
+
+        $this->assertNotSame('confermato', $movimento->refresh()->stato);
+    }
+
+    public function test_se_nel_frattempo_l_autore_perde_il_ruolo_non_tocca_i_giustificativi(): void
+    {
+        $consigliere = $this->utenteCon('Consigliere');
+        $movimento = $this->movimento([], $consigliere);
+        $this->actingAs($consigliere);
+        $this->revocaNelMentre($consigliere);
+
+        $this->post("/movimenti/{$movimento->id}/giustificativi", ['riferimento' => 'Scontrino'])->assertForbidden();
+
+        $this->assertSame(0, $movimento->giustificativi()->count());
+    }
+
     /** Eliminato tra il controllo e il blocco: la riga non si trova più, e refresh() non deve ripescarla senza scope. */
     private function eliminaNelMentre(Movimento $movimento): void
     {

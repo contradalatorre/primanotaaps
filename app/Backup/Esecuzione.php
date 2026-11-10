@@ -8,6 +8,7 @@ use App\Models\Backup;
 use App\Models\User;
 use App\RegistroErrori;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 /**
@@ -47,10 +48,17 @@ final class Esecuzione
     /**
      * Un errore fatale (tempo o memoria finiti) non passa da `catch`: il tentativo resta `in_corso` e nessuno lo
      * saprebbe. Oltre l'ora del lucchetto non può più essere vivo: diventa `fallito`, errore grave e email.
+     * Lo stesso per lo zip parziale (con dati personali) rimasto in `backup-tmp`: oltre l'ora si toglie, uno più recente può essere di un backup che gira.
      * Si chiama a ogni nuovo backup e quando si apre lo stato del sistema.
      */
     public static function chiudiInterrotti(): void
     {
+        $disco = Storage::disk('local');
+        foreach ($disco->files('backup-tmp') as $file) {
+            if ($disco->lastModified($file) < now()->subHour()->getTimestamp()) {
+                $disco->delete($file);
+            }
+        }
         foreach (Backup::where('esito', 'in_corso')->where('avviato_il', '<', now()->subHour())->get() as $backup) {
             $messaggio = 'Il backup avviato il '.$backup->avviato_il->format('d/m/Y H:i').' si è interrotto senza finire (tempo o memoria del server esauriti?).';
             $backup->update(['esito' => 'fallito', 'errore' => $messaggio, 'concluso_il' => now()]);
@@ -74,21 +82,22 @@ final class Esecuzione
         self::ruota($drive);
     }
 
-    /** Il backup è fatto: una rotazione che non riesce non lo fa fallire, resta un errore non grave e riprova al prossimo. */
+    /** Il backup è fatto: una rotazione che non riesce (drive o database) non lo fa fallire, resta un errore non grave e riprova al prossimo. */
     private static function ruota(Drive $drive): void
     {
-        // Una rotazione per tipo: uno su richiesta non è un mensile e non deve toglierne uno (il mensile del 1° può essere l'ultima copia pulita).
-        $sulDrive = Backup::sulDrive()->get()->keyBy('id');
-        $daEliminare = $sulDrive->groupBy('tipo', preserveKeys: true)->flatMap(fn ($gruppo) => Rotazione::daEliminare($gruppo->map->avviato_il->all(), now()));
-        foreach ($daEliminare as $id) {
-            try {
+        try {
+            // Una rotazione per tipo: uno su richiesta non è un mensile e non deve toglierne uno (il mensile del 1° può essere l'ultima copia pulita).
+            $sulDrive = Backup::sulDrive()->get()->keyBy('id');
+            $daEliminare = $sulDrive->groupBy('tipo', preserveKeys: true)->flatMap(fn ($gruppo) => Rotazione::daEliminare($gruppo->map->avviato_il->all(), now()));
+            foreach ($daEliminare as $id) {
                 $drive->elimina($sulDrive[$id]->drive_id);
                 $sulDrive[$id]->update(['eliminato_il' => now()]);
-            } catch (DriveNonDisponibile $e) {
-                RegistroErrori::registra('backup.rotazione', 'Un backup vecchio non si è potuto togliere dal drive: '.$e->getMessage());
-
-                return; // il drive non risponde: inutile insistere con gli altri
             }
+        } catch (Throwable $e) {
+            // Come in `avvia`: dei nostri errori il messaggio è sicuro, degli altri resta il dettaglio nel log. Al primo errore ci si ferma (il drive non risponde).
+            $nostro = $e instanceof DriveNonDisponibile;
+            $nostro || report($e);
+            RegistroErrori::registra('backup.rotazione', 'Un backup vecchio non si è potuto togliere dal drive: '.($nostro ? $e->getMessage() : RegistroErrori::descrivi($e)));
         }
     }
 }

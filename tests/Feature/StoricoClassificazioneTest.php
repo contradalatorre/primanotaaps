@@ -343,6 +343,19 @@ class StoricoClassificazioneTest extends TestCase
         $this->actingAs($operatore)->get("/import/{$import->id}/revisione")->assertOk()->assertDontSee('Dopo 3 conferme coerenti');
     }
 
+    public function test_il_suggerimento_si_calcola_solo_all_apertura_della_revisione_non_a_ogni_passo_o_dettaglio(): void
+    {
+        foreach (['2026-01-20', '2026-02-20', '2026-03-20'] as $i => $data) {
+            $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X054281110100000011111'.$i, ['data' => $data]);
+        }
+        $import = $this->importaAprile();
+
+        $this->get("/import/{$import->id}/revisione")->assertSee('Dopo 3 conferme coerenti');
+
+        // Un passo scelto o un dettaglio aperto (anche dopo ogni conferma) non rileggono tutto lo storico: ci sono /regole e l'apertura.
+        $this->get("/import/{$import->id}/revisione?passo=pronte")->assertOk()->assertDontSee('Dopo 3 conferme coerenti');
+    }
+
     public function test_dopo_un_import_lo_storico_propone_come_il_movimento_confermato_simile_e_ne_dice_la_fonte(): void
     {
         $origine = $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000987654');

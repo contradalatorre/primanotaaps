@@ -184,6 +184,7 @@ final class Classificazione
         // non può lasciare confermata un'imputazione senza tipologia.
         DB::transaction(function () use ($utente, $movimento, $versioneVista) {
             self::blocca($movimento);
+            abort_unless(self::conPermessiRiletti($utente)->puo(Permesso::ImportareEConfermare), 403);
             $movimento->refresh();
             if (! hash_equals(self::versione($movimento), $versioneVista)) {
                 throw ValidationException::withMessages(['conferma' => 'Il movimento è cambiato dopo che lo hai aperto: rileggilo prima di confermarlo.']);
@@ -248,7 +249,13 @@ final class Classificazione
     {
         self::blocca($movimento);
         $movimento->refresh();
-        abort_unless($movimento->classificabileDa($utente), 403);
+        abort_unless($movimento->classificabileDa(self::conPermessiRiletti($utente)), 403);
+    }
+
+    /** A riga bloccata i permessi si rileggono (come `Note::controllaPermesso`): quelli caricati dal controllo della rotta possono essere di prima di una revoca. */
+    private static function conPermessiRiletti(User $utente): User
+    {
+        return $utente->unsetRelation('assegnazioniAttive');
     }
 
     /**
