@@ -22,9 +22,10 @@ use Illuminate\Validation\ValidationException;
 /**
  * Le regole del tesoriere (#42): lettura e controllo del modulo, ordine, anteprima e applicazione ai movimenti.
  * Vince la prima regola della lista che corrisponde. Una regola propone solo su movimenti *da classificare* o già
- * proposti da una regola (`movimenti.regola_id`): mai sui confermati né su una proposta scritta da una persona,
- * che è una scelta a mano. Le proposte si rifanno da zero a ogni salvataggio o riordino, così una regola nuova,
- * modificata o spostata toglie anche quello che non è più suo.
+ * proposti da una regola (`movimenti.regola_id`) o dallo storico (#43, `App\Storico`, che viene dopo le regole nella
+ * cascata): mai sui confermati né su una proposta scritta da una persona, che è una scelta a mano. Le proposte si
+ * rifanno da zero a ogni salvataggio o riordino, così una regola nuova, modificata o spostata toglie anche quello che
+ * non è più suo, e dove non ce ne sono resta quella dello storico.
  *
  * Le transazioni bloccano prima i conti (come import e conferma: un import in corso aspetta, e ne vede le regole nuove),
  * poi tutti i candidati in ordine di id, e solo dopo leggono altro: su MySQL (REPEATABLE READ) la prima lettura semplice
@@ -204,7 +205,7 @@ final class Regole
      * Cosa farebbe una regola prima di salvarla: i movimenti che prenderebbe (e a quale regola li toglie) e quelli che,
      * se la regola esiste già, non sarebbero più suoi. Non scrive nulla.
      *
-     * @return array{presi: Collection<int, array{movimento: Movimento, da: ?string}>, lasciati: Collection<int, array{movimento: Movimento, a: ?string}>}
+     * @return array{presi: Collection<int, array{movimento: Movimento, da: ?string}>, lasciati: Collection<int, array{movimento: Movimento, a: ?string, storico: bool}>}
      *
      * @throws ValidationException
      */
@@ -220,6 +221,7 @@ final class Regole
 
         $presi = collect();
         $lasciati = collect();
+        $archivio = Storico::archivio();
         foreach (self::candidati()->get() as $movimento) {
             $era = self::efficace($prima, $movimento);
             $sara = self::efficace($dopo, $movimento);
@@ -227,7 +229,9 @@ final class Regole
             if ($sara === $bozza && ! $eraSuo) { // quelli che erano già suoi non sono «presi»
                 $presi->push(['movimento' => $movimento, 'da' => $era?->nome]);
             } elseif ($eraSuo && $sara !== $bozza) {
-                $lasciati->push(['movimento' => $movimento, 'a' => $sara?->nome]);
+                // Senza regola tocca allo storico, se ha qualcosa da proporre.
+                $storico = $sara === null && ($p = Storico::migliore($archivio, $movimento)) && Classificazione::imputazioniDelloStorico($movimento, $p) !== null;
+                $lasciati->push(['movimento' => $movimento, 'a' => $sara?->nome, 'storico' => $storico]);
             }
         }
 

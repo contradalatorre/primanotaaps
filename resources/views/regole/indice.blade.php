@@ -9,6 +9,7 @@
         Salvare o riordinare rifà le proposte dei movimenti da classificare e di quelli già proposti da una regola; i confermati e le scelte a mano non cambiano.
     </p>
     <p><a href="{{ route('regole.nuova') }}" class="bottone">Nuova regola</a></p>
+    @include('regole.suggerimenti')
 
     @if ($regole->isEmpty())
         <p>Non ci sono ancora regole.</p>

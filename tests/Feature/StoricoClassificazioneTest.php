@@ -9,6 +9,7 @@ use App\Models\ImportEstratto;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
 use App\Models\Regola;
+use App\Models\Ruolo;
 use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -117,6 +118,17 @@ class StoricoClassificazioneTest extends TestCase
         $this->assertSame('Utenze', $this->nomeTipologia($bolletta));
     }
 
+    public function test_l_anteprima_dice_che_un_movimento_lasciato_dalla_regola_passa_allo_storico(): void
+    {
+        $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000987654');
+        $this->importaAprile();
+        $this->actingAs($this->tesoriere)->post('/regole', $this->dati())->assertSessionHasNoErrors();
+        $regola = Regola::firstOrFail();
+
+        $this->put('/regole/anteprima', $this->dati(['regola' => $regola->id, 'testo' => 'ACQUEDOTTO']))->assertOk()
+            ->assertSeeInOrder(['Non prenderebbe più', 'FORNITORE ENERGIA', 'passa allo storico'])->assertDontSee('torna da classificare');
+    }
+
     public function test_confermati_e_scelte_a_mano_non_si_toccano_e_salvare_una_proposta_dello_storico_ne_fa_una_scelta_a_mano(): void
     {
         $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000987654');
@@ -197,6 +209,46 @@ class StoricoClassificazioneTest extends TestCase
         $this->post("/import/{$import->id}/conferme-pronte", ['impronta' => $impronta[1]])->assertSessionHasNoErrors();
 
         $this->assertSame('confermato', $bolletta->refresh()->stato);
+    }
+
+    public function test_dopo_tre_conferme_coerenti_l_app_propone_di_creare_una_regola_con_le_condizioni_compilate(): void
+    {
+        $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000111111', ['data' => '2026-01-20']);
+        $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000222222', ['data' => '2026-02-20']);
+        $this->actingAs($this->tesoriere)->get('/regole')->assertOk()->assertDontSee('Crea una regola');
+
+        // Una terza conferma con un'altra classificazione non rende coerente il gruppo.
+        $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000333333', ['data' => '2026-03-20'], 'Materiali e beni di consumo');
+        $this->get('/regole')->assertOk()->assertDontSee('Crea una regola');
+
+        $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000444444', ['data' => '2026-04-20']);
+        $pagina = $this->get('/regole')->assertOk()->assertSee('Dopo 3 conferme coerenti')->assertSee('Crea una regola')->assertSee('Utenze');
+        preg_match('#href="([^"]+)"[^>]*>Crea una regola#', $pagina->getContent(), $collegamento);
+        $modulo = $this->get(html_entity_decode($collegamento[1]))->assertOk();
+        $modulo->assertSee('value="SDD A : FORNITORE ENERGIA ESEMPIO"', false)->assertSee('value="PAGAMENTO UTENZE"', false);
+        $this->assertMatchesRegularExpression('#<option value="'.$this->tipologia('Utenze').'" selected#', $modulo->getContent());
+        $this->assertMatchesRegularExpression('#<option value="'.$this->iniziativa('Carnevale').'" selected#', $modulo->getContent());
+        $this->assertMatchesRegularExpression('#<option value="uscita" selected#', $modulo->getContent());
+        $this->assertSame(0, Regola::count(), 'La regola non si crea da sola.');
+
+        // Salvato il modulo così com'è, la regola esiste e il suggerimento sparisce.
+        $this->post('/regole', ['nome' => 'Energia', 'testo' => 'SDD A : FORNITORE ENERGIA ESEMPIO', 'causale' => 'PAGAMENTO UTENZE', 'verso' => 'uscita',
+            'tipologia_id' => $this->tipologia('Utenze'), 'iniziativa_id' => $this->iniziativa('Carnevale'), 'area' => 'A'])->assertSessionHasNoErrors();
+        $this->get('/regole')->assertOk()->assertDontSee('Crea una regola');
+    }
+
+    public function test_il_suggerimento_compare_anche_nella_revisione_e_solo_a_chi_gestisce_le_regole(): void
+    {
+        foreach (['2026-01-20', '2026-02-20', '2026-03-20'] as $i => $data) {
+            $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X054281110100000011111'.$i, ['data' => $data]);
+        }
+        $import = $this->importaAprile();
+
+        $this->get("/import/{$import->id}/revisione")->assertOk()->assertSee('Dopo 3 conferme coerenti');
+
+        // Chi conferma ma non gestisce le regole non può crearle: non vede il suggerimento.
+        $operatore = $this->utenteCon(Ruolo::create(['nome' => 'Operatore', 'permessi' => ['vedere', 'importare_e_confermare']]));
+        $this->actingAs($operatore)->get("/import/{$import->id}/revisione")->assertOk()->assertDontSee('Dopo 3 conferme coerenti');
     }
 
     public function test_dopo_un_import_lo_storico_propone_come_il_movimento_confermato_simile_e_ne_dice_la_fonte(): void

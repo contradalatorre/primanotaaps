@@ -3,7 +3,9 @@
 namespace App;
 
 use App\Models\EsempioClassificazione;
+use App\Models\Iniziativa;
 use App\Models\Movimento;
+use App\Models\Tipologia;
 use Illuminate\Support\Collection;
 
 /**
@@ -20,6 +22,9 @@ final class Storico
 
     /** Somiglianza minima delle descrizioni quando la causale è un'altra o manca. */
     public const SOGLIA_MOLTO_SIMILE = 0.85;
+
+    /** Quante conferme coerenti servono perché l'app proponga di creare una regola. */
+    public const CONFERME_PER_REGOLA = 3;
 
     /**
      * Le parole che negli estratti Crédit Agricole non dicono chi è la controparte: senza, due negozi con la stessa
@@ -60,6 +65,57 @@ final class Storico
         }
 
         return $migliore;
+    }
+
+    /**
+     * Le regole che conviene creare: gruppi di almeno tre movimenti confermati con la stessa controparte (le stesse
+     * parole), verso, causale e classificazione, e che nessuna regola prende già. Non crea nulla: dà le condizioni già
+     * compilate, che la persona rivede e salva. Contano i movimenti confermati, non gli esempi.
+     *
+     * @return Collection<int, array{conferme: int, a_parole: string, valori: array<string,mixed>}>
+     */
+    public static function regoleSuggerite(): Collection
+    {
+        $regole = Regole::elenco();
+
+        return self::archivio()->filter(fn (Precedente $p) => $p->movimento && $p->parole !== [])
+            ->groupBy(fn (Precedente $p) => json_encode([$p->verso, $p->causale, array_keys($p->parole), $p->riga], JSON_THROW_ON_ERROR))
+            ->filter(fn (Collection $gruppo) => $gruppo->count() >= self::CONFERME_PER_REGOLA)
+            ->map(function (Collection $gruppo) use ($regole) {
+                $testo = self::testoComune($gruppo->map(fn (Precedente $p) => $p->movimento->descrizione)->all());
+                $primo = $gruppo->first();
+                if ($testo === null || $primo->archiviato() || $gruppo->contains(fn (Precedente $p) => Regole::vincitrice($regole, $p->movimento))) {
+                    return null;
+                }
+                $riga = $primo->riga;
+                $nomi = array_filter([Tipologia::find($riga['tipologia_id'])->nome, $riga['iniziativa_id'] ? Iniziativa::find($riga['iniziativa_id'])->nome : null]);
+
+                return ['conferme' => $gruppo->count(), 'a_parole' => implode(' · ', $nomi), 'valori' => array_filter([
+                    'nome' => $testo, 'verso' => $primo->verso, 'causale' => $primo->movimento->causale, 'testo' => $testo,
+                    'tipologia_id' => $riga['tipologia_id'], 'iniziativa_id' => $riga['iniziativa_id'], 'area' => $riga['area'],
+                    'attivita_id' => $riga['attivita_id'], 'tag' => $riga['tag'],
+                ], fn ($v) => $v !== null && $v !== [])];
+            })->filter()->values();
+    }
+
+    /**
+     * Il testo più lungo (a parole intere) che sta in tutte le descrizioni: la condizione «descrizione contiene» della
+     * regola suggerita, che così corrisponde per forza a tutti i movimenti del gruppo. Null se non arriva a quattro caratteri.
+     */
+    private static function testoComune(array $descrizioni): ?string
+    {
+        $parole = preg_split('/\s+/', trim($descrizioni[0]), -1, PREG_SPLIT_NO_EMPTY);
+        $migliore = '';
+        foreach (array_keys($parole) as $da) {
+            for ($a = $da; $a < count($parole); $a++) {
+                $parte = implode(' ', array_slice($parole, $da, $a - $da + 1));
+                if (mb_strlen($parte) > mb_strlen($migliore) && collect($descrizioni)->every(fn ($d) => mb_stripos($d, $parte) !== false)) {
+                    $migliore = $parte;
+                }
+            }
+        }
+
+        return mb_strlen($migliore) >= 4 ? $migliore : null;
     }
 
     /**

@@ -2,8 +2,12 @@
 
 namespace App;
 
+use App\Models\Attivita;
 use App\Models\EsempioClassificazione;
+use App\Models\Iniziativa;
 use App\Models\Movimento;
+use App\Models\Tag;
+use App\Models\Tipologia;
 use Illuminate\Support\Carbon;
 
 /**
@@ -22,6 +26,15 @@ final class Precedente
         public readonly array $parole, public readonly array $riga,
     ) {}
 
+    /** Tipologia, iniziativa, attività o tag archiviati: non si propongono più (come per le regole). */
+    public function archiviato(): bool
+    {
+        $elementi = [Tipologia::find($this->riga['tipologia_id']), $this->riga['iniziativa_id'] ? Iniziativa::find($this->riga['iniziativa_id']) : null,
+            $this->riga['attivita_id'] ? Attivita::find($this->riga['attivita_id']) : null, ...Tag::findMany($this->riga['tag'])];
+
+        return collect($elementi)->filter()->contains(fn ($e) => $e->archiviata());
+    }
+
     /** @param  Movimento  $movimento confermato, con le imputazioni (e i loro tag) già caricati; null se non ha una sola imputazione con tipologia */
     public static function daMovimento(Movimento $movimento): ?self
     {
@@ -32,7 +45,7 @@ final class Precedente
 
         return new self($movimento, null, $movimento->verso, Storico::causale($movimento->causale), $movimento->data, Storico::parole($movimento->descrizione), [
             'tipologia_id' => $imputazione->tipologia_id, 'iniziativa_id' => $imputazione->iniziativa_id, 'area' => $imputazione->area->value,
-            'attivita_id' => $imputazione->attivita_id, 'tag' => $imputazione->tag->modelKeys(),
+            'attivita_id' => $imputazione->attivita_id, 'tag' => $imputazione->tag->pluck('id')->sort()->values()->all(),
         ]);
     }
 

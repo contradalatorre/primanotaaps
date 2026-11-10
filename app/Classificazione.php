@@ -104,14 +104,11 @@ final class Classificazione
      */
     public static function imputazioniDelloStorico(Movimento $movimento, Precedente $precedente): ?array
     {
-        $riga = $precedente->riga;
-        $elementi = [Tipologia::find($riga['tipologia_id']), $riga['iniziativa_id'] ? Iniziativa::find($riga['iniziativa_id']) : null,
-            $riga['attivita_id'] ? Attivita::find($riga['attivita_id']) : null, ...Tag::findMany($riga['tag'])];
-        if (collect($elementi)->filter()->contains(fn ($e) => $e->archiviata())) {
+        if ($precedente->archiviato()) {
             return null;
         }
         try {
-            return self::risolvi($movimento, [$riga]);
+            return self::risolvi($movimento, [$precedente->riga]);
         } catch (ValidationException) {
             return null;
         }
