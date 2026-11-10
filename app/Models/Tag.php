@@ -17,6 +17,6 @@ class Tag extends Model
 
     public function usata(): bool
     {
-        return DB::table('imputazione_tag')->where('tag_id', $this->id)->exists();
+        return DB::table('imputazione_tag')->where('tag_id', $this->id)->exists() || DB::table('regola_tag')->where('tag_id', $this->id)->exists();
     }
 }

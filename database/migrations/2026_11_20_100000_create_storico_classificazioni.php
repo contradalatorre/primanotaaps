@@ -25,7 +25,7 @@ return new class extends Migration
 
         Schema::table('movimenti', function (Blueprint $table) {
             // Da dove viene la proposta dallo storico in corso (come `regola_id` per le regole): al più uno dei tre, e
-            // senza nessuno una proposta è una scelta di una persona. Se l'origine sparisce la proposta resta, senza fonte.
+            // senza nessuno una proposta è una scelta di una persona. Se l’origine sparisce la proposta resta senza fonte: non è più «pronta» e la prossima cascata la riporta da classificare (o la ripropone).
             $table->foreignId('storico_movimento_id')->nullable()->constrained('movimenti')->nullOnDelete();
             $table->foreignId('storico_esempio_id')->nullable()->constrained('esempi_classificazione')->nullOnDelete();
         });

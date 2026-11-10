@@ -221,7 +221,7 @@ final class Regole
 
         $presi = collect();
         $lasciati = collect();
-        $archivio = Storico::archivio();
+        $archivio = null; // si legge solo se serve a qualcuno
         foreach (self::candidati()->get() as $movimento) {
             $era = self::efficace($prima, $movimento);
             $sara = self::efficace($dopo, $movimento);
@@ -230,7 +230,7 @@ final class Regole
                 $presi->push(['movimento' => $movimento, 'da' => $era?->nome]);
             } elseif ($eraSuo && $sara !== $bozza) {
                 // Senza regola tocca allo storico, se ha qualcosa da proporre.
-                $storico = $sara === null && ($p = Storico::migliore($archivio, $movimento)) && Classificazione::imputazioniDelloStorico($movimento, $p) !== null;
+                $storico = $sara === null && ($p = Storico::migliore($archivio ??= Storico::archivio(), $movimento)) && Classificazione::imputazioniDelloStorico($movimento, $p) !== null;
                 $lasciati->push(['movimento' => $movimento, 'a' => $sara?->nome, 'storico' => $storico]);
             }
         }
@@ -260,7 +260,7 @@ final class Regole
     private static function candidati(): Builder
     {
         return Movimento::where(fn (Builder $q) => $q->where('stato', 'da_classificare')->orWhere(fn (Builder $q) => $q->where('stato', 'proposto')
-            ->where(fn (Builder $q) => $q->whereNotNull('regola_id')->orWhereNotNull('storico_movimento_id')->orWhereNotNull('storico_esempio_id'))))
+            ->whereNull('proposto_da'))) // di regola o storico, o rimasta senza origine (esempio cancellato): quelle di una persona hanno `proposto_da`
             ->orderBy('id');
     }
 
@@ -286,20 +286,21 @@ final class Regole
     private static function assegna(User $utente, Collection $movimenti, Collection $regole, ?int $toccata = null, ?string $tipoDellaToccata = null): int
     {
         $cambiati = 0;
-        $archivio = $movimenti->isEmpty() ? collect() : Storico::archivio(); // dopo i lock di chi chiama, come le regole
+        $archivio = null; // letto solo per il primo movimento che nessuna regola prende, dopo i lock di chi chiama come le regole
         foreach ($movimenti as $movimento) {
             $regola = self::vincitrice($regole, $movimento);
             $imputazioni = $regola ? Classificazione::imputazioniDellaRegola($movimento, $regola) : null;
             $precedente = null;
             if ($imputazioni === null) { // nessuna regola, o la sua proposta non si può fare: vale come nessuna regola, e tocca allo storico
                 $regola = null;
-                $precedente = Storico::migliore($archivio, $movimento);
+                $precedente = Storico::migliore($archivio ??= Storico::archivio(), $movimento);
                 $imputazioni = $precedente ? Classificazione::imputazioniDelloStorico($movimento, $precedente) : null;
                 if ($imputazioni === null) {
                     $precedente = null;
                 }
             }
-            if ($regola?->id === $movimento->regola_id && ($regola === null || $regola->id !== $toccata)
+            $senzaOrigine = $movimento->stato === 'proposto' && $regola === null && $precedente === null; // proposta rimasta senza fonte: torna da classificare
+            if (! $senzaOrigine && $regola?->id === $movimento->regola_id && ($regola === null || $regola->id !== $toccata)
                 && $precedente?->movimento?->id === $movimento->storico_movimento_id && $precedente?->esempio?->id === $movimento->storico_esempio_id && ($precedente === null || Classificazione::haGia($movimento, $imputazioni))) {
                 continue;
             }

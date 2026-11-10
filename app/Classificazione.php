@@ -117,11 +117,13 @@ final class Classificazione
         }
     }
 
-    /** Il movimento ha già queste imputazioni (i tag non contano): per non riscrivere una proposta che non cambia. */
+    /** Il movimento ha già queste imputazioni, con i loro tag (una proposta può cambiare solo quelli): per non riscrivere una proposta che non cambia. */
     public static function haGia(Movimento $movimento, array $imputazioni): bool
     {
-        return self::firma($movimento->imputazioni()->orderBy('id')->get()->map->only(self::CAMPI_DELLA_CLASSIFICAZIONE))
-            === self::firma(collect($imputazioni)->map(fn ($i) => Arr::only($i, self::CAMPI_DELLA_CLASSIFICAZIONE)));
+        $esistenti = $movimento->imputazioni()->with('tag:id')->orderBy('id')->get()
+            ->map(fn (Imputazione $i) => $i->only(self::CAMPI_DELLA_CLASSIFICAZIONE) + ['tag' => $i->tag->pluck('id')->sort()->values()->all()]);
+
+        return self::firma($esistenti) === self::firma(collect($imputazioni)->map(fn ($i) => Arr::only($i, self::CAMPI_DELLA_CLASSIFICAZIONE) + ['tag' => collect($i['tag'])->sort()->values()->all()]));
     }
 
     /**

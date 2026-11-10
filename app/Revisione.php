@@ -41,7 +41,7 @@ final class Revisione
     public function passo(string $passo): Collection
     {
         // Un dubbio resta fuori da «Conferma le proposte pronte» e dai gruppi: la conferma lo chiude (#16) e non deve succedere in silenzio. Lo si conferma con la ✓ o spuntandolo.
-        $pronta = fn (Movimento $m) => $m->stato === 'proposto' && $m->confermabile() && ! $m->inDubbio();
+        $pronta = fn (Movimento $m) => $m->stato === 'proposto' && $m->fonteProposta() !== null && $m->confermabile() && ! $m->inDubbio();
 
         return match ($passo) {
             'giroconti' => collect(), // arrivano con #47

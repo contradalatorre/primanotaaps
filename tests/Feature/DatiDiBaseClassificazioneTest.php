@@ -3,10 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\Attivita;
+use App\Models\EsempioClassificazione;
 use App\Models\Imputazione;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
+use App\Models\Regola;
 use App\Models\Tag;
 use App\Models\Tipologia;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -203,6 +205,33 @@ class DatiDiBaseClassificazioneTest extends TestCase
         $this->assertNull($altro->fresh());
         $this->assertSame(0, \DB::table('voci_modello_d')->where('tipologia_id', $libri->id)->count());
         $this->assertSame(['eliminato'], RegistroModifica::where('oggetto_tipo', 'tag')->pluck('azione')->all());
+    }
+
+    public function test_un_elemento_usato_solo_da_una_regola_o_da_un_esempio_non_si_cancella_si_archivia(): void
+    {
+        $this->actingAs($this->utenteCon('Tesoriere'));
+        $tipologia = Tipologia::firstWhere('nome', 'Libri e pubblicazioni');
+        $iniziativa = Iniziativa::firstWhere('nome', 'La Casa');
+        $attivita = Attivita::firstWhere('nome', 'Lettera i (art. 5 CTS)');
+        $tag = Tag::firstWhere('nome', 'Gruppo CLT');
+        $usate = [$tipologia, $iniziativa, $attivita, $tag];
+        // Le regole e gli esempi dello storico (#43) li tengono con una chiave esterna: cancellarli sarebbe un errore 500.
+        $regola = Regola::create(['nome' => 'Per prova', 'posizione' => 1, 'tipologia_id' => $tipologia->id, 'iniziativa_id' => $iniziativa->id, 'area' => 'A', 'attivita_id' => $attivita->id]);
+        $regola->tag()->attach($tag);
+
+        foreach ($usate as $elemento) {
+            $this->assertTrue($elemento->usata(), $elemento->nome);
+        }
+        $regola->tag()->detach();
+        $regola->delete();
+        $this->assertFalse($tag->usata());
+        EsempioClassificazione::create(['verso' => 'uscita', 'descrizione' => 'ESEMPIO', 'data' => '2025-04-22', 'tipologia_id' => $tipologia->id, 'iniziativa_id' => $iniziativa->id, 'area' => 'A', 'attivita_id' => $attivita->id]);
+        foreach ([$tipologia, $iniziativa, $attivita] as $elemento) {
+            $this->assertTrue($elemento->usata(), $elemento->nome);
+        }
+        foreach (["tipologie/{$tipologia->id}", "iniziative/{$iniziativa->id}", "attivita/{$attivita->id}"] as $percorso) {
+            $this->delete("/classificazione/$percorso")->assertRedirect()->assertSessionHasErrors('elimina');
+        }
     }
 
     public function test_senza_gestire_regole_non_si_scrive(): void

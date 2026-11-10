@@ -10,11 +10,13 @@ use App\Models\Iniziativa;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
 use App\Models\Regola;
+use App\Models\Tag;
 use App\Models\Ruolo;
 use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -207,6 +209,57 @@ class StoricoClassificazioneTest extends TestCase
         $this->assertSame('Storico: come l’esempio del 22/04/2025', $bolletta->load('proponente', 'regola', 'storicoMovimento', 'storicoEsempio')->fonteProposta());
         $this->assertSame('Utenze', $this->nomeTipologia($bolletta));
         $this->get("/import/{$import->id}/revisione?passo=pronte&movimento={$bolletta->id}")->assertOk()->assertSee('Storico: come l’esempio del 22/04/2025')->assertDontSee('class="link">Storico', false);
+    }
+
+    public function test_se_l_origine_della_proposta_sparisce_il_movimento_non_e_piu_pronto_e_il_prossimo_giro_lo_riporta_da_classificare(): void
+    {
+        $esempio = EsempioClassificazione::create([
+            'verso' => 'uscita', 'causale' => 'PAGAMENTO UTENZE', 'descrizione' => 'SDD A : FORNITORE ENERGIA ESEMPIO', 'data' => '2025-04-22',
+            'tipologia_id' => $this->tipologia('Utenze'), 'iniziativa_id' => $this->iniziativa('Carnevale'), 'area' => 'A',
+        ]);
+        $import = $this->importaAprile();
+        $bolletta = $this->bolletta();
+        $this->assertSame($esempio->id, $bolletta->storico_esempio_id);
+
+        $esempio->delete(); // la chiave esterna mette a null la fonte: la proposta resta, senza origine
+        $this->get("/import/{$import->id}/revisione?passo=pronte")->assertOk()->assertDontSee('FORNITORE ENERGIA');
+
+        $this->post('/regole', $this->dati(['testo' => 'NIENTE DI QUESTO']))->assertSessionHasNoErrors(); // un giro di assegnazione che non c'entra con la bolletta
+        $bolletta->refresh();
+        $this->assertSame('da_classificare', $bolletta->stato);
+        $this->assertSame(0, $bolletta->imputazioni()->count());
+    }
+
+    public function test_se_del_precedente_cambiano_solo_i_tag_la_proposta_li_segue(): void
+    {
+        $microprogetto = Tag::where('nome', 'Microprogetto')->value('id');
+        $clt = Tag::where('nome', 'Gruppo CLT')->value('id');
+        $origine = $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000987654');
+        $riga = fn (int $tag) => [['tipologia_id' => $this->tipologia('Utenze'), 'iniziativa_id' => $this->iniziativa('Carnevale'), 'tag' => [$tag]]];
+        Classificazione::salva($this->tesoriere, $origine, null, $riga($microprogetto));
+        $this->importaAprile();
+        $this->assertSame([$microprogetto], $this->bolletta()->imputazioni()->first()->tag()->pluck('tag.id')->all());
+
+        Classificazione::salva($this->tesoriere, $origine, null, $riga($clt));
+        $this->actingAs($this->tesoriere)->post('/regole', $this->dati(['nome' => 'Per ricalcolare', 'testo' => 'ZZZ']))->assertSessionHasNoErrors();
+
+        $this->assertSame([$clt], $this->bolletta()->imputazioni()->first()->tag()->pluck('tag.id')->all());
+    }
+
+    public function test_lo_storico_non_si_legge_se_le_regole_prendono_tutti_i_candidati(): void
+    {
+        $this->movimento('ACQUISTO MATERIALE DA FORNITORE ESEMPIO');
+        $letture = 0;
+        DB::listen(function ($query) use (&$letture) {
+            $letture += str_contains($query->sql, 'esempi_classificazione') ? 1 : 0;
+        });
+
+        $this->actingAs($this->tesoriere)->post('/regole', $this->dati(['testo' => 'ACQUISTO MATERIALE']))->assertSessionHasNoErrors();
+        $this->assertSame('proposto', Movimento::firstOrFail()->stato); // preso dalla regola
+        $this->assertSame(0, $letture);
+
+        $this->put('/regole/anteprima', $this->dati(['regola' => Regola::firstOrFail()->id, 'testo' => 'MATERIALE']))->assertOk();
+        $this->assertSame(0, $letture);
     }
 
     public function test_lo_storico_guarda_verso_causale_e_somiglianza_della_descrizione(): void
