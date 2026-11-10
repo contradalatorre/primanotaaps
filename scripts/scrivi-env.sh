@@ -29,6 +29,12 @@ if ! printf '%s' "$EMERGENZA_TOTP_SECRET" | grep -Eq '^[A-Z2-7]+=*$'; then
     exit 1
 fi
 
+# Il token del cron finisce in un indirizzo (e nei log di accesso): lungo, e solo caratteri che non vanno codificati.
+if ! printf '%s' "$CRON_TOKEN" | grep -Eq '^[A-Za-z0-9]{32,}$'; then
+    echo 'CRON_TOKEN deve avere almeno 32 caratteri, solo lettere e cifre.' >&2
+    exit 1
+fi
+
 # Senza barra finale, come lo vuole anche il controllo di raggiungibilità: il redirect di Google deve combaciare.
 APP_URL="${APP_URL%/}"
 

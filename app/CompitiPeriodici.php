@@ -33,10 +33,13 @@ final class CompitiPeriodici
         $scaduti = DB::transaction(function () use ($adesso) {
             $scaduti = [];
             foreach (self::ELENCO as $nome => $quando) {
-                $riga = DB::table('compiti_periodici')->where('nome', $nome)->lockForUpdate()->first();
-                if (! $riga) {
-                    DB::table('compiti_periodici')->insertOrIgnore(['nome' => $nome, 'ultimo_avvio' => $adesso]);
-                } elseif ((new CronExpression($quando))->getPreviousRunDate($adesso, 0, true, config('app.timezone'))->getTimestamp() > Carbon::parse($riga->ultimo_avvio)->getTimestamp()) {
+                // Prima inserisce (senza lock su righe che non ci sono: su MySQL due prime chiamate si bloccherebbero a vicenda).
+                if (DB::table('compiti_periodici')->insertOrIgnore(['nome' => $nome, 'ultimo_avvio' => $adesso])) {
+                    continue;
+                }
+                $ultimoAvvio = Carbon::parse(DB::table('compiti_periodici')->where('nome', $nome)->lockForUpdate()->value('ultimo_avvio'));
+                $ultimaScadenza = (new CronExpression($quando))->getPreviousRunDate($adesso, 0, true, config('app.timezone'));
+                if ($ultimaScadenza->getTimestamp() > $ultimoAvvio->getTimestamp()) {
                     DB::table('compiti_periodici')->where('nome', $nome)->update(['ultimo_avvio' => $adesso]);
                     $scaduti[] = $nome;
                 }

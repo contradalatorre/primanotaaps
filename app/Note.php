@@ -8,6 +8,7 @@ use App\Models\Nota;
 use App\Models\RegistroModifica;
 use App\Models\Ruolo;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -140,9 +141,9 @@ final class Note
      * (e non l'autore) e i ruoli. Un nome che non c'è tra loro (un utente senza più assegnazioni, un esterno scaduto)
      * resta testo e non crea niente. Le menzioni già viste restano viste.
      *
-     * @return \Illuminate\Support\Collection<int, Menzione> quelle create adesso
+     * @return Collection<int, Menzione> quelle create adesso
      */
-    private static function sincronizzaMenzioni(Nota $nota): \Illuminate\Support\Collection
+    private static function sincronizzaMenzioni(Nota $nota): Collection
     {
         $nomi = [];
         foreach (User::where('emergenza', false)->where('id', '!=', $nota->user_id)->get() as $utente) {

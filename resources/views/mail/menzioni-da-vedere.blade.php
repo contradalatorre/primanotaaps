@@ -3,7 +3,7 @@
 
 @foreach ($menzioni as $menzione)
 @php($movimento = $menzione->nota->oggetto)
-- {!! $menzione->nota->autore->name !!}, {!! $menzione->nota->created_at->timezone(config('app.timezone'))->format('d/m/Y') !!}: {!! $movimento->verso === 'entrata' ? 'entrata' : 'uscita' !!} di {!! \App\Euro::formatta($movimento->importo) !!} euro, {!! \Illuminate\Support\Str::limit($movimento->descrizione, 60) !!}
+- {!! $menzione->nota->autore->name !!}, {!! $menzione->nota->created_at->timezone(config('app.timezone'))->format('d/m/Y') !!}: {!! $movimento->verso !!} di {!! \App\Euro::formatta($movimento->importo) !!} euro, {!! \Illuminate\Support\Str::limit($movimento->descrizione, 60) !!}
   {!! route('movimenti.note', $movimento) !!}
 @endforeach
 

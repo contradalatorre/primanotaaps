@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 
 export APP_URL=https://sito.example/contabilita APP_KEY=base64:abc DB_HOST=db DB_DATABASE=d DB_USERNAME=u
 export DB_PASSWORD='p#a$s"w' GOOGLE_CLIENT_ID=i GOOGLE_CLIENT_SECRET=s GOOGLE_WORKSPACE_DOMAIN=associazione.example
-export AMMINISTRATORI_INIZIALI=maria@associazione.example MIGRAZIONI_TOKEN=t CRON_TOKEN=c
+export AMMINISTRATORI_INIZIALI=maria@associazione.example MIGRAZIONI_TOKEN=t CRON_TOKEN=abcdefghijklmnopqrstuvwxyz0123456789
 export MAIL_MAILER=smtp MAIL_HOST=smtp.associazione.example MAIL_PORT=465 MAIL_USERNAME=posta@associazione.example MAIL_PASSWORD=m MAIL_FROM_ADDRESS=prima-nota@associazione.example
 export EMERGENZA_PASSWORD_HASH='$2y$12$abcDEF.ghi/JKL' EMERGENZA_TOTP_SECRET=JBSWY3DPEHPK3PXP
 
@@ -25,6 +25,7 @@ verifica 'APP_URL=https://sito.example/contabilita-test/ sh ./scrivi-env.sh | gr
 verifica 'APP_URL=https://sito.example sh ./scrivi-env.sh | grep -qxF "SESSION_PATH='"'"'/'"'"'"' "senza percorso nell indirizzo la sessione vale per tutto il sito"
 verifica 'echo "$env_scritto" | grep -qxF "QUEUE_CONNECTION=sync"' "le code girano in modo sincrono, senza worker"
 verifica 'echo "$env_scritto" | grep -qxF "MAIL_MAILER='"'"'smtp'"'"'"' "il trasporto della posta è scritto nel .env"
+verifica '! (CRON_TOKEN=corto sh ./scrivi-env.sh >/dev/null 2>&1)' "un token del cron corto è rifiutato"
 verifica '! (MAIL_HOST= sh ./scrivi-env.sh >/dev/null 2>&1)' "la posta mancante è rifiutata"
 verifica '! (EMERGENZA_PASSWORD_HASH=password-in-chiaro sh ./scrivi-env.sh >/dev/null 2>&1)' "un hash che non è bcrypt è rifiutato"
 verifica '! (EMERGENZA_TOTP_SECRET="jbsw y3dp" sh ./scrivi-env.sh >/dev/null 2>&1)' "un segreto TOTP non base32 è rifiutato"
