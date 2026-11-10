@@ -28,11 +28,12 @@
 
     <ul class="schede" data-merlo="movimenti-elenco">
         @forelse ($movimenti as $movimento)
-            <li class="scheda">
+            <li class="scheda {{ $movimento->inDubbio() ? 'in-dubbio' : '' }}">
                 <div class="scheda-testa">
                     <strong class="importo">{{ $movimento->verso === 'uscita' ? '−' : '+' }}{{ \App\Euro::formatta($movimento->importo) }} €</strong>
                     <span class="etichetta">{{ \App\Models\Movimento::VERSI[$movimento->verso] }}</span>
                     <span class="etichetta">{{ ['da_classificare' => 'Da classificare', 'proposto' => 'Proposto', 'confermato' => 'Confermato'][$movimento->stato] }}</span>
+                    @if ($movimento->inDubbio()) @include('note.pill-dubbio') @endif
                 </div>
                 <p>{{ $movimento->descrizione }}</p>
                 <p class="nota">
@@ -76,6 +77,9 @@
                         <a href="{{ route('movimenti.modifica', $movimento) }}" class="link">Modifica</a>
                         <form method="POST" action="{{ route('movimenti.ritira', $movimento) }}">@csrf <button type="submit" class="link">Ritira</button></form>
                     @endif
+                    @can('note')
+                        @include('note.icona', ['movimento' => $movimento])
+                    @endcan
                     @can('vedere_storia_movimento')
                         <a href="{{ route('movimenti.storia', $movimento) }}" class="link">Storia</a>
                     @endcan

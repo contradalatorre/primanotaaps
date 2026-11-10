@@ -34,9 +34,13 @@
         @unless ($dettaglio->confermato())
             <div class="conferma-dettaglio">@include('revisione.conferma', ['movimento' => $dettaglio, 'dove' => 'dettaglio', 'dopo' => $successivo, 'etichetta' => 'Conferma'])</div>
         @endunless
+        @include('revisione.dubbio', ['movimento' => $dettaglio])
         <a href="{{ route('movimenti.classificazione', $dettaglio) }}" class="bottone-piccolo">{{ $dettaglio->stato === 'da_classificare' ? 'Classifica' : 'Rivedi la classificazione' }}</a>
         @if ($precedente)<a href="{{ $url(['movimento' => $precedente->id]) }}#riga-{{ $precedente->id }}" class="link" data-precedente>Precedente</a>@endif
         @if ($successivo)<a href="{{ $url(['movimento' => $successivo->id]) }}#riga-{{ $successivo->id }}" class="link" data-successivo>Successivo</a>@endif
     </div>
-    <p class="nota tasti">Tasti: J e K per spostarti, Invio per confermare, Esc per chiudere.</p>
+    @can('note')
+        @include('note.elenco', ['movimento' => $dettaglio, 'note' => \App\Models\Nota::di($dettaglio), 'dubbioPreselezionato' => request()->boolean('dubbio')])
+    @endcan
+    <p class="nota tasti">Tasti: J e K per spostarti, D per segnare o togliere il dubbio, Invio per confermare, Esc per chiudere.</p>
 </aside>

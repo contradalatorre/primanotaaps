@@ -58,6 +58,9 @@ final class Classificazione
             }
             $movimento->forceFill(['tipo_controparte' => $tipoControparte ?: null] + $stato)->save();
             RegistroModifica::registra($utente, $movimento, 'classificato', $prima, $movimento->istantanea());
+            if ($cambiata && $movimento->confermato()) {
+                Note::chiudiDubbi($utente, $movimento); // riclassificare un confermato lo riconferma: scioglie il dubbio come la conferma
+            }
         });
     }
 
@@ -185,13 +188,18 @@ final class Classificazione
             $prima = $movimento->istantanea();
             $movimento->forceFill(['stato' => 'confermato', 'confermato_da' => $utente->id, 'confermato_il' => now()])->save();
             RegistroModifica::registra($utente, $movimento, 'confermato', $prima, $movimento->istantanea());
+            Note::chiudiDubbi($utente, $movimento); // la conferma scioglie il dubbio (#16)
         });
     }
 
-    /** Un'impronta di quello che si conferma (classificazione, importo, data, giustificativi): la conferma vale per la versione vista. */
+    /**
+     * Un'impronta di quello che si conferma (classificazione, importo, data, giustificativi e dubbio aperto): la conferma
+     * vale per la versione vista, e confermare chiude il dubbio, quindi chi non l'ha visto non lo chiude in silenzio.
+     * Le note semplici no: non cambiano la versione. Con `$relazioniCaricate` il dubbio si legge da `conNote()`, senza query.
+     */
     public static function versione(Movimento $movimento, bool $relazioniCaricate = false): string
     {
-        return hash('sha256', json_encode($movimento->istantanea($relazioniCaricate)));
+        return hash('sha256', json_encode($movimento->istantanea($relazioniCaricate) + ['dubbio' => $movimento->inDubbio()]));
     }
 
     /** @return list<string> */

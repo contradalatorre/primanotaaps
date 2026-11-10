@@ -367,4 +367,56 @@ class RevisioneImportTest extends TestCase
         $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione?passo=decidere")
             ->assertSee('aria-disabled="true"', false)->assertSeeText('Per confermare serve la tipologia');
     }
+
+    // --- Dubbi (#45) ---
+
+    public function test_un_movimento_in_dubbio_ha_la_card_la_tinta_e_non_e_piu_una_proposta_pronta(): void
+    {
+        $s = $this->scenario();
+        $this->actingAs($this->tesoriere)->post('/movimenti/'.$s['gazebo']->id.'/note', ['testo' => 'Il gazebo era già nostro?', 'dubbio' => '1']);
+
+        $url = "/import/{$this->import->id}/revisione";
+        $this->actingAs($this->tesoriere)->get($url)
+            ->assertSee('data-passo="dubbi" data-conteggio="1"', false)->assertSeeText('In dubbio')
+            ->assertSee('data-passo="pronte" data-conteggio="1"', false)->assertSee('data-passo="decidere" data-conteggio="2"', false)
+            ->assertSee('data-passo="tutti" data-conteggio="4"', false);
+        $pagina = $this->actingAs($this->tesoriere)->get($url.'?passo=tutti')->getContent();
+        $this->assertSame(1, substr_count($pagina, 'riga-dubbio')); // la tinta gialla è sulla sola riga in dubbio
+        $this->actingAs($this->tesoriere)->get($url.'?passo=dubbi')->assertSeeText('Noleggio gazebo')->assertDontSeeText('Ghiaccio per la festa');
+
+        // La ✓ della riga conferma anche il movimento in dubbio e lo chiude.
+        $this->confermaVia(['movimenti' => $this->versioni($s['gazebo'])])->assertSessionHasNoErrors();
+        $this->assertFalse($s['gazebo']->refresh()->inDubbio());
+        $this->actingAs($this->tesoriere)->get($url)->assertSee('data-passo="dubbi" data-conteggio="0"', false);
+    }
+
+    public function test_le_righe_della_revisione_hanno_icona_e_conteggio_delle_note(): void
+    {
+        $s = $this->scenario();
+        $this->actingAs($this->tesoriere)->post('/movimenti/'.$s['gazebo']->id.'/note', ['testo' => 'Una nota']);
+
+        $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione?passo=tutti")
+            ->assertSee('data-note="1"', false)->assertSee('data-note="0"', false);
+    }
+
+    public function test_il_punto_interrogativo_apre_una_nota_dubbio_o_toglie_il_dubbio(): void
+    {
+        $s = $this->scenario();
+        $pagina = fn () => $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione?passo=pronte&movimento={$s['ghiaccio']->id}");
+
+        $pagina()->assertSee('dubbio=1', false)->assertSeeText('Scrivi una nota');
+
+        $this->actingAs($this->tesoriere)->post('/movimenti/'.$s['ghiaccio']->id.'/note', ['testo' => 'Chiedere al commercialista', 'dubbio' => '1']);
+        $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione?passo=dubbi&movimento={$s['ghiaccio']->id}")
+            ->assertSee('/movimenti/'.$s['ghiaccio']->id.'/dubbio/chiusura', false)->assertSeeText('Chiedere al commercialista');
+    }
+
+    public function test_chi_non_scrive_note_non_vede_il_punto_interrogativo(): void
+    {
+        $s = $this->scenario();
+        $senzaNote = $this->utenteCon(\App\Models\Ruolo::create(['nome' => 'Revisore', 'permessi' => ['vedere', 'importare_e_confermare']]));
+
+        $this->actingAs($senzaNote)->get("/import/{$this->import->id}/revisione?passo=pronte&movimento={$s['ghiaccio']->id}")
+            ->assertOk()->assertDontSee('dubbio=1', false)->assertDontSeeText('Scrivi una nota');
+    }
 }

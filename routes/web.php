@@ -5,10 +5,12 @@ use App\Http\Controllers\ClassificazioneController;
 use App\Http\Controllers\ContiController;
 use App\Http\Controllers\DatiDiClassificazioneController;
 use App\Http\Controllers\EmergenzaController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ImportEstrattiController;
 use App\Http\Controllers\ManualeController;
 use App\Http\Controllers\MigrazioniController;
 use App\Http\Controllers\MovimentiController;
+use App\Http\Controllers\NoteController;
 use App\Http\Controllers\RegistroController;
 use App\Http\Controllers\RegoleController;
 use App\Http\Controllers\RevisioneImportController;
@@ -34,7 +36,7 @@ Route::get('/accesso/google', [AccessoController::class, 'vaiAGoogle'])->name('a
 Route::get('/accesso/google/ritorno', [AccessoController::class, 'ritornoDaGoogle'])->name('accesso.ritorno');
 
 Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class])->group(function () {
-    Route::view('/', 'home')->name('home');
+    Route::get('/', [HomeController::class, 'index'])->name('home');
     Route::post('/esci', [AccessoController::class, 'esci'])->name('esci');
     Route::get('/riautentica', [AccessoController::class, 'riautentica'])->name('riautentica');
 
@@ -113,6 +115,18 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         ->middleware('can:eliminare_movimento_manuale')->name('movimenti.elimina');
     Route::get('/movimenti/{movimento}/storia', [MovimentiController::class, 'storia'])
         ->middleware('can:vedere_storia_movimento')->withTrashed()->name('movimenti.storia');
+    // Note, dubbi e menzioni (#45). Leggere e scrivere è di chi ha `note` (e vede il movimento), anche fuori dall'ambito:
+    // niente conto nella rotta. Il controllo si rifà a riga bloccata in `App\Note`.
+    Route::middleware(['can:vedere', 'can:note'])->group(function () {
+        Route::get('/movimenti/{movimento}/note', [NoteController::class, 'indice'])->name('movimenti.note');
+        Route::post('/movimenti/{movimento}/note', [NoteController::class, 'crea'])->name('movimenti.note.crea');
+        Route::put('/note/{nota}', [NoteController::class, 'modifica'])->name('note.modifica');
+        Route::delete('/note/{nota}', [NoteController::class, 'elimina'])->name('note.elimina');
+        Route::post('/menzioni/{menzione}/fatto', [NoteController::class, 'fatto'])->name('menzioni.fatto');
+    });
+    Route::post('/note/{nota}/oscuramento', [NoteController::class, 'oscura'])->middleware('can:oscurare_nota')->name('note.oscura');
+    Route::post('/movimenti/{movimento}/dubbio/chiusura', [NoteController::class, 'togliDubbio'])
+        ->middleware('can:importare_e_confermare')->name('movimenti.dubbio.chiudi');
     Route::get('/registro', [RegistroController::class, 'index'])
         ->middleware('can:vedere_registro_modifiche')->name('registro');
 

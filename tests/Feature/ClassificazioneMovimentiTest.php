@@ -378,7 +378,7 @@ class ClassificazioneMovimentiTest extends TestCase
             ['importo' => '20', 'tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E'],
         ]])->assertSessionHasNoErrors();
         $movimento->giustificativi()->create(['riferimento' => 'Scontrino']);
-        $caricato = Movimento::with('giustificativi', 'imputazioni.attivita', 'imputazioni.iniziativa', 'imputazioni.tipologia', 'imputazioni.tag')->find($movimento->id);
+        $caricato = Movimento::conNote()->with('giustificativi', 'imputazioni.attivita', 'imputazioni.iniziativa', 'imputazioni.tipologia', 'imputazioni.tag')->find($movimento->id);
 
         DB::enableQueryLog();
         $dallaLista = Classificazione::versione($caricato, true);
