@@ -5,6 +5,7 @@ namespace App;
 use App\Mail\MenzioniDaVedere;
 use App\Models\Menzione;
 use App\Models\User;
+use App\Onboarding\Prova;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
@@ -30,7 +31,8 @@ final class EmailMenzioni
     /** Subito dopo la nota: solo le menzioni appena create, a chi ha scelto l'email immediata. */
     public static function immediate(Collection $nuove): void
     {
-        if ($nuove->isEmpty()) {
+        // In prova (ADR 0003) niente email vere; e uno spazio nato prima di #46 non ha ancora `email_menzioni`.
+        if ($nuove->isEmpty() || app(Prova::class)->attiva()) {
             return;
         }
         foreach (self::lettori('immediata') as $utente) {
