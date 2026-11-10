@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Drive;
 use App\DriveNonDisponibile;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\ConDriveFinto;
@@ -27,7 +28,7 @@ class DriveTest extends TestCase
         $this->assertTrue(app(Drive::class)->configurato());
         config(['services.drive.credenziali' => null]);
         $this->assertFalse(app(Drive::class)->configurato());
-        config(["services.drive.credenziali" => "non-e-base64-di-un-json"]);
+        config(['services.drive.credenziali' => 'non-e-base64-di-un-json']);
         $this->assertFalse(app(Drive::class)->configurato());
     }
 
@@ -101,7 +102,7 @@ class DriveTest extends TestCase
 
     public function test_senza_rete_il_messaggio_non_porta_dettagli(): void
     {
-        Http::fake(fn () => throw new \Illuminate\Http\Client\ConnectionException('cURL error 6: '.self::SEGNALE));
+        Http::fake(fn () => throw new ConnectionException('cURL error 6: '.self::SEGNALE));
 
         try {
             app(Drive::class)->carica('backup.zip', 'x', 'application/zip', 'cartella-123');

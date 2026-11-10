@@ -6,7 +6,6 @@ use App\Onboarding\Prova;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use RuntimeException;
 use ZipArchive;
 
 /**
@@ -56,7 +55,7 @@ final class Esportazione
 
     private static function riempi(ZipArchive $zip, Connection $conn): void
     {
-        $sql = "-- Prima nota: esportazione completa del ".now()->format('d/m/Y H:i').".\nSET FOREIGN_KEY_CHECKS=0;\n";
+        $sql = '-- Prima nota: esportazione completa del '.now()->format('d/m/Y H:i').".\nSET FOREIGN_KEY_CHECKS=0;\n";
         $tabelle = collect($conn->getSchemaBuilder()->getTables($conn->getDatabaseName()))->pluck('name')->filter(self::tabellaDaEsportare(...))->sort()->values();
         foreach ($tabelle as $tabella) {
             $colonne = $conn->getSchemaBuilder()->getColumnListing($tabella);
@@ -104,7 +103,7 @@ final class Esportazione
 
     private static function leggimi(): string
     {
-        return "Esportazione completa di Prima nota, ".now()->format('d/m/Y H:i').".\n\n"
+        return 'Esportazione completa di Prima nota, '.now()->format('d/m/Y H:i').".\n\n"
             ."database.sql  per ricostruire il database (mysql nome_database < database.sql)\n"
             ."csv/          una tabella per file, da aprire con Excel o LibreOffice (separatore punto e virgola, UTF-8)\n\n"
             ."Contiene dati personali: conservalo solo sul drive condiviso dell'associazione e non inoltrarlo.\n"
