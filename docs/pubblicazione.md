@@ -21,6 +21,8 @@ In Settings > Environments crea `produzione` e `prova`. Su ciascuno imposta *Dep
 | Segreto | `MAIL_USERNAME`, `MAIL_PASSWORD` | account SMTP della posta del Workspace da cui parte l'avviso di accesso di emergenza (#36; lo riuserà anche #46). `MAIL_PASSWORD` dev'essere una **password per le app** di Google (l'account deve avere la verifica in due passaggi): con la password normale Gmail risponde 535 e l'avviso non parte, senza che nessuno se ne accorga |
 | Segreto | `MIGRAZIONI_TOKEN` | stringa lunga e casuale, per la prima installazione |
 | Segreto | `CRON_TOKEN` | stringa lunga e casuale (almeno 32 caratteri, solo lettere e cifre), per il cron HTTP (vedi *Compiti periodici*), diversa per ogni ambiente |
+| Segreto (facoltativo) | `DRIVE_CREDENZIALI` | il file JSON del service account Google per il drive condiviso (#68), codificato in base64 su una riga (`base64 -w0 chiave.json`). Senza, l'app funziona ma il backup non parte e lo stato del sistema lo dice. Il service account non deve avere ruoli nel progetto: basta che la cartella del backup sia condivisa con lui come *Editor*; l'app chiede solo lo scope `drive.file` |
+| Variabile (facoltativa) | `DRIVE_CARTELLA_BACKUP` | l'id della cartella del drive condiviso dove va il backup (la parte finale dell'indirizzo della cartella) |
 | Variabile | `SITO_URL` | indirizzo dell'app senza barra finale, es. `https://sito.example/contabilita` |
 | Variabile | `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM_ADDRESS` | trasporto della posta: `smtp`, il server SMTP del Workspace (per Gmail `smtp.gmail.com`, porta `465`: TLS implicito, Laravel sceglie `smtps` da solo) e il mittente. Senza `MAIL_MAILER=smtp` Laravel scrive le email nel log e non le spedisce |
 | Variabile | `GOOGLE_WORKSPACE_DOMAIN` | dominio del Workspace |
@@ -32,7 +34,7 @@ Di suo `scripts/scrivi-env.sh` scrive anche `SESSION_PATH` (il percorso di `SITO
 
 ## Estensioni PHP richieste
 
-Da verificare sul piano Aruba (pannello, o `phpinfo()` da togliere subito dopo) prima della prima pubblicazione: `fileinfo` (controllo del contenuto dei file caricati: senza, l'import degli estratti, #40, rifiuta il file con un messaggio che lo dice), `gd` (immagini dei PDF con mPDF, #35), più `pdo_mysql`, `mbstring`, `openssl`, `tokenizer`, `xml`, `ctype`, `json` che Laravel dà per scontate. Docker locale le ha tutte (`docker/web/Dockerfile`).
+Da verificare sul piano Aruba (pannello, o `phpinfo()` da togliere subito dopo) prima della prima pubblicazione: `fileinfo` (controllo del contenuto dei file caricati: senza, l'import degli estratti, #40, rifiuta il file con un messaggio che lo dice), `gd` (immagini dei PDF con mPDF, #35), `zip` (lo zip del backup, #68: senza, il backup fallisce con un messaggio che lo dice), più `pdo_mysql`, `mbstring`, `openssl`, `tokenizer`, `xml`, `ctype`, `json` che Laravel dà per scontate. Docker locale le ha tutte (`docker/web/Dockerfile`).
 
 ## Account di emergenza
 
@@ -48,9 +50,15 @@ Ogni uso, riuscito o fallito, finisce nel registro degli accessi e quelli riusci
 
 ## Compiti periodici
 
-Su Aruba c'è solo il cron come chiamata HTTP (ADR 0001). Nel pannello Aruba si crea, per ciascun ambiente, un cron che ogni 10 minuti chiama `<SITO_URL>/manutenzione/cron?token=<CRON_TOKEN>`: l'app avvia da sola i compiti scaduti dall'ultima chiamata (l'elenco e le scadenze sono in `App\CompitiPeriodici`), una volta sola anche dopo giorni di silenzio. La risposta è un JSON con i comandi avviati. Oggi sono due: la pulizia degli spazi di prova (a mezzanotte) e il riepilogo email delle menzioni (alle 8, ora dell'app). Il token sta nell'indirizzo perché il cron di Aruba non sa mandare intestazioni: finisce nei log di accesso del sito, quindi va tenuto solo lì, cambiato se trapela, e non va riusato altrove. Senza `CRON_TOKEN` l'endpoint risponde sempre 403. Su una VPS basterà `schedule:run` ogni minuto.
+Su Aruba c'è solo il cron come chiamata HTTP (ADR 0001). Nel pannello Aruba si crea, per ciascun ambiente, un cron che ogni 10 minuti chiama `<SITO_URL>/manutenzione/cron?token=<CRON_TOKEN>`: l'app avvia da sola i compiti scaduti dall'ultima chiamata (l'elenco e le scadenze sono in `App\CompitiPeriodici`), una volta sola anche dopo giorni di silenzio. La risposta è un JSON con i comandi avviati. Oggi sono tre: la pulizia degli spazi di prova (a mezzanotte), il riepilogo email delle menzioni (alle 8, ora dell'app) e il backup mensile (il primo del mese alle 3). Il token sta nell'indirizzo perché il cron di Aruba non sa mandare intestazioni: finisce nei log di accesso del sito, quindi va tenuto solo lì, cambiato se trapela, e non va riusato altrove. Senza `CRON_TOKEN` l'endpoint risponde sempre 403. Su una VPS basterà `schedule:run` ogni minuto.
 
 Le email delle menzioni usano la posta di `MAIL_*` e non contengono mai il testo della nota. Dopo la pubblicazione di #46 serve avviare le migrazioni dalla pagina *Migrazioni*.
+
+## Backup (#68)
+
+Il backup è uno zip con `database.sql` (per ricostruire il database senza `mysqldump`) e un CSV per tabella; contiene dati personali, quindi sta solo nella cartella del drive condiviso e in un file temporaneo di `storage/app/private/backup-tmp` che si cancella a fine lavoro. Non entrano sessioni, cache, il token di Google degli utenti né lo spazio di prova. Parte da solo il primo del mese e un Amministratore lo avvia dalla pagina *Sistema*. Se fallisce (drive non configurato o non raggiungibile, zip mancante) l'app va avanti, la pagina *Sistema* mostra l'errore e gli Amministratori ricevono un'email (la stessa posta di `MAIL_*`). Dopo la pubblicazione di #68 serve avviare le migrazioni dalla pagina *Migrazioni*.
+
+Per ricostruire: si scompatta lo zip e si carica `database.sql` in un database vuoto (phpMyAdmin o `mysql nome_database < database.sql`).
 
 ## Prove a secco
 

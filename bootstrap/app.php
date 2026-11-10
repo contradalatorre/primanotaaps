@@ -2,11 +2,14 @@
 
 use App\Http\Middleware\ProvaMiddleware;
 use App\Http\Middleware\VerificaAccountGoogle;
+use App\RegistroErrori;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -23,6 +26,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: ProvaMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Registro degli errori (#68): un'eccezione non gestita che finisce in una risposta 5xx è un errore grave. Le
+        // eccezioni HTTP volute (404, 503 della prova non disponibile) no; e `report()` dei degradi già gestiti nemmeno.
+        $exceptions->respond(function (Response $risposta, Throwable $e) {
+            if ($risposta->getStatusCode() >= 500 && ! $e instanceof HttpExceptionInterface) {
+                RegistroErrori::registra('app', $e, grave: true);
+            }
+
+            return $risposta;
+        });
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
