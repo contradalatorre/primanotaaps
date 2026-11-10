@@ -69,8 +69,10 @@ class RevisioneImportController extends Controller
     /** @return array{movimenti: array<int, string>, passo?: string, dopo?: int} */
     private function valida(Request $request): array
     {
-        // Oltre `max_input_vars` PHP taglia i campi del modulo in silenzio (un campo per movimento): si rifiuta prima, con un margine per gli altri campi.
-        $massimo = min(2000, ((int) ini_get('max_input_vars') ?: 1000) - 20);
+        // Oltre `max_input_vars` PHP taglia i campi del modulo in silenzio (un campo per movimento), e il server non vede quanti
+        // ne erano: un invio tagliato arriva con quasi `max_input_vars` movimenti, quindi sopra questo tetto (con un margine per
+        // gli altri campi) si rifiuta. Un conteggio dichiarato dal client non basterebbe senza script (le caselle si spuntano a mano).
+        $massimo = max(1, min(2000, ((int) ini_get('max_input_vars') ?: 1000) - 20));
 
         return $request->validate([
             'movimenti' => ['required', 'array', 'min:1', 'max:'.$massimo],

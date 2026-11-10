@@ -73,10 +73,12 @@ class MovimentiController extends Controller
     public function salva(Request $request, Movimento $movimento): RedirectResponse
     {
         $this->controllaAutore($request, $movimento);
-        $dati = $this->dati($request, $movimento->conto);
 
-        DB::transaction(function () use ($request, $movimento, $dati) {
+        DB::transaction(function () use ($request, $movimento) {
+            // Prima il conto, come `crea` e la chiusura: la data si controlla contro un conto che non si sta chiudendo.
+            $conto = Conto::lockForUpdate()->findOrFail($movimento->conto_id);
             $this->bloccaEControllaAutore($request, $movimento);
+            $dati = $this->dati($request, $conto);
             $prima = $movimento->istantanea();
             $movimento->update($dati);
             RegistroModifica::registra($request->user(), $movimento, 'modificato', $prima, $movimento->istantanea());
