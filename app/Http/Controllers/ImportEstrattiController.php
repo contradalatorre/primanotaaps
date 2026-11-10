@@ -9,6 +9,7 @@ use App\Models\ImportEstratto;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
 use App\Models\User;
+use App\Onboarding\Prova;
 use App\Regole;
 use Carbon\CarbonInterface;
 use Illuminate\Http\RedirectResponse;
@@ -73,7 +74,7 @@ class ImportEstrattiController extends Controller
 
         $this->scartaAnteprimeVecchie();
         // Un nome casuale: quello del file caricato non entra mai in un percorso.
-        $percorso = 'estratti/'.Str::random(40).'.json';
+        $percorso = app(Prova::class)->cartellaEstratti().'/'.Str::random(40).'.json';
         Storage::disk('local')->put($percorso, $estratto->toJson());
         $import = ImportEstratto::create([
             'conto_id' => $conto->id, 'user_id' => $request->user()->id, 'stato' => 'anteprima', 'percorso' => $percorso,

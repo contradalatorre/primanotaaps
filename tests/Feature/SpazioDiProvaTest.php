@@ -13,7 +13,9 @@ use Illuminate\Http\Client\StrayRequestException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Tests\ConSpazioDiProva;
 use Tests\TestCase;
 
@@ -136,5 +138,75 @@ class SpazioDiProvaTest extends TestCase
         } finally {
             config(['database.connections.prova.database' => $database]);
         }
+    }
+
+    public function test_cancellare_gli_spazi_non_tocca_le_tabelle_con_lo_stesso_prefisso_in_altri_database(): void
+    {
+        // Il database vero, visibile allo stesso utente MySQL, con una tabella che sembra di uno spazio. Una connessione
+        // a parte: il DDL chiude la transazione di RefreshDatabase.
+        $altro = DB::connectUsing('altro', config('database.connections.mysql'));
+        $altro->statement('create table p9_users (id int)');
+        try {
+            $tesoriere = $this->utenteCon('Tesoriere');
+            $this->actingAs($tesoriere)->post(route('impara.avvia', 'benvenuto'));
+
+            $this->prova()->elimina($tesoriere->id);
+            $this->prova()->elimina(9);
+            $this->prova()->eliminaTutto();
+
+            $this->assertTrue($altro->getSchemaBuilder()->hasTable('p9_users'));
+        } finally {
+            $altro->statement('drop table if exists p9_users');
+        }
+    }
+
+    public function test_se_il_database_di_prova_e_quello_vero_non_si_entra(): void
+    {
+        $prova = config('database.connections.prova.database');
+        config(['database.connections.prova.database' => config('database.connections.mysql.database')]);
+
+        try {
+            $this->actingAs($this->utenteCon('Tesoriere'))->post(route('impara.avvia', 'benvenuto'))
+                ->assertRedirect(route('impara'))
+                ->assertSessionHas('avviso');
+            $this->assertFalse(Schema::hasTable('p'.User::first()->id.'_users'), 'nel database vero non nasce nessuna tabella di prova');
+        } finally {
+            config(['database.connections.prova.database' => $prova]);
+        }
+    }
+
+    public function test_l_anteprima_di_prova_si_cancella_con_lo_spazio(): void
+    {
+        Storage::fake('local');
+        $tesoriere = $this->utenteCon('Tesoriere');
+        $this->actingAs($tesoriere)->post(route('impara.avvia', 'import-e-revisione'));
+        $this->post(route('prova.avanti'));
+        $conto = $this->prova()->per($tesoriere, null, fn () => Conto::where('tipo', 'banca')->value('id'));
+
+        $this->post(route('prova.estratto', $conto));
+        $this->assertCount(1, Storage::disk('local')->allFiles('estratti'));
+
+        $this->post(route('impara.avvia', 'import-e-revisione')); // «Ricomincia»
+        $this->assertCount(0, Storage::disk('local')->allFiles('estratti'));
+
+        $this->post(route('prova.avanti'));
+        $this->post(route('prova.estratto', $conto));
+        $this->assertCount(1, Storage::disk('local')->allFiles('estratti'));
+        $this->prova()->elimina($tesoriere->id); // come prova:cancella
+        $this->assertCount(0, Storage::disk('local')->allFiles('estratti'));
+    }
+
+    public function test_usare_lo_spazio_aggiorna_se_si_ha_un_ruolo(): void
+    {
+        $candidato = User::factory()->create();
+        $this->actingAs($candidato)->post(route('impara.avvia', 'benvenuto'));
+        $this->assertFalse((bool) SpazioProva::find($candidato->id)->con_assegnazione);
+
+        // Poi arriva il ruolo; dopo un po' l'uso dello spazio lo registra, così la revoca lo cancellerà.
+        $this->assegna($candidato, 'Consigliere');
+        SpazioProva::whereKey($candidato->id)->update(['ultimo_uso' => now()->subMinutes(2)]);
+        $this->get(route('home'));
+
+        $this->assertTrue((bool) SpazioProva::find($candidato->id)->con_assegnazione);
     }
 }

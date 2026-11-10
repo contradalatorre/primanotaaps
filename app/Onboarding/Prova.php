@@ -6,10 +6,12 @@ use App\Models\SpazioProva;
 use App\Models\User;
 use Closure;
 use Illuminate\Container\Attributes\Singleton;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
 
@@ -60,6 +62,10 @@ final class Prova
             throw new \LogicException('Si è già in prova.');
         }
         $reale = config('database.default');
+        $dove = fn (string $nome) => Arr::only(config("database.connections.{$nome}"), ['host', 'port', 'database']);
+        if ($dove($reale) === $dove(self::CONNESSIONE)) {
+            throw new RuntimeException('Lo spazio di prova non è disponibile: il database di prova è quello vero.');
+        }
         // Sessione, cache e coda restano sul database vero anche se il loro nome non è mai stato scritto in .env.
         config([
             'session.connection' => $reale, 'cache.stores.database.connection' => $reale, 'cache.stores.database.lock_connection' => $reale,
@@ -124,6 +130,17 @@ final class Prova
         SpazioProva::updateOrCreate(['user_id' => $utente->id], ['missione' => $missione->id, 'con_assegnazione' => $utente->assegnazioniAttive()->exists(), 'ultimo_uso' => now()]);
     }
 
+    /**
+     * Da chiamare fuori dalla prova, ad ogni richiesta in prova: al più una volta al minuto aggiorna l'ultimo uso
+     * (serve a cancellare gli spazi inutilizzati da 6 mesi) e se l'utente ha ora un ruolo (serve a cancellare lo
+     * spazio quando lo perde).
+     */
+    public function registraUso(User $utente): void
+    {
+        SpazioProva::whereKey($utente->id)->where('ultimo_uso', '<', now()->subMinute())
+            ->update(['ultimo_uso' => now(), 'con_assegnazione' => $utente->assegnazioniAttive()->exists()]);
+    }
+
     /** Cancella lo spazio di un utente (le tabelle e la riga in `spazi_prova`); timbri e avanzamento restano. */
     public function elimina(int $utenteId): void
     {
@@ -165,7 +182,8 @@ final class Prova
     /** @return list<string> i prefissi `p<id>_` delle tabelle che ci sono nel database di prova */
     private function prefissiEsistenti(): array
     {
-        $nomi = collect(DB::connection(self::CONNESSIONE)->getSchemaBuilder()->getTables())->pluck('name');
+        $conn = DB::connection(self::CONNESSIONE);
+        $nomi = collect($conn->getSchemaBuilder()->getTables($conn->getDatabaseName()))->pluck('name');
 
         return $nomi->map(fn (string $n) => preg_match('/^(p\d+_)users$/', $n, $m) ? $m[1] : null)->filter()->values()->all();
     }
@@ -177,11 +195,24 @@ final class Prova
     private function eliminaTabelle(string $prefisso): void
     {
         $conn = DB::connection(self::CONNESSIONE);
-        $nomi = collect($conn->getSchemaBuilder()->getTables())->pluck('name')->filter(fn (string $n) => str_starts_with($n, $prefisso));
+        $nomi = collect($conn->getSchemaBuilder()->getTables($conn->getDatabaseName()))->pluck('name')->filter(fn (string $n) => str_starts_with($n, $prefisso));
         $conn->getSchemaBuilder()->disableForeignKeyConstraints();
         foreach ($nomi as $nome) {
             $conn->getSchemaBuilder()->drop(substr($nome, strlen($prefisso)));
         }
         $conn->getSchemaBuilder()->enableForeignKeyConstraints();
+        // Anche le anteprime degli estratti dello spazio (`ImportEstrattiController`): le righe sono sparite con le tabelle.
+        Storage::disk('local')->deleteDirectory(self::cartellaProva($prefisso));
+    }
+
+    /** Dove `ImportEstrattiController` scrive le anteprime: in prova una cartella dello spazio, che si cancella con lo spazio. */
+    public function cartellaEstratti(): string
+    {
+        return $this->attiva() ? self::cartellaProva(config('database.connections.'.self::CONNESSIONE.'.prefix')) : 'estratti';
+    }
+
+    private static function cartellaProva(string $prefisso): string
+    {
+        return "estratti/prova/{$prefisso}";
     }
 }

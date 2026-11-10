@@ -8,7 +8,6 @@ use App\Onboarding\Scenario;
 use App\Onboarding\Svolgimento;
 use Closure;
 use Illuminate\Http\Request;
-use App\Models\SpazioProva;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -37,6 +36,7 @@ class ProvaMiddleware
             return $next($request);
         }
 
+        $this->prova->registraUso($utente); // sul database vero: le assegnazioni in prova sono quelle dello scenario
         try {
             $this->prova->entra($utente, $missione);
         } catch (RuntimeException $e) {
@@ -52,8 +52,6 @@ class ProvaMiddleware
             }
             // L'AI preregistrata dello scenario propone, una volta sola, per i movimenti appena importati.
             Scenario::applicaProposte($missione->scenario);
-            // Al più una volta al minuto: serve a cancellare gli spazi inutilizzati da 6 mesi.
-            SpazioProva::whereKey($utente->id)->where('ultimo_uso', '<', now()->subMinute())->update(['ultimo_uso' => now()]);
             $request->attributes->set('guida', $this->svolgimento->guida($missione, $avanzamento, $request->route()?->getName()));
 
             return $next($request);
