@@ -17,6 +17,8 @@ class StatoSistemaController extends Controller
 {
     public function index(Request $request)
     {
+        Esecuzione::chiudiInterrotti();
+
         return view('sistema', [
             'ultimoTentativo' => Backup::latest('avviato_il')->latest('id')->first(),
             'ultimoRiuscito' => Backup::where('esito', 'riuscito')->latest('avviato_il')->latest('id')->first(),
@@ -36,12 +38,13 @@ class StatoSistemaController extends Controller
         if ($backup === null) {
             return redirect()->route('sistema')->with('avviso', 'Un backup è già in corso: aspetta che finisca.');
         }
-        // L'esportazione contiene dati personali: come ogni esportazione, finisce nel registro degli accessi.
+        if ($backup->esito !== 'riuscito') {
+            return redirect()->route('sistema')->with('avviso', 'Il backup non è riuscito: '.$backup->errore.' L’errore è nel registro qui sotto.');
+        }
+        // L'esportazione contiene dati personali: come ogni esportazione fatta, finisce nel registro degli accessi.
         RegistroAccesso::registra('esportazione_backup', $request, $request->user());
 
-        return $backup->esito === 'riuscito'
-            ? redirect()->route('sistema')->with('ok', 'Backup caricato sul drive condiviso.')
-            : redirect()->route('sistema')->with('avviso', 'Il backup non è riuscito: '.$backup->errore.' Gli Amministratori hanno ricevuto un’email.');
+        return redirect()->route('sistema')->with('ok', 'Backup caricato sul drive condiviso.');
     }
 
     public function risolvi(Request $request, Errore $errore): RedirectResponse

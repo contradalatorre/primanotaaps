@@ -22,16 +22,24 @@ final class RegistroErrori
      * Di un'eccezione si registrano classe e punto, non il messaggio: può portare dati (una query con i suoi valori)
      * e finirebbe nell'email. Il dettaglio resta nel log. Le stringhe le scrive il chiamante, quindi sono sicure.
      */
+    public static function descrivi(Throwable $e): string
+    {
+        return get_class($e).' in '.basename($e->getFile()).':'.$e->getLine();
+    }
+
     public static function registra(string $origine, Throwable|string $errore, bool $grave = false): void
     {
+        // In prova (ADR 0003) gli errori non entrano nel registro vero e non partono email: restano nel log dell'app.
+        if (app(Prova::class)->attiva()) {
+            return;
+        }
         try {
-            $messaggio = is_string($errore) ? $errore : get_class($errore).' in '.basename($errore->getFile()).':'.$errore->getLine();
-            $riga = self::conta($origine, mb_substr($messaggio, 0, 500), $grave);
-            if ($riga && $grave) {
+            $riga = self::conta($origine, mb_substr(is_string($errore) ? $errore : self::descrivi($errore), 0, 500), $grave);
+            if ($riga) {
                 self::avvisa($riga);
             }
         } catch (Throwable $e) {
-            Log::error('Registro degli errori non raggiungibile: '.$e::class.' in '.basename($e->getFile()).':'.$e->getLine());
+            Log::error('Registro degli errori non raggiungibile: '.self::descrivi($e));
         }
     }
 
@@ -40,7 +48,7 @@ final class RegistroErrori
         $errore->update(['risolto_il' => now(), 'risolto_da' => $da->id, 'impronta' => null]);
     }
 
-    /** @return Errore|null la riga se va avvisato qualcuno (nuova, o già aperta ma non avvisata da un giorno) */
+    /** @return Errore|null la riga se va avvisato qualcuno (grave, nuova o già aperta ma non avvisata da un giorno) */
     private static function conta(string $origine, string $messaggio, bool $grave): ?Errore
     {
         $adesso = now();
@@ -58,7 +66,7 @@ final class RegistroErrori
             }
             $daAvvisare = $grave && ($riga->avvisato_il === null || $riga->avvisato_il->lte($adesso->copy()->subDay()));
             if ($daAvvisare) {
-                $riga->avvisato_il = $adesso;
+                $riga->avvisato_il = $adesso; // prenotato a riga bloccata: due chiamate insieme non spediscono due volte
             }
             $riga->save();
 
@@ -68,13 +76,15 @@ final class RegistroErrori
 
     private static function avvisa(Errore $riga): void
     {
-        // In prova (ADR 0003) niente email vere, e gli utenti sarebbero quelli dello scenario.
-        if (app(Prova::class)->attiva()) {
-            return;
-        }
-        $destinatari = User::amministratoriAttivi()->pluck('email')->all();
-        if ($destinatari !== []) {
-            Mail::to($destinatari)->send(new ErroreGrave($riga->origine, $riga->messaggio, $riga->volte, $riga->ultimo_il));
+        try {
+            $destinatari = User::amministratoriAttivi()->pluck('email')->all();
+            if ($destinatari !== []) {
+                Mail::to($destinatari)->send(new ErroreGrave($riga->origine, $riga->messaggio, $riga->volte, $riga->ultimo_il));
+            }
+        } catch (Throwable $e) {
+            // La posta giù non si nasconde: l'errore resta da avvisare (riprova alla prossima volta) e lo stato del sistema ne mostra uno a parte.
+            $riga->update(['avvisato_il' => null]);
+            self::registra('posta', 'Email di avviso non partita: '.self::descrivi($e));
         }
     }
 }

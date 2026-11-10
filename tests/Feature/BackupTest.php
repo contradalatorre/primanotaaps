@@ -93,6 +93,26 @@ class BackupTest extends TestCase
         $this->assertSame($this->amministratore->id, $riga->user_id);
     }
 
+    public function test_un_backup_non_riuscito_non_e_un_esportazione_nel_registro_degli_accessi(): void
+    {
+        config(['services.drive.credenziali' => null]);
+
+        $this->eseguiSuRichiesta();
+
+        $this->assertSame(0, RegistroAccesso::where('evento', 'esportazione_backup')->count());
+    }
+
+    public function test_nei_csv_le_formule_si_neutralizzano_ma_i_numeri_negativi_restano(): void
+    {
+        Conto::factory()->create(['nome' => '=HYPERLINK("http://x.example")', 'saldo_iniziale' => -500]);
+
+        $this->eseguiSuRichiesta();
+
+        $csv = $this->zipCaricato()->getFromName('csv/conti.csv');
+        $this->assertStringContainsString("'=HYPERLINK", $csv);
+        $this->assertStringContainsString(';-500;', $csv);
+    }
+
     public function test_il_backup_non_porta_segreti_ne_tabelle_di_servizio_ne_spazi_di_prova(): void
     {
         User::factory()->create(['name' => 'Persona inventata', 'google_refresh_token' => 'REFRESH-TOKEN-'.self::SEGNALE]);
@@ -199,7 +219,7 @@ class BackupTest extends TestCase
         $this->eseguiSuRichiesta()->assertRedirect(route('sistema'));
 
         $this->assertSame('fallito', Backup::sole()->esito);
-        $this->assertSame(1, Errore::count());
+        $this->assertSame(['backup', 'posta'], Errore::orderBy('id')->pluck('origine')->all()); // e il guasto della posta si vede
     }
 
     public function test_un_backup_gia_in_corso_non_se_ne_fa_un_altro(): void

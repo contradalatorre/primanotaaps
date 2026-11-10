@@ -9,18 +9,20 @@ use App\Models\Errore;
 use App\Models\ImportEstratto;
 use App\Models\Ruolo;
 use App\Models\User;
+use App\Onboarding\Prova;
 use App\Permesso;
 use App\RegistroErrori;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
+use Tests\ConSpazioDiProva;
 use Tests\TestCase;
 
 /** Lo stato del sistema e il registro degli errori (#68). Dati inventati. */
 class StatoSistemaTest extends TestCase
 {
-    use RefreshDatabase;
+    use ConSpazioDiProva, RefreshDatabase;
 
     private User $amministratore;
 
@@ -127,6 +129,41 @@ class StatoSistemaTest extends TestCase
 
         Mail::assertSent(ErroreGrave::class, 2);
         Mail::assertSent(ErroreGrave::class, fn ($m) => $m->volte === 4);
+    }
+
+    public function test_se_l_email_non_parte_l_errore_resta_da_avvisare_e_lo_stato_del_sistema_lo_mostra(): void
+    {
+        Mail::shouldReceive('to')->once()->andThrow(new \RuntimeException('Posta non raggiungibile'));
+
+        RegistroErrori::registra('backup', 'Backup non riuscito', grave: true);
+
+        $this->assertNull(Errore::where('origine', 'backup')->sole()->avvisato_il); // alla prossima volta riprova, senza aspettare un giorno
+        $posta = Errore::where('origine', 'posta')->sole();
+        $this->assertFalse($posta->grave);
+        $this->pagina()->assertSee('Email di avviso non partita');
+    }
+
+    public function test_in_prova_nessun_errore_entra_nel_registro_vero(): void
+    {
+        $utente = User::factory()->create();
+
+        $this->app->make(Prova::class)->per($utente, null, fn () => RegistroErrori::registra('app', 'Errore dentro una missione', grave: true));
+
+        $this->assertSame(0, Errore::count());
+        Mail::assertNothingSent();
+    }
+
+    public function test_un_backup_rimasto_in_corso_oltre_l_ora_e_un_errore_grave(): void
+    {
+        $interrotto = Backup::create(['tipo' => 'mensile', 'esito' => 'in_corso', 'avviato_il' => '2026-06-10 08:30']);
+        $recente = Backup::create(['tipo' => 'su_richiesta', 'esito' => 'in_corso', 'avviato_il' => '2026-06-10 09:30']);
+
+        $this->pagina()->assertOk()->assertSee('si è interrotto senza finire');
+
+        $this->assertSame('fallito', $interrotto->refresh()->esito);
+        $this->assertSame('in_corso', $recente->refresh()->esito); // ancora nell'ora di lucchetto: può essere vivo
+        $this->assertTrue(Errore::sole()->grave);
+        Mail::assertSent(ErroreGrave::class, 1);
     }
 
     public function test_un_errore_non_grave_si_registra_senza_email(): void

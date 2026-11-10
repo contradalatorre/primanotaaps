@@ -25,13 +25,14 @@ final class Esecuzione
             return null;
         }
         try {
+            self::chiudiInterrotti();
             $backup = Backup::create(['tipo' => $tipo, 'esito' => 'in_corso', 'user_id' => $da?->id, 'avviato_il' => now()]);
             try {
                 self::esegui($backup);
             } catch (Throwable $e) {
                 // Dei nostri errori il messaggio è sicuro; degli altri (database, zip) resta il dettaglio nel log e qui solo il punto.
                 $nostro = $e instanceof BackupNonRiuscito || $e instanceof DriveNonDisponibile;
-                $messaggio = $nostro ? $e->getMessage() : 'Errore imprevisto: '.$e::class.' in '.basename($e->getFile()).':'.$e->getLine();
+                $messaggio = $nostro ? $e->getMessage() : 'Errore imprevisto: '.RegistroErrori::descrivi($e);
                 $nostro || report($e);
                 $backup->update(['esito' => 'fallito', 'errore' => $messaggio, 'concluso_il' => now()]);
                 RegistroErrori::registra('backup', 'Backup non riuscito: '.$messaggio, grave: true);
@@ -40,6 +41,20 @@ final class Esecuzione
             return $backup;
         } finally {
             $lucchetto->release();
+        }
+    }
+
+    /**
+     * Un errore fatale (tempo o memoria finiti) non passa da `catch`: il tentativo resta `in_corso` e nessuno lo
+     * saprebbe. Oltre l'ora del lucchetto non può più essere vivo: diventa `fallito`, errore grave e email.
+     * Si chiama a ogni nuovo backup e quando si apre lo stato del sistema.
+     */
+    public static function chiudiInterrotti(): void
+    {
+        foreach (Backup::where('esito', 'in_corso')->where('avviato_il', '<', now()->subHour())->get() as $backup) {
+            $messaggio = 'Il backup avviato il '.$backup->avviato_il->format('d/m/Y H:i').' si è interrotto senza finire (tempo o memoria del server esauriti?).';
+            $backup->update(['esito' => 'fallito', 'errore' => $messaggio, 'concluso_il' => now()]);
+            RegistroErrori::registra('backup', 'Backup non riuscito: '.$messaggio, grave: true);
         }
     }
 

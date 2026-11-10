@@ -68,7 +68,7 @@ final class Esportazione
             $righe = [];
             foreach ($conn->table($tabella)->cursor() as $riga) {
                 $riga = array_replace((array) $riga, array_fill_keys(array_intersect($mascherate, $colonne), null));
-                fputcsv($csv, array_map(fn ($v) => $v ?? '', $riga), ';');
+                fputcsv($csv, array_map(self::cellaCsv(...), $riga), ';');
                 $righe[] = '('.implode(',', array_map(fn ($v) => self::valore($conn, $v), $riga)).')';
                 if (count($righe) === 100) {
                     $sql .= self::inserisci($tabella, $colonne, $righe);
@@ -84,6 +84,16 @@ final class Esportazione
         }
         $zip->addFromString('database.sql', $sql."\nSET FOREIGN_KEY_CHECKS=1;\n");
         $zip->addFromString('LEGGIMI.txt', self::leggimi());
+    }
+
+    /** Un testo che comincia come una formula (una descrizione bancaria `=...`) in Excel si eseguirebbe: lo si apre con un apice. I numeri restano com'è. */
+    private static function cellaCsv(mixed $valore): mixed
+    {
+        if (is_string($valore) && ! is_numeric($valore) && preg_match('/^[=+\-@\t\r]/', $valore)) {
+            return "'".$valore;
+        }
+
+        return $valore ?? '';
     }
 
     private static function inserisci(string $tabella, array $colonne, array $righe): string
