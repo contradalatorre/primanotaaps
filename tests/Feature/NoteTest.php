@@ -260,12 +260,11 @@ class NoteTest extends TestCase
         $this->actingAs($tina)->get("/movimenti/{$this->movimento->id}/note")->assertDontSee($url);
     }
 
-    public function test_chi_ha_scritto_la_nota_non_ha_la_menzione_da_segnare_vista(): void
+    public function test_chi_ha_scritto_la_nota_a_un_ruolo_di_cui_fa_parte_non_la_segna_vista(): void
     {
         $tina = $this->utenteCon('Tesoriere', [], ['name' => 'Tina Verdi']);
         $this->scrivi($tina, '@Tesoriere ricordo a tutti lo scontrino');
         $menzione = \App\Models\Menzione::sole();
-        $menzione->update(['user_id' => $tina->id, 'ruolo_id' => null]); // menzione a sé stessa: un dato che la scrittura normale non produce
 
         $this->actingAs($tina)->post("/menzioni/{$menzione->id}/fatto")->assertForbidden();
         $this->assertNull($menzione->refresh()->vista_il);
