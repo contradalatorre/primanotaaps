@@ -345,6 +345,16 @@ class MovimentiTest extends TestCase
         }
     }
 
+    public function test_il_registro_chiama_le_regole_per_nome_e_le_filtra(): void
+    {
+        $tina = $this->utenteCon('Tesoriere', [], ['name' => 'Tina Verdi']);
+        RegistroModifica::create(['user_id' => $tina->id, 'oggetto_tipo' => 'regola', 'oggetto_id' => 7, 'azione' => 'modificata', 'prima' => ['nome' => 'Bollette'], 'dopo' => ['nome' => 'Utenze']]);
+        $this->actingAs($tina)->post("/conti/{$this->festa->id}/movimenti", $this->dati(['descrizione' => 'Solo movimento']));
+
+        $this->actingAs($tina)->get('/registro')->assertSee('ha modificato la regola n. 7')->assertDontSee('ha modificato il movimento n. 7');
+        $this->actingAs($tina)->get('/registro?oggetto=regola')->assertSee('ha modificato la regola n. 7')->assertDontSee('Solo movimento');
+    }
+
     public function test_il_registro_si_filtra_per_oggetto_e_per_persona(): void
     {
         $dario = $this->utenteCon('Consigliere', [], ['name' => 'Dario Gialli']);
