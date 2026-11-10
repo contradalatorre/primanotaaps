@@ -88,6 +88,117 @@ class StoricoClassificazioneTest extends TestCase
         return $movimento->imputazioni()->with('tipologia')->first()?->tipologia->nome;
     }
 
+    private function dati(array $altri = []): array
+    {
+        return $altri + ['nome' => 'Energia', 'testo' => 'FORNITORE ENERGIA', 'tipologia_id' => $this->tipologia('Materiali e beni di consumo'), 'iniziativa_id' => $this->iniziativa('Carnevale')];
+    }
+
+    public function test_le_regole_vengono_prima_dello_storico_e_quando_non_corrispondono_piu_torna_lo_storico(): void
+    {
+        $origine = $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000987654');
+        $this->importaAprile();
+        $bolletta = $this->bolletta();
+        $this->assertSame($origine->id, $bolletta->storico_movimento_id);
+
+        // Una regola nuova che la prende vince sullo storico, e la proposta dello storico se ne va.
+        $this->actingAs($this->tesoriere)->post('/regole', $this->dati())->assertSessionHasNoErrors();
+        $regola = Regola::firstOrFail();
+        $bolletta->refresh();
+        $this->assertSame($regola->id, $bolletta->regola_id);
+        $this->assertNull($bolletta->storico_movimento_id);
+        $this->assertSame('Materiali e beni di consumo', $this->nomeTipologia($bolletta));
+
+        // Se la regola non la prende più, non si torna da classificare: tocca di nuovo allo storico.
+        $this->actingAs($this->tesoriere)->put("/regole/{$regola->id}", $this->dati(['testo' => 'ACQUEDOTTO']))->assertSessionHasNoErrors();
+        $bolletta->refresh();
+        $this->assertNull($bolletta->regola_id);
+        $this->assertSame($origine->id, $bolletta->storico_movimento_id);
+        $this->assertSame('proposto', $bolletta->stato);
+        $this->assertSame('Utenze', $this->nomeTipologia($bolletta));
+    }
+
+    public function test_confermati_e_scelte_a_mano_non_si_toccano_e_salvare_una_proposta_dello_storico_ne_fa_una_scelta_a_mano(): void
+    {
+        $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000987654');
+        $this->importaAprile();
+        $bolletta = $this->bolletta();
+        $this->assertNotNull($bolletta->storico_movimento_id);
+
+        // Salvata com'è, la proposta dello storico diventa una scelta della persona.
+        Classificazione::salva($this->tesoriere, $bolletta, null, [['tipologia_id' => $this->tipologia('Utenze'), 'iniziativa_id' => $this->iniziativa('Carnevale')]]);
+        $bolletta->refresh();
+        $this->assertNull($bolletta->storico_movimento_id);
+        $this->assertSame('Proposta da Tina Verdi', $bolletta->load('proponente', 'regola', 'storicoMovimento', 'storicoEsempio')->fonteProposta());
+
+        // Né una regola né un secondo import la riprendono.
+        $this->actingAs($this->tesoriere)->post('/regole', $this->dati())->assertSessionHasNoErrors();
+        $this->assertNull($bolletta->refresh()->regola_id);
+        $this->assertSame('Utenze', $this->nomeTipologia($bolletta));
+
+        // Un confermato resta com'è.
+        Classificazione::conferma($this->tesoriere, $bolletta, Classificazione::versione($bolletta));
+        $this->actingAs($this->tesoriere)->post('/regole', $this->dati(['nome' => 'Altra', 'testo' => 'ENERGIA']))->assertSessionHasNoErrors();
+        $this->assertSame('confermato', $bolletta->refresh()->stato);
+        $this->assertSame('Utenze', $this->nomeTipologia($bolletta));
+    }
+
+    public function test_un_esempio_senza_movimento_propone_come_un_movimento_ma_senza_collegamento(): void
+    {
+        $esempio = EsempioClassificazione::create([
+            'verso' => 'uscita', 'causale' => 'PAGAMENTO UTENZE', 'descrizione' => 'SDD A : FORNITORE ENERGIA ESEMPIO', 'data' => '2025-04-22',
+            'tipologia_id' => $this->tipologia('Utenze'), 'iniziativa_id' => $this->iniziativa('Carnevale'), 'area' => 'A',
+        ]);
+
+        $import = $this->importaAprile();
+
+        $bolletta = $this->bolletta();
+        $this->assertSame($esempio->id, $bolletta->storico_esempio_id);
+        $this->assertNull($bolletta->storico_movimento_id);
+        $this->assertSame('Storico: come l’esempio del 22/04/2025', $bolletta->load('proponente', 'regola', 'storicoMovimento', 'storicoEsempio')->fonteProposta());
+        $this->assertSame('Utenze', $this->nomeTipologia($bolletta));
+        $this->get("/import/{$import->id}/revisione?passo=pronte&movimento={$bolletta->id}")->assertOk()->assertSee('Storico: come l’esempio del 22/04/2025')->assertDontSee('class="link">Storico', false);
+    }
+
+    public function test_lo_storico_guarda_verso_causale_e_somiglianza_della_descrizione(): void
+    {
+        // Stessa causale, stessa controparte, altro verso: no. Un'altra controparte con la stessa carta: no.
+        $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO', ['verso' => 'entrata'], 'Quote associative', 'Carnevale');
+        $this->precedente('SDD A : ALTRO FORNITORE GAS ESEMPIO');
+        $this->importaAprile();
+        $this->assertSame('da_classificare', $this->bolletta()->stato);
+
+        // Le varianti mensili della stessa controparte (date, numeri, IBAN diversi) combaciano; fra due uguali vince la più recente.
+        $vecchio = $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000111111', ['data' => '2026-01-20'], 'Materiali e beni di consumo');
+        $recente = $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000222222', ['data' => '2026-03-20']);
+        $this->actingAs($this->tesoriere)->post('/regole', $this->dati(['nome' => 'Per ricalcolare', 'testo' => 'ZZZ']))->assertSessionHasNoErrors();
+        $this->assertSame($recente->id, $this->bolletta()->storico_movimento_id);
+        $this->assertNotSame($vecchio->id, $this->bolletta()->storico_movimento_id);
+    }
+
+    public function test_un_precedente_con_un_elemento_archiviato_non_propone(): void
+    {
+        $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO');
+        Iniziativa::where('nome', 'Carnevale')->update(['archiviata_il' => now()]);
+
+        $this->importaAprile();
+
+        $this->assertSame('da_classificare', $this->bolletta()->stato);
+    }
+
+    public function test_le_proposte_dallo_storico_si_confermano_in_blocco(): void
+    {
+        $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000987654');
+        $import = $this->importaAprile();
+        $bolletta = $this->bolletta();
+
+        $pagina = $this->get("/import/{$import->id}/revisione?passo=pronte")->assertOk()->assertSee('Storico: come il movimento del 22/03/2026');
+        preg_match('#<form[^>]*action="[^"]*/conferme-pronte"[^>]*>(.*?)</form>#s', $pagina->getContent(), $modulo);
+        preg_match('/name="impronta" value="([0-9a-f]{64})"/', $modulo[1], $impronta);
+        $this->post("/import/{$import->id}/conferme-pronte", ['impronta' => $impronta[1]])->assertSessionHasNoErrors();
+
+        $this->assertSame('confermato', $bolletta->refresh()->stato);
+    }
+
     public function test_dopo_un_import_lo_storico_propone_come_il_movimento_confermato_simile_e_ne_dice_la_fonte(): void
     {
         $origine = $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000987654');
@@ -106,6 +217,6 @@ class StoricoClassificazioneTest extends TestCase
         // La pagina di revisione mostra la fonte e il collegamento al movimento di origine.
         $import = ImportEstratto::firstOrFail();
         $this->get("/import/{$import->id}/revisione?passo=pronte&movimento={$bolletta->id}")->assertOk()
-            ->assertSee('Storico: come il movimento del 22/03/2026')->assertSee(route('movimenti.classificazione', $origine), false);
+            ->assertSee('Storico: come il movimento del 22/03/2026')->assertSee('class="link">Storico: come il movimento del 22/03/2026', false)->assertSee(route('movimenti.classificazione', $origine), false);
     }
 }
