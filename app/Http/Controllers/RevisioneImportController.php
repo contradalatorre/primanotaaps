@@ -69,12 +69,15 @@ class RevisioneImportController extends Controller
     /** @return array{movimenti: array<int, string>, passo?: string, dopo?: int} */
     private function valida(Request $request): array
     {
+        // Oltre `max_input_vars` PHP taglia i campi del modulo in silenzio (un campo per movimento): si rifiuta prima, con un margine per gli altri campi.
+        $massimo = min(2000, ((int) ini_get('max_input_vars') ?: 1000) - 20);
+
         return $request->validate([
-            'movimenti' => ['required', 'array', 'min:1', 'max:2000'],
+            'movimenti' => ['required', 'array', 'min:1', 'max:'.$massimo],
             'movimenti.*' => ['string', 'size:64'],
             'passo' => ['nullable', Rule::in(array_keys(Revisione::PASSI))],
             'dopo' => ['nullable', 'integer'],
-        ]);
+        ], ['movimenti.max' => 'Sono troppi movimenti per un solo invio (al massimo '.$massimo.'): selezionane meno, oppure usa «Conferma le proposte pronte».']);
     }
 
     private function torna(ImportEstratto $import, array $dati, string $ok): RedirectResponse
