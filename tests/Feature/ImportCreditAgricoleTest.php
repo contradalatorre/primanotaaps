@@ -292,6 +292,23 @@ class ImportCreditAgricoleTest extends TestCase
         $this->anteprima($variante)->assertSeeInOrder(['Già presenti', '5'])->assertSeeInOrder(['In conflitto', '0']);
     }
 
+    public function test_se_il_movimento_presente_e_stato_annullato_non_si_tiene_e_la_riga_si_puo_importare(): void
+    {
+        $primo = $this->importa($this->fixture());
+        $this->importa(str_replace('15/04/2026;14/04/2026;COMMISSIONI', '15/04/2026;15/04/2026;COMMISSIONI', $this->fixture()));
+        $secondo = ImportEstratto::latest('id')->firstOrFail();
+        $conflitto = ImportConflitto::firstOrFail();
+        $this->post("/import/{$primo->id}/annullamento")->assertSessionHasNoErrors(); // il movimento «già presente» esce con il suo import
+
+        // «Tieni il presente» farebbe sparire la riga di banca: né il presente né la riga del file.
+        $this->get("/import/{$secondo->id}")->assertSee('è stato annullato con il suo import')->assertDontSee('Tieni il movimento già presente');
+        $this->post("/import/conflitti/{$conflitto->id}/decisione", ['decisione' => 'tieni_esistente'])->assertSessionHasErrors('estratto');
+        $this->assertNull($conflitto->refresh()->decisione);
+
+        $this->post("/import/conflitti/{$conflitto->id}/decisione", ['decisione' => 'importa_a_parte'])->assertSessionHasNoErrors();
+        $this->assertSame(1, Movimento::count());
+    }
+
     public function test_su_un_conto_chiuso_un_conflitto_non_si_importa_a_parte(): void
     {
         $this->importa($this->fixture());
