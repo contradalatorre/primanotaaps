@@ -10,15 +10,18 @@
             <strong class="importo">{{ $movimento->verso === 'uscita' ? '−' : '+' }}{{ \App\Euro::formatta($movimento->importo) }} €</strong>
             <span class="etichetta">{{ \App\Models\Movimento::VERSI[$movimento->verso] }}</span>
             <span class="etichetta">{{ ['da_classificare' => 'Da classificare', 'proposto' => 'Proposto', 'confermato' => 'Confermato'][$movimento->stato] }}</span>
+            @if ($dubbiVisti->isNotEmpty()) @include('note.pill-dubbio') @endif
         </div>
         <p>{{ $movimento->descrizione }}</p>
         <p class="nota">{{ $movimento->data->format('d/m/Y') }} · {{ $movimento->conto->nome }} · esercizio {{ $movimento->data->year }}</p>
         @if ($movimento->fonteProposta()) <p class="nota">{{ $movimento->fonteProposta() }}</p> @endif
-        @if ($movimento->confermato()) <p class="nota">Una nuova classificazione lo lascia confermato, a nome di chi la salva.</p> @endif
+        @if ($movimento->confermato()) <p class="nota">Una nuova classificazione lo lascia confermato, a nome di chi la salva.@if ($dubbiVisti->isNotEmpty()) Cambiandola, il dubbio si chiude.@endif</p> @endif
     </div>
 
     <form method="POST" action="{{ route('movimenti.classificazione.salva', $movimento) }}" class="modulo modulo-stretto">
         @csrf @method('PUT')
+        {{-- I dubbi che la pagina mostra: salvando un movimento confermato si chiudono solo questi. --}}
+        @foreach ($dubbiVisti as $id)<input type="hidden" name="dubbi_visti[]" value="{{ $id }}">@endforeach
 
         <fieldset>
             <legend>La controparte è</legend>

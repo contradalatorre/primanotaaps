@@ -171,7 +171,8 @@ class ImportEstrattiController extends Controller
 
             $this->registraMovimenti($request->user(), $movimenti, 'eliminato', 'Import annullato', true);
             $import->movimenti()->update(['eliminato_da' => $request->user()->id, 'motivazione_eliminazione' => 'Import annullato', 'eliminato_il' => now()]);
-            // Restano le decisioni già prese: il file ricaricato non rimette in discussione un conflitto deciso.
+            // Restano le decisioni già prese. Il file ricaricato non rimette in discussione un «tieni il presente» (`Conto::classifica`);
+            // un «importa anche questa riga» no: la riga è uscita con questo import e il file la riporta come riga da importare.
             $import->conflitti()->whereNull('decisione')->delete();
 
             $prima = $import->istantanea();
@@ -197,6 +198,11 @@ class ImportEstrattiController extends Controller
             $import = $conflitto->importEstratto;
             if ($conflitto->decisione !== null || $import->stato !== 'confermato') {
                 $this->rifiuta('Questo conflitto è già deciso o l’import non c’è più.');
+            }
+            // Un movimento già presente che l'annullamento di un altro import ha eliminato non si tiene: la riga di banca sparirebbe.
+            $presente = $decisione === 'tieni_esistente' ? Movimento::withTrashed()->lockForUpdate()->find($conflitto->movimento_id) : null;
+            if ($decisione === 'tieni_esistente' && ($presente === null || $presente->trashed())) {
+                $this->rifiuta('Il movimento già presente è stato annullato con il suo import: si può solo importare questa riga.');
             }
             if ($decisione === 'importa_a_parte' && $conto->chiuso()) {
                 $this->rifiuta('Il conto è chiuso: non si importano nuovi movimenti.');

@@ -62,9 +62,13 @@
                     @if ($conflitto->decisione)
                         <p><span class="etichetta">{{ \App\Models\ImportConflitto::DECISIONI[$conflitto->decisione] }}</span></p>
                     @elseif ($import->stato === 'confermato')
+                        @if ($conflitto->movimento->trashed())
+                            <p class="avviso" role="status">Il movimento già presente è stato annullato con il suo import: si può solo importare questa riga.</p>
+                        @endif
                         <form method="POST" action="{{ route('import.decidi', $conflitto) }}" class="modulo-in-riga">
                             @csrf
                             @foreach (\App\Models\ImportConflitto::DECISIONI as $valore => $etichetta)
+                                @continue($valore === 'tieni_esistente' && $conflitto->movimento->trashed())
                                 <button type="submit" name="decisione" value="{{ $valore }}" class="bottone">{{ $etichetta }}</button>
                             @endforeach
                         </form>

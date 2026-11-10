@@ -95,11 +95,13 @@ class ManualeClassificazioneTest extends TestCase
         $tesoriere = $this->utenteCon('Tesoriere');
 
         $this->actingAs($tesoriere)->put("/manuale/{$sezione->id}", ['titolo' => $sezione->titolo, 'corpo' => 'Il primo.', 'versione' => $vista])->assertRedirect('/manuale');
-        $this->actingAs($tesoriere)->from('/manuale')->put("/manuale/{$sezione->id}", ['titolo' => $sezione->titolo, 'corpo' => 'Il secondo.', 'versione' => $vista])
+        $this->actingAs($tesoriere)->from('/manuale')->put("/manuale/{$sezione->id}", ['titolo' => $sezione->titolo, 'corpo' => 'Il secondo.', 'versione' => $vista, 'sezione' => $sezione->id])
             ->assertRedirect('/manuale')->assertSessionHasErrors('versione');
 
         $this->assertSame('Il primo.', $sezione->fresh()->corpo);
         $this->assertSame(1, RegistroModifica::where('oggetto_tipo', 'manuale')->count());
+        // Il testo del secondo non si perde: la pagina lo ripropone nel modulo di quella sezione, con la versione di adesso per riprovare.
+        $this->get('/manuale')->assertOk()->assertSee('Il secondo.')->assertSee('value="'.$sezione->fresh()->versione().'"', false);
     }
 
     public function test_si_aggiunge_una_sezione_con_il_codice_successivo_e_non_si_cancella(): void

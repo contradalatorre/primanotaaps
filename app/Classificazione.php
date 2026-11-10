@@ -30,15 +30,21 @@ final class Classificazione
      * Un movimento non confermato con imputazioni nuove è «proposto» (da chi le ha scritte); uno confermato resta
      * confermato, a nome di chi lo ha riclassificato (#16: l'autore non riprende mai i diritti).
      *
+     * Riclassificare un confermato chiude i suoi dubbi aperti: tutti, o solo quelli in `$dubbiVisti` (id delle note) se
+     * chi salva parte da una pagina che li mostrava; un dubbio nato dopo non lo ha visto nessuno e non si chiude in silenzio.
+     *
+     * @param  ?list<int>  $dubbiVisti null: tutti (per chi ha già controllato la versione, come la revisione)
+     *
      * @throws ValidationException con gli errori sotto `imputazioni.N.campo`
      */
-    public static function salva(User $utente, Movimento $movimento, ?string $tipoControparte, array $righe): void
+    public static function salva(User $utente, Movimento $movimento, ?string $tipoControparte, array $righe, ?array $dubbiVisti = null): void
     {
         $righe = array_filter($righe, fn (array $r) => array_filter($r, fn ($v) => $v !== null && $v !== '' && $v !== []) !== []);
-        $imputazioni = self::risolvi($movimento, $righe);
 
-        DB::transaction(function () use ($utente, $movimento, $tipoControparte, $imputazioni) {
+        DB::transaction(function () use ($utente, $movimento, $tipoControparte, $righe, $dubbiVisti) {
             self::bloccaEControlla($utente, $movimento);
+            // Dopo il blocco: somma e verso si controllano sul movimento com'è adesso, non su quello letto prima.
+            $imputazioni = self::risolvi($movimento, $righe);
             $prima = $movimento->istantanea();
             $firmaPrima = self::firma($movimento->imputazioni()->orderBy('id')->get()->map->only(self::CAMPI_DELLA_CLASSIFICAZIONE));
             self::scriviImputazioni($movimento, $imputazioni);
@@ -59,7 +65,7 @@ final class Classificazione
             $movimento->forceFill(['tipo_controparte' => $tipoControparte ?: null] + $stato)->save();
             RegistroModifica::registra($utente, $movimento, 'classificato', $prima, $movimento->istantanea());
             if ($cambiata && $movimento->confermato()) {
-                Note::chiudiDubbi($utente, $movimento); // riclassificare un confermato lo riconferma: scioglie il dubbio come la conferma
+                Note::chiudiDubbi($utente, $movimento, $dubbiVisti); // riclassificare un confermato lo riconferma: scioglie il dubbio come la conferma
             }
         });
     }

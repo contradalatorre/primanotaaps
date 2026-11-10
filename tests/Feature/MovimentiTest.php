@@ -269,6 +269,30 @@ class MovimentiTest extends TestCase
         $this->assertSame(1, RegistroModifica::where('azione', 'ritirato')->count());
     }
 
+    public function test_se_nel_frattempo_l_autore_lo_ritira_il_tesoriere_non_scrive_una_seconda_eliminazione(): void
+    {
+        $autore = $this->utenteCon('Consigliere');
+        $movimento = $this->movimentoDi($autore);
+        // L'autore ritira tra la lettura del movimento e il blocco della riga.
+        DB::beforeStartingTransaction(fn () => Movimento::whereKey($movimento->id)->update(['eliminato_da' => $autore->id, 'eliminato_il' => now()]));
+
+        $this->actingAs($this->utenteCon('Tesoriere'))->post("/movimenti/{$movimento->id}/eliminazione", ['motivazione' => 'Doppione'])->assertNotFound();
+
+        $this->assertSame($autore->id, Movimento::withTrashed()->findOrFail($movimento->id)->eliminato_da);
+        $this->assertNull(Movimento::withTrashed()->findOrFail($movimento->id)->motivazione_eliminazione);
+        $this->assertSame(0, RegistroModifica::where('azione', 'eliminato')->count());
+    }
+
+    public function test_se_nel_frattempo_il_conto_si_chiude_il_movimento_non_si_inserisce(): void
+    {
+        $consigliere = $this->utenteCon('Consigliere');
+        DB::beforeStartingTransaction(fn () => Conto::whereKey($this->festa->id)->update(['chiuso_il' => '2026-05-05']));
+
+        $this->actingAs($consigliere)->post("/conti/{$this->festa->id}/movimenti", $this->dati(['data' => '2026-05-10']))->assertSessionHasErrors('conto');
+
+        $this->assertSame(0, Movimento::count());
+    }
+
     public function test_il_tesoriere_elimina_un_movimento_manuale_anche_confermato_con_motivazione(): void
     {
         $tesoriere = $this->utenteCon('Tesoriere');
@@ -319,6 +343,16 @@ class MovimentiTest extends TestCase
         foreach (['Consigliere', 'Lettore esterno'] as $ruolo) {
             $this->actingAs($this->utenteCon($ruolo))->get('/registro')->assertForbidden();
         }
+    }
+
+    public function test_il_registro_chiama_le_regole_per_nome_e_le_filtra(): void
+    {
+        $tina = $this->utenteCon('Tesoriere', [], ['name' => 'Tina Verdi']);
+        RegistroModifica::create(['user_id' => $tina->id, 'oggetto_tipo' => 'regola', 'oggetto_id' => 7, 'azione' => 'modificata', 'prima' => ['nome' => 'Bollette'], 'dopo' => ['nome' => 'Utenze']]);
+        $this->actingAs($tina)->post("/conti/{$this->festa->id}/movimenti", $this->dati(['descrizione' => 'Solo movimento']));
+
+        $this->actingAs($tina)->get('/registro')->assertSee('ha modificato la regola n. 7')->assertDontSee('ha modificato il movimento n. 7');
+        $this->actingAs($tina)->get('/registro?oggetto=regola')->assertSee('ha modificato la regola n. 7')->assertDontSee('Solo movimento');
     }
 
     public function test_il_registro_si_filtra_per_oggetto_e_per_persona(): void

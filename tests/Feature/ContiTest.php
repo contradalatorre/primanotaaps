@@ -202,6 +202,32 @@ class ContiTest extends TestCase
         $this->assertNull($conto->fresh()->chiuso_il);
     }
 
+    public function test_chiudere_il_conto_dell_unico_amministratore_e_rifiutato(): void
+    {
+        $conto = Conto::factory()->create(['aperto_il' => '2026-01-01']);
+        $admin = $this->utenteCon('Amministratore', ['conti' => [$conto->id]]);
+        $tesoriere = $this->utenteCon('Tesoriere');
+
+        $this->actingAs($tesoriere)->post("/conti/{$conto->id}/chiusura", ['chiuso_il' => today()->toDateString()])
+            ->assertSessionHasErrors('amministratori');
+
+        $this->assertNull($conto->fresh()->chiuso_il);
+        $this->assertTrue($admin->fresh()->puo(Permesso::GestireUtenti));
+        $this->assertSame(0, RegistroModifica::where('azione', 'chiuso')->count());
+    }
+
+    public function test_si_chiude_il_conto_se_resta_un_altro_amministratore(): void
+    {
+        $conto = Conto::factory()->create(['aperto_il' => '2026-01-01']);
+        $this->utenteCon('Amministratore', ['conti' => [$conto->id]]);
+        $this->utenteCon('Amministratore');
+
+        $this->actingAs($this->utenteCon('Tesoriere'))->post("/conti/{$conto->id}/chiusura", ['chiuso_il' => today()->toDateString()])
+            ->assertRedirect('/conti');
+
+        $this->assertNotNull($conto->fresh()->chiuso_il);
+    }
+
     public function test_la_chiusura_non_puo_essere_nel_futuro_ne_prima_dell_apertura(): void
     {
         $conto = Conto::factory()->create(['aperto_il' => '2026-05-01']);

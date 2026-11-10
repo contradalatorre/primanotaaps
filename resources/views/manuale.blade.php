@@ -36,13 +36,16 @@
             <h2>§ {{ $sezione->codice }} {{ $sezione->titolo }}</h2>
             {!! $sezione->html() !!}
             @can('gestire_regole')
-                <details>
+                {{-- Dopo un rifiuto (versione superata, campo vuoto) la sezione riproposta è quella inviata, con il testo che si era scritto. --}}
+                @php $inviata = (int) old('sezione') === $sezione->id; @endphp
+                <details @if ($inviata) open @endif>
                     <summary>Modifica</summary>
                     <form method="POST" action="{{ route('manuale.salva', $sezione) }}" class="modulo modulo-stretto">
                         @csrf @method('PUT')
                         <input type="hidden" name="versione" value="{{ $sezione->versione() }}">
-                        <label>Titolo <input type="text" name="titolo" value="{{ $sezione->titolo }}" maxlength="255" required></label>
-                        <label>Testo <textarea name="corpo" rows="12" maxlength="65000" required>{{ $sezione->corpo }}</textarea></label>
+                        <input type="hidden" name="sezione" value="{{ $sezione->id }}">
+                        <label>Titolo <input type="text" name="titolo" value="{{ $inviata ? old('titolo') : $sezione->titolo }}" maxlength="255" required></label>
+                        <label>Testo <textarea name="corpo" rows="12" maxlength="65000" required>{{ $inviata ? old('corpo') : $sezione->corpo }}</textarea></label>
                         <button type="submit" class="bottone">Salva</button>
                     </form>
                 </details>

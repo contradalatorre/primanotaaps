@@ -12,7 +12,7 @@ class RegistroController extends Controller
     public function index(Request $request)
     {
         $utenteId = $request->integer('utente') ?: null;
-        $oggetto = in_array($request->query('oggetto'), ['conto', 'movimento', 'tipologia', 'attivita', 'iniziativa', 'tag', 'import', 'manuale', 'nota'], true) ? $request->query('oggetto') : null;
+        $oggetto = in_array($request->query('oggetto'), ['conto', 'movimento', 'tipologia', 'attivita', 'iniziativa', 'tag', 'import', 'manuale', 'nota', 'regola'], true) ? $request->query('oggetto') : null;
 
         return view('registro', [
             'righe' => RegistroModifica::with('user')

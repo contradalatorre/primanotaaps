@@ -47,8 +47,11 @@ if (revisione) {
     // J e K vanno al movimento dopo e prima, Invio conferma quello aperto, Esc chiude il dettaglio.
     // J e K sono scorciatoie di un carattere (WCAG 2.1.4): valgono solo con il focus nell'elenco o nel dettaglio,
     // mai in un campo di testo, e senza distinguere maiuscole (Caps Lock). Per questo il dettaglio prende il focus quando si apre.
-    document.querySelector('.dettaglio')?.setAttribute('tabindex', '-1');
-    document.querySelector('.dettaglio')?.focus({ preventScroll: true });
+    // Senza dettaglio (primo caricamento, o dopo Esc che torna su #riga-X) il focus va al collegamento di quella riga, o
+    // della prima: altrimenti resta sul body e J/K non rispondono finché non si preme Tab.
+    const dettaglio = document.querySelector('.dettaglio');
+    dettaglio?.setAttribute('tabindex', '-1');
+    (dettaglio ?? document.getElementById(location.hash.slice(1))?.querySelector('.riga-desc a') ?? document.querySelector('.riga-desc a'))?.focus({ preventScroll: true });
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, select, textarea, [contenteditable]')) return;
         const tasto = e.key.length === 1 ? e.key.toLowerCase() : e.key;

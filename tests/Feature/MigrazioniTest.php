@@ -113,9 +113,9 @@ class MigrazioniTest extends TestCase
         Artisan::call('db:wipe', ['--force' => true]);
 
         // Una cartella di migrazioni con una sola migrazione che fallisce, come un database che non risponde bene.
-        $cartella = sys_get_temp_dir() . '/migrazioni-prova-' . uniqid();
-        mkdir($cartella . '/migrations', 0777, true);
-        file_put_contents($cartella . '/migrations/2000_01_01_000000_fallisce.php', <<<'PHP'
+        $cartella = sys_get_temp_dir().'/migrazioni-prova-'.uniqid();
+        mkdir($cartella.'/migrations', 0777, true);
+        file_put_contents($cartella.'/migrations/2000_01_01_000000_fallisce.php', <<<'PHP'
             <?php
             return new class extends Illuminate\Database\Migrations\Migration {
                 public function up(): void { throw new RuntimeException('Access denied for user contabilita@db'); }
@@ -127,8 +127,8 @@ class MigrazioniTest extends TestCase
             $risposta = $this->postJson(self::PRIMA_INSTALLAZIONE, [], self::TOKEN);
         } finally {
             $this->app->useDatabasePath(base_path('database'));
-            unlink($cartella . '/migrations/2000_01_01_000000_fallisce.php');
-            rmdir($cartella . '/migrations');
+            unlink($cartella.'/migrations/2000_01_01_000000_fallisce.php');
+            rmdir($cartella.'/migrations');
             rmdir($cartella);
         }
 
@@ -151,7 +151,7 @@ class MigrazioniTest extends TestCase
     {
         $this->utente('Amministratore');
         $this->schemaIndietroDiUna();
-        $lock = Cache::lock('framework' . DIRECTORY_SEPARATOR . 'command-migrate', 60);
+        $lock = Cache::lock('framework'.DIRECTORY_SEPARATOR.'command-migrate', 60);
         $lock->get();
 
         // Un'altra migrazione è già in corso: questa non parte.

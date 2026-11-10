@@ -166,6 +166,19 @@ class RevisioneImportTest extends TestCase
         $this->assertSame(4, RegistroModifica::where('azione', 'confermato')->count());
     }
 
+    public function test_troppi_movimenti_in_un_invio_si_rifiutano_invece_di_essere_tagliati_da_max_input_vars(): void
+    {
+        $s = $this->scenario();
+        // Oltre `max_input_vars` PHP taglia i campi in silenzio: meglio rifiutare con un messaggio che confermare solo i primi.
+        $troppi = array_fill(1000, (int) ini_get('max_input_vars'), str_repeat('a', 64));
+
+        $this->confermaVia(['movimenti' => $this->versioni($s['ghiaccio']) + $troppi])->assertSessionHasErrors('movimenti');
+        $this->post("/import/{$this->import->id}/iniziativa", ['movimenti' => $troppi, 'iniziativa_id' => Iniziativa::value('id')])->assertSessionHasErrors('movimenti');
+
+        $this->assertSame('proposto', $s['ghiaccio']->refresh()->stato);
+        $this->assertStringContainsString('Conferma le proposte pronte', session('errors')->first('movimenti'));
+    }
+
     public function test_con_un_movimento_che_non_si_conferma_non_se_ne_conferma_nessuno(): void
     {
         $s = $this->scenario();

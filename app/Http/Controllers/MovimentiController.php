@@ -45,10 +45,14 @@ class MovimentiController extends Controller
 
     public function crea(Request $request, Conto $conto): RedirectResponse
     {
-        $this->controllaCassaAperta($conto);
-        $dati = $this->dati($request, $conto);
+        $this->controllaCassaAperta($conto); // rifiuto rapido: quello che vale si rifà sotto, a conto bloccato
 
-        DB::transaction(function () use ($request, $conto, $dati) {
+        DB::transaction(function () use ($request, $conto) {
+            // Come la chiusura e la conferma dell'import: prima il conto. Senza, un movimento scritto mentre il conto si chiude
+            // finirebbe dopo la data di chiusura.
+            $conto = Conto::lockForUpdate()->findOrFail($conto->id);
+            $this->controllaCassaAperta($conto);
+            $dati = $this->dati($request, $conto);
             $movimento = new Movimento($dati);
             $movimento->conto_id = $conto->id;
             $movimento->inserito_da = $request->user()->id;
@@ -69,10 +73,12 @@ class MovimentiController extends Controller
     public function salva(Request $request, Movimento $movimento): RedirectResponse
     {
         $this->controllaAutore($request, $movimento);
-        $dati = $this->dati($request, $movimento->conto);
 
-        DB::transaction(function () use ($request, $movimento, $dati) {
+        DB::transaction(function () use ($request, $movimento) {
+            // Prima il conto, come `crea` e la chiusura: la data si controlla contro un conto che non si sta chiudendo.
+            $conto = Conto::lockForUpdate()->findOrFail($movimento->conto_id);
             $this->bloccaEControllaAutore($request, $movimento);
+            $dati = $this->dati($request, $conto);
             $prima = $movimento->istantanea();
             $movimento->update($dati);
             RegistroModifica::registra($request->user(), $movimento, 'modificato', $prima, $movimento->istantanea());
@@ -115,8 +121,12 @@ class MovimentiController extends Controller
     private function eliminaLogicamente(Request $request, Movimento $movimento, string $azione, ?string $motivazione, bool $comeAutore = false): void
     {
         DB::transaction(function () use ($request, $movimento, $azione, $motivazione, $comeAutore) {
+            // Anche per il Tesoriere: un ritiro concorrente porterebbe due righe di registro e sovrascriverebbe chi ha eliminato.
+            // Il movimento già eliminato non si trova più (404).
+            Classificazione::blocca($movimento);
+            $movimento->refresh();
             if ($comeAutore) {
-                $this->bloccaEControllaAutore($request, $movimento);
+                $this->controllaAutore($request, $movimento);
             }
             $prima = $movimento->istantanea();
             $movimento->forceFill(['eliminato_da' => $request->user()->id, 'motivazione_eliminazione' => $motivazione])->save();

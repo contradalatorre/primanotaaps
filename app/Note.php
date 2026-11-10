@@ -95,13 +95,14 @@ final class Note
 
     /**
      * Chiude i dubbi aperti del movimento. Da chiamare a riga del movimento già bloccata: lo fa la conferma
-     * (`Classificazione::conferma`), dopo i suoi controlli.
+     * (`Classificazione::conferma`), dopo i suoi controlli. Con `$soloQuesti` (id di note) chiude solo quelli.
      *
+     * @param  ?list<int>  $soloQuesti
      * @return int quanti ne ha chiusi
      */
-    public static function chiudiDubbi(User $utente, Movimento $movimento): int
+    public static function chiudiDubbi(User $utente, Movimento $movimento, ?array $soloQuesti = null): int
     {
-        $aperti = $movimento->note()->dubbioAperto()->lockForUpdate()->get();
+        $aperti = $movimento->note()->dubbioAperto()->when($soloQuesti !== null, fn ($q) => $q->whereIn('id', $soloQuesti))->lockForUpdate()->get();
         foreach ($aperti as $nota) {
             $prima = $nota->istantanea();
             $nota->forceFill(['chiuso_il' => now(), 'chiuso_da' => $utente->id])->save();

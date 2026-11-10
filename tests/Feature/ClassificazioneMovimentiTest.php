@@ -8,6 +8,7 @@ use App\Models\Conto;
 use App\Models\Imputazione;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
+use App\Models\Nota;
 use App\Models\RegistroModifica;
 use App\Models\Tag;
 use App\Models\Tipologia;
@@ -586,6 +587,76 @@ class ClassificazioneMovimentiTest extends TestCase
         $this->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E']]])->assertNotFound();
 
         $this->assertSame(0, $movimento->imputazioni()->count());
+    }
+
+    public function test_la_somma_si_controlla_sul_movimento_riletto_a_riga_bloccata(): void
+    {
+        $this->actingAs($this->utenteCon('Tesoriere'));
+        $movimento = $this->movimento(['importo' => 1250]);
+        // Il movimento cambia importo tra la lettura del controllore e il blocco della riga.
+        DB::beforeStartingTransaction(fn () => Movimento::whereKey($movimento->id)->update(['importo' => 2000]));
+
+        $this->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E']]])->assertSessionHasNoErrors();
+
+        $this->assertSame(2000, $movimento->imputazioni()->sole()->importo);
+    }
+
+    public function test_l_autore_non_classifica_il_proprio_movimento_su_un_conto_chiuso(): void
+    {
+        $consigliere = $this->utenteCon('Consigliere');
+        $movimento = $this->movimento([], $consigliere);
+        $this->festa->update(['chiuso_il' => '2026-05-15']);
+
+        $this->actingAs($consigliere)->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E']]])->assertForbidden();
+        $this->actingAs($this->utenteCon('Tesoriere'))->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E']]])->assertSessionHasNoErrors();
+    }
+
+    /** Un movimento confermato e classificato come Utenze, su cui un consigliere ha scritto un dubbio. */
+    private function confermatoInDubbio(): Movimento
+    {
+        $tesoriere = $this->utenteCon('Tesoriere');
+        $movimento = $this->movimento();
+        $this->actingAs($tesoriere)->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Utenze'), 'area' => 'E']]]);
+        $this->conferma($movimento);
+        $this->nuovoDubbio($movimento);
+
+        return $movimento;
+    }
+
+    private function nuovoDubbio(Movimento $movimento): Nota
+    {
+        return $movimento->note()->create(['user_id' => $this->utenteCon('Consigliere')->id, 'testo' => 'Non torna', 'dubbio' => true]);
+    }
+
+    public function test_la_pagina_di_classificazione_mostra_il_dubbio_aperto(): void
+    {
+        $movimento = $this->confermatoInDubbio();
+
+        $this->get($this->url($movimento))->assertOk()->assertSee('In dubbio')->assertSee('name="dubbi_visti[]" value="'.$movimento->note()->value('id').'"', false);
+    }
+
+    public function test_riclassificare_un_confermato_chiude_solo_il_dubbio_che_la_pagina_mostrava(): void
+    {
+        $movimento = $this->confermatoInDubbio();
+        $visto = $movimento->note()->sole();
+        $nuovo = $this->nuovoDubbio($movimento); // scritto dopo che la pagina era stata aperta
+        $riclassifica = ['imputazioni' => [['tipologia_id' => $this->tipologia('Assicurazioni'), 'area' => 'E']]];
+
+        $this->put($this->url($movimento), $riclassifica + ['dubbi_visti' => [$visto->id]])->assertSessionHasNoErrors();
+
+        $this->assertNotNull($visto->refresh()->chiuso_il);
+        $this->assertNull($nuovo->refresh()->chiuso_il);
+        $this->assertTrue($movimento->refresh()->inDubbio());
+    }
+
+    public function test_riclassificare_senza_aver_visto_il_dubbio_non_lo_chiude(): void
+    {
+        $movimento = $this->confermatoInDubbio();
+
+        $this->put($this->url($movimento), ['imputazioni' => [['tipologia_id' => $this->tipologia('Assicurazioni'), 'area' => 'E']]])->assertSessionHasNoErrors();
+
+        $this->assertSame('Assicurazioni', $movimento->imputazioni()->sole()->tipologia->nome);
+        $this->assertTrue($movimento->refresh()->inDubbio());
     }
 
     public function test_la_pagina_di_classificazione_mostra_la_spiegazione_delle_tipologie_e_le_imputazioni_salvate(): void
