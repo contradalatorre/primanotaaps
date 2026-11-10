@@ -133,12 +133,12 @@ final class Prova
     /**
      * Da chiamare fuori dalla prova, ad ogni richiesta in prova: al più una volta al minuto aggiorna l'ultimo uso
      * (serve a cancellare gli spazi inutilizzati da 6 mesi) e se l'utente ha ora un ruolo (serve a cancellare lo
-     * spazio quando lo perde).
+     * spazio quando lo perde). Il segno non si toglie mai: chi perde il ruolo e continua a usare lo spazio va cancellato lo stesso.
      */
     public function registraUso(User $utente): void
     {
         SpazioProva::whereKey($utente->id)->where('ultimo_uso', '<', now()->subMinute())
-            ->update(['ultimo_uso' => now(), 'con_assegnazione' => $utente->assegnazioniAttive()->exists()]);
+            ->update(['ultimo_uso' => now()] + ($utente->assegnazioniAttive()->exists() ? ['con_assegnazione' => true] : []));
     }
 
     /** Cancella lo spazio di un utente (le tabelle e la riga in `spazi_prova`); timbri e avanzamento restano. */

@@ -43,6 +43,19 @@ class CancellazioneSpaziTest extends TestCase
         $this->assertSame(5, Avanzamento::count(), 'l’avanzamento resta');
     }
 
+    public function test_perdere_il_ruolo_e_continuare_a_usare_lo_spazio_non_lo_salva_dalla_cancellazione(): void
+    {
+        $utente = $this->utenteCon('Consigliere');
+        $this->actingAs($utente)->post(route('impara.avvia', 'benvenuto'));
+        $utente->assegnazioni()->delete(); // revocata, ma lo spazio si usa ancora
+        SpazioProva::whereKey($utente->id)->update(['ultimo_uso' => now()->subMinutes(2)]);
+        $this->get(route('home'));
+
+        $this->artisan('prova:cancella')->assertSuccessful();
+
+        $this->assertFalse($this->prova()->esiste($utente->id));
+    }
+
     public function test_il_comando_gira_ogni_giorno(): void
     {
         $eventi = collect(app(Schedule::class)->events())->filter(fn ($e) => str_contains($e->command, 'prova:cancella'));
