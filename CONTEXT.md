@@ -184,6 +184,10 @@ _Avoid_: commento, annotazione
 Il richiamo `@utente` o `@ruolo` dentro una nota, che chiede l'attenzione di qualcuno finché non lo segna come fatto; non va confuso con il tag.
 _Avoid_: tag, notifica
 
+**Compito periodico**:
+Un comando che parte da solo a una scadenza (la pulizia degli spazi di prova, il riepilogo email delle menzioni alle 8); su Aruba lo avvia la chiamata HTTP del cron, protetta da un token.
+_Avoid_: job, cron job
+
 **Dubbio**:
 Una nota contrassegnata che segnala un movimento da verificare; il movimento resta in dubbio finché la nota è aperta, e la conferma la chiude.
 _Avoid_: sospeso, da verificare
