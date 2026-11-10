@@ -300,7 +300,7 @@ final class Regole
                 }
             }
             if ($regola?->id === $movimento->regola_id && ($regola === null || $regola->id !== $toccata)
-                && $precedente?->movimento?->id === $movimento->storico_movimento_id && $precedente?->esempio?->id === $movimento->storico_esempio_id) {
+                && $precedente?->movimento?->id === $movimento->storico_movimento_id && $precedente?->esempio?->id === $movimento->storico_esempio_id && ($precedente === null || Classificazione::haGia($movimento, $imputazioni))) {
                 continue;
             }
             $tipoDiPrima = $movimento->regola_id === $toccata ? $tipoDellaToccata : $regole->firstWhere('id', $movimento->regola_id)?->tipo_controparte;

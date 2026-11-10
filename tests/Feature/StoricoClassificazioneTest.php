@@ -118,6 +118,30 @@ class StoricoClassificazioneTest extends TestCase
         $this->assertSame('Utenze', $this->nomeTipologia($bolletta));
     }
 
+    public function test_se_il_precedente_viene_riclassificato_la_proposta_lo_segue(): void
+    {
+        $origine = $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000987654');
+        $this->importaAprile();
+        $this->assertSame('Utenze', $this->nomeTipologia($this->bolletta()));
+
+        // Il precedente resta confermato ma cambia classificazione: la proposta non resta quella vecchia.
+        Classificazione::salva($this->tesoriere, $origine, null, [['tipologia_id' => $this->tipologia('Materiali e beni di consumo'), 'iniziativa_id' => $this->iniziativa('Carnevale')]]);
+        $this->actingAs($this->tesoriere)->post('/regole', $this->dati(['nome' => 'Per ricalcolare', 'testo' => 'ZZZ']))->assertSessionHasNoErrors();
+
+        $this->assertSame('Materiali e beni di consumo', $this->nomeTipologia($this->bolletta()));
+    }
+
+    public function test_le_condizioni_suggerite_contengono_una_parola_della_controparte(): void
+    {
+        // Fra prefisso e nome cambia qualcosa: la frase comune più lunga sarebbe solo la carta, che prende ogni pagamento.
+        foreach (['03/03', '04/04', '05/05'] as $i => $giorno) {
+            $this->precedente('CARTA CA DEBIT VISA *1234 DEL '.$giorno.' ESSELUNGA', ['causale' => 'PAGAMENTO TRAMITE POS', 'data' => '2026-0'.($i + 1).'-10']);
+        }
+        $pagina = $this->actingAs($this->tesoriere)->get('/regole')->assertOk()->assertSee('Crea una regola');
+        preg_match('#href="([^"]+)"[^>]*>Crea una regola#', $pagina->getContent(), $collegamento);
+        $this->get(html_entity_decode($collegamento[1]))->assertOk()->assertSee('name="testo" value="ESSELUNGA"', false);
+    }
+
     public function test_l_anteprima_dice_che_un_movimento_lasciato_dalla_regola_passa_allo_storico(): void
     {
         $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000987654');

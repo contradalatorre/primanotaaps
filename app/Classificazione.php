@@ -114,6 +114,13 @@ final class Classificazione
         }
     }
 
+    /** Il movimento ha già queste imputazioni (i tag non contano): per non riscrivere una proposta che non cambia. */
+    public static function haGia(Movimento $movimento, array $imputazioni): bool
+    {
+        return self::firma($movimento->imputazioni()->orderBy('id')->get()->map->only(self::CAMPI_DELLA_CLASSIFICAZIONE))
+            === self::firma(collect($imputazioni)->map(fn ($i) => Arr::only($i, self::CAMPI_DELLA_CLASSIFICAZIONE)));
+    }
+
     /**
      * Mette sul movimento la proposta della regola o dello storico, o la toglie (nessuno dei due: torna da classificare).
      * Per chi ha già bloccato la riga e controllato che sia da classificare o proposta da una regola o dallo storico: i

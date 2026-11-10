@@ -25,7 +25,11 @@ class RegoleController extends Controller
     /** Il modulo vuoto, o precompilato dai valori nell'indirizzo (il suggerimento dello storico): si vedono nel modulo, non si salvano da soli. */
     public function nuova(Request $request)
     {
-        return $this->modulo(new Regola, null, $request->only(['nome', 'verso', 'causale', 'testo', 'tipologia_id', 'iniziativa_id', 'area', 'attivita_id', 'tag']));
+        // Solo valori semplici (`?nome[]=x` non è un nome); i tag sono l'unico elenco.
+        $iniziali = collect($request->only(['nome', 'verso', 'causale', 'testo', 'tipologia_id', 'iniziativa_id', 'area', 'attivita_id', 'tag']))
+            ->filter(fn ($v, $campo) => $campo === 'tag' ? is_array($v) && collect($v)->every(fn ($x) => is_scalar($x)) : is_scalar($v))->all();
+
+        return $this->modulo(new Regola, null, $iniziali);
     }
 
     public function modifica(Regola $regola)

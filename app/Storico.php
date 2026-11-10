@@ -13,7 +13,16 @@ use Illuminate\Support\Collection;
  * Viene dopo le regole nella cascata (`App\Regole`). La controparte oggi sta nella descrizione dell'estratto, quindi
  * «stessa controparte e causale» vuol dire stessa causale e descrizione simile, e «molto simile» una descrizione quasi
  * uguale anche con un'altra causale; il verso deve sempre coincidere. Si legge dai movimenti confermati così come sono
- * (nessuna copia da tenere allineata): se uno viene riclassificato o eliminato, lo storico lo sa subito.
+ * (nessuna copia da tenere allineata): se uno viene riclassificato o eliminato, la proposta si aggiorna alla prossima
+ * esecuzione della cascata.
+ *
+ * La cascata gira all'import e quando si salvano o riordinano le regole (`App\Regole::assegna`), non a ogni conferma:
+ * rifarla dalla conferma di un solo movimento vorrebbe bloccare tutti i candidati da un percorso che tiene solo la sua
+ * riga, e potrebbe andare in stallo contro il salvataggio delle regole. Quindi i movimenti dello stesso import non
+ * imparano da una conferma fatta durante la revisione finché non arriva un nuovo import o si salva una regola.
+ * shortcut: i confermati si leggono senza blocco, e una riclassificazione in corso può sfuggire a una esecuzione; la
+ * prossima la corregge. Si guarda solo il precedente più simile: se la sua proposta non si può fare (elemento
+ * archiviato, voce non ammessa nell'esercizio) non si ripiega sul secondo.
  */
 final class Storico
 {
@@ -71,6 +80,8 @@ final class Storico
      * Le regole che conviene creare: gruppi di almeno tre movimenti confermati con la stessa controparte (le stesse
      * parole), verso, causale e classificazione, e che nessuna regola prende già. Non crea nulla: dà le condizioni già
      * compilate, che la persona rivede e salva. Contano i movimenti confermati, non gli esempi.
+     * shortcut: «stessa controparte» qui è lo stesso identico insieme di parole, più severo della somiglianza usata per proporre
+     * (un mese scritto in lettere nella descrizione impedisce il gruppo); da allentare se in pratica i suggerimenti non arrivano.
      *
      * @return Collection<int, array{conferme: int, a_parole: string, valori: array<string,mixed>}>
      */
@@ -109,7 +120,8 @@ final class Storico
         foreach (array_keys($parole) as $da) {
             for ($a = $da; $a < count($parole); $a++) {
                 $parte = implode(' ', array_slice($parole, $da, $a - $da + 1));
-                if (mb_strlen($parte) > mb_strlen($migliore) && collect($descrizioni)->every(fn ($d) => mb_stripos($d, $parte) !== false)) {
+                // Almeno una parola della controparte: la sola carta o il solo prefisso della banca prenderebbero ogni pagamento.
+                if (mb_strlen($parte) > mb_strlen($migliore) && self::parole($parte) !== [] && collect($descrizioni)->every(fn ($d) => mb_stripos($d, $parte) !== false)) {
                     $migliore = $parte;
                 }
             }
