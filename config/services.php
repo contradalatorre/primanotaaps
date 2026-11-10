@@ -35,6 +35,12 @@ return [
         'workspace_domain' => env('GOOGLE_WORKSPACE_DOMAIN'),
     ],
 
+    // Drive condiviso con service account (ADR 0001, #68): il JSON del service account in base64, solo nei segreti.
+    'drive' => [
+        'credenziali' => env('DRIVE_CREDENZIALI'),
+        'cartella_backup' => env('DRIVE_CARTELLA_BACKUP'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
