@@ -81,7 +81,8 @@ class CompitiPeriodiciTest extends TestCase
     public function test_la_chiamata_riuscita_registra_l_avvio_e_non_crea_sessioni(): void
     {
         $this->travelTo('2026-06-01 07:55');
-        $this->get(self::URL)->assertOk()->assertSessionMissing('_token');
+        // Niente cookie di sessione: `assertSessionMissing` avvierebbe lei la sessione e troverebbe sempre `_token`.
+        $this->get(self::URL)->assertOk()->assertCookieMissing(config('session.cookie'));
 
         $this->assertSame('2026-06-01 07:55:00', DB::table('compiti_periodici')->where('nome', 'menzioni:riepilogo')->value('ultimo_avvio'));
     }

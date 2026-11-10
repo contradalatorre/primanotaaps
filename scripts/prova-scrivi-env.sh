@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 
 export APP_URL=https://sito.example/contabilita APP_KEY=base64:abc DB_HOST=db DB_DATABASE=d DB_USERNAME=u
 export DB_PASSWORD='p#a$s"w' GOOGLE_CLIENT_ID=i GOOGLE_CLIENT_SECRET=s GOOGLE_WORKSPACE_DOMAIN=associazione.example
-export AMMINISTRATORI_INIZIALI=maria@associazione.example MIGRAZIONI_TOKEN=t
+export AMMINISTRATORI_INIZIALI=maria@associazione.example MIGRAZIONI_TOKEN=t CRON_TOKEN=c
 export MAIL_MAILER=smtp MAIL_HOST=smtp.associazione.example MAIL_PORT=465 MAIL_USERNAME=posta@associazione.example MAIL_PASSWORD=m MAIL_FROM_ADDRESS=prima-nota@associazione.example
 export EMERGENZA_PASSWORD_HASH='$2y$12$abcDEF.ghi/JKL' EMERGENZA_TOTP_SECRET=JBSWY3DPEHPK3PXP
 

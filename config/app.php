@@ -103,6 +103,9 @@ return [
     */
     'token_migrazioni' => env('MIGRAZIONI_TOKEN'),
 
+    // Token del cron HTTP (#46): vuoto, l'endpoint resta chiuso.
+    'token_cron' => env('CRON_TOKEN'),
+
     'key' => env('APP_KEY'),
 
     'previous_keys' => [

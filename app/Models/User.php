@@ -15,7 +15,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-#[Fillable(['name', 'email', 'google_id'])]
+#[Fillable(['name', 'email', 'google_id', 'email_menzioni'])]
 #[Hidden(['google_refresh_token'])]
 class User extends Authenticatable
 {

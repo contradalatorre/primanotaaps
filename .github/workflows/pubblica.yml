@@ -47,6 +47,7 @@ jobs:
           EMERGENZA_PASSWORD_HASH: ${{ secrets.EMERGENZA_PASSWORD_HASH }}
           EMERGENZA_TOTP_SECRET: ${{ secrets.EMERGENZA_TOTP_SECRET }}
           MIGRAZIONI_TOKEN: ${{ secrets.MIGRAZIONI_TOKEN }}
+          CRON_TOKEN: ${{ secrets.CRON_TOKEN }}
           MAIL_MAILER: ${{ vars.MAIL_MAILER }}
           MAIL_HOST: ${{ vars.MAIL_HOST }}
           MAIL_PORT: ${{ vars.MAIL_PORT }}
