@@ -13,7 +13,7 @@
         </div>
         <p>{{ $movimento->descrizione }}</p>
         <p class="nota">{{ $movimento->data->format('d/m/Y') }} · {{ $movimento->conto->nome }} · esercizio {{ $movimento->data->year }}</p>
-        @if ($movimento->fonteProposta()) <p class="nota">{{ $movimento->fonteProposta() }}</p> @endif
+        @if ($movimento->fonteProposta()) <p class="nota">@if ($movimento->movimentoDiOrigine())<a href="{{ route('movimenti.classificazione', $movimento->movimentoDiOrigine()) }}" class="link">{{ $movimento->fonteProposta() }}</a>@else{{ $movimento->fonteProposta() }}@endif</p> @endif
         @if ($movimento->confermato()) <p class="nota">Una nuova classificazione lo lascia confermato, a nome di chi la salva.</p> @endif
     </div>
 

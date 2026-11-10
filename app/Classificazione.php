@@ -52,9 +52,9 @@ final class Classificazione
                     throw ValidationException::withMessages(['conferma' => $problemi]);
                 }
                 $stato = $cambiata ? ['confermato_da' => $utente->id, 'confermato_il' => now()] : [];
-            } elseif ($cambiata || $movimento->regola_id !== null) {
-                // Salvare a mano una proposta di regola ne fa una scelta della persona (anche senza cambiare nulla): le regole non la toccano più.
-                $stato = ['stato' => $imputazioni === [] ? 'da_classificare' : 'proposto', 'proposto_da' => $imputazioni === [] ? null : $utente->id, 'regola_id' => null];
+            } elseif ($cambiata || $movimento->regola_id !== null || $movimento->storico_movimento_id !== null || $movimento->storico_esempio_id !== null) {
+                // Salvare a mano una proposta di regola o dello storico ne fa una scelta della persona (anche senza cambiare nulla): non la toccano più.
+                $stato = ['stato' => $imputazioni === [] ? 'da_classificare' : 'proposto', 'proposto_da' => $imputazioni === [] ? null : $utente->id, 'regola_id' => null, 'storico_movimento_id' => null, 'storico_esempio_id' => null];
             }
             $movimento->forceFill(['tipo_controparte' => $tipoControparte ?: null] + $stato)->save();
             RegistroModifica::registra($utente, $movimento, 'classificato', $prima, $movimento->istantanea());
@@ -96,25 +96,57 @@ final class Classificazione
     }
 
     /**
-     * Mette sul movimento la proposta della regola, o la toglie (`$regola` null: torna da classificare). Per chi ha già
-     * bloccato la riga e controllato che sia da classificare o proposta da una regola: i permessi sono di chi salva la
-     * regola, non del movimento.
+     * Le imputazioni che lo storico propone per il movimento, copiando la classificazione del precedente, o null se non
+     * si possono proporre: un elemento archiviato (come per le regole, nemmeno dove la proposta c'è già), una
+     * combinazione fuori dalla tabella delle voci per l'esercizio del movimento.
      *
-     * @param  list<array<string,mixed>>  $imputazioni quelle di `imputazioniDellaRegola`, già controllate da chi chiama
+     * @return list<array<string,mixed>>|null
+     */
+    public static function imputazioniDelloStorico(Movimento $movimento, Precedente $precedente): ?array
+    {
+        $riga = $precedente->riga;
+        $elementi = [Tipologia::find($riga['tipologia_id']), $riga['iniziativa_id'] ? Iniziativa::find($riga['iniziativa_id']) : null,
+            $riga['attivita_id'] ? Attivita::find($riga['attivita_id']) : null, ...Tag::findMany($riga['tag'])];
+        if (collect($elementi)->filter()->contains(fn ($e) => $e->archiviata())) {
+            return null;
+        }
+        try {
+            return self::risolvi($movimento, [$riga]);
+        } catch (ValidationException) {
+            return null;
+        }
+    }
+
+    /**
+     * Mette sul movimento la proposta della regola o dello storico, o la toglie (nessuno dei due: torna da classificare).
+     * Per chi ha già bloccato la riga e controllato che sia da classificare o proposta da una regola o dallo storico: i
+     * permessi sono di chi salva la regola o importa, non del movimento. Una regola ha la precedenza sullo storico.
+     *
+     * @param  list<array<string,mixed>>  $imputazioni quelle di `imputazioniDellaRegola` o `imputazioniDelloStorico`, già controllate da chi chiama
      * @param  ?string  $tipoDiPrima il socio o terzo che aveva la regola di prima quando ha proposto (non quello di adesso: può essere stata appena modificata)
      */
-    public static function proponiDaRegola(User $utente, Movimento $movimento, ?Regola $regola, array $imputazioni, ?string $tipoDiPrima = null): void
+    public static function proponi(User $utente, Movimento $movimento, ?Regola $regola, ?Precedente $precedente, array $imputazioni, ?string $tipoDiPrima = null): void
     {
         $prima = $movimento->istantanea();
+        $azione = match (true) {
+            $regola !== null => 'proposto_da_regola',
+            $precedente !== null => 'proposto_da_storico',
+            $movimento->storico_movimento_id !== null || $movimento->storico_esempio_id !== null => 'proposta_dello_storico_tolta',
+            default => 'proposta_di_regola_tolta',
+        };
         self::scriviImputazioni($movimento, $imputazioni);
         // Socio o terzo: si toglie solo quello che aveva messo la regola di prima; una scelta a mano resta e vince sulla regola nuova.
+        // Lo storico non propone il socio o terzo: la regola sa quale controparte è, un caso simile no.
         $tipo = $movimento->tipo_controparte;
         if ($tipo !== null && $movimento->regola_id !== null && $tipo === $tipoDiPrima) {
             $tipo = null;
         }
         $tipo ??= $regola?->tipo_controparte;
-        $movimento->forceFill(['stato' => $regola ? 'proposto' : 'da_classificare', 'proposto_da' => null, 'regola_id' => $regola?->id, 'tipo_controparte' => $tipo])->save();
-        RegistroModifica::registra($utente, $movimento, $regola ? 'proposto_da_regola' : 'proposta_di_regola_tolta', $prima, $movimento->istantanea());
+        $movimento->forceFill([
+            'stato' => $regola || $precedente ? 'proposto' : 'da_classificare', 'proposto_da' => null, 'regola_id' => $regola?->id,
+            'storico_movimento_id' => $precedente?->movimento?->id, 'storico_esempio_id' => $precedente?->esempio?->id, 'tipo_controparte' => $tipo,
+        ])->save();
+        RegistroModifica::registra($utente, $movimento, $azione, $prima, $movimento->istantanea());
     }
 
     /** Quello che fa cambiare la classificazione: i tag no. */

@@ -32,7 +32,7 @@ class ClassificazioneController extends Controller
         $conservati = fn (string $campo) => $imputazioni->pluck($campo)->filter()->all();
 
         return view('movimenti.classificazione', [
-            'movimento' => $movimento->load('conto', 'autore', 'proponente', 'regola', 'giustificativi'),
+            'movimento' => $movimento->load('conto', 'autore', 'proponente', 'regola', 'storicoMovimento', 'storicoEsempio', 'giustificativi'),
             'imputazioni' => $imputazioni->load('iniziativa.predefiniti'),
             'righe' => min(10, max($request->integer('righe'), $imputazioni->count() + 1, 2)),
             'tipologie' => Tipologia::where('verso', $movimento->verso)->where(fn ($q) => $q->whereNull('archiviata_il')->orWhereIn('id', $conservati('tipologia_id')))->orderBy('nome')->get(),

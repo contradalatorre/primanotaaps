@@ -27,7 +27,7 @@ final class Revisione
     public function __construct(public readonly ImportEstratto $import)
     {
         $this->movimenti = $import->movimenti()
-            ->with('proponente', 'regola', 'giustificativi', 'imputazioni.attivita', 'imputazioni.iniziativa', 'imputazioni.tipologia', 'imputazioni.tag')
+            ->with('proponente', 'regola', 'storicoMovimento', 'storicoEsempio', 'giustificativi', 'imputazioni.attivita', 'imputazioni.iniziativa', 'imputazioni.tipologia', 'imputazioni.tag')
             ->orderBy('data')->orderBy('id')->get();
     }
 

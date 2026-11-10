@@ -250,12 +250,13 @@ final class Regole
     }
 
     /**
-     * Da classificare, o proposti da una regola: tutto il resto (confermati, scelte a mano) non si tocca.
+     * Da classificare, o proposti da una regola o dallo storico: tutto il resto (confermati, scelte a mano) non si tocca.
      * shortcut: nessun controllo dell'esercizio, perché lo stato aperto o depositato arriva con l'esercizio (#33, storia 63); finora sono tutti aperti.
      */
     private static function candidati(): Builder
     {
-        return Movimento::where(fn (Builder $q) => $q->where('stato', 'da_classificare')->orWhere(fn (Builder $q) => $q->where('stato', 'proposto')->whereNotNull('regola_id')))
+        return Movimento::where(fn (Builder $q) => $q->where('stato', 'da_classificare')->orWhere(fn (Builder $q) => $q->where('stato', 'proposto')
+            ->where(fn (Builder $q) => $q->whereNotNull('regola_id')->orWhereNotNull('storico_movimento_id')->orWhereNotNull('storico_esempio_id'))))
             ->orderBy('id');
     }
 
@@ -281,17 +282,25 @@ final class Regole
     private static function assegna(User $utente, Collection $movimenti, Collection $regole, ?int $toccata = null, ?string $tipoDellaToccata = null): int
     {
         $cambiati = 0;
+        $archivio = $movimenti->isEmpty() ? collect() : Storico::archivio(); // dopo i lock di chi chiama, come le regole
         foreach ($movimenti as $movimento) {
             $regola = self::vincitrice($regole, $movimento);
             $imputazioni = $regola ? Classificazione::imputazioniDellaRegola($movimento, $regola) : null;
-            if ($imputazioni === null) { // nessuna regola, o la sua proposta non si può fare: vale come nessuna regola
+            $precedente = null;
+            if ($imputazioni === null) { // nessuna regola, o la sua proposta non si può fare: vale come nessuna regola, e tocca allo storico
                 $regola = null;
+                $precedente = Storico::migliore($archivio, $movimento);
+                $imputazioni = $precedente ? Classificazione::imputazioniDelloStorico($movimento, $precedente) : null;
+                if ($imputazioni === null) {
+                    $precedente = null;
+                }
             }
-            if ($regola?->id === $movimento->regola_id && ($regola === null || $regola->id !== $toccata)) {
+            if ($regola?->id === $movimento->regola_id && ($regola === null || $regola->id !== $toccata)
+                && $precedente?->movimento?->id === $movimento->storico_movimento_id && $precedente?->esempio?->id === $movimento->storico_esempio_id) {
                 continue;
             }
             $tipoDiPrima = $movimento->regola_id === $toccata ? $tipoDellaToccata : $regole->firstWhere('id', $movimento->regola_id)?->tipo_controparte;
-            Classificazione::proponiDaRegola($utente, $movimento, $regola, $imputazioni ?? [], $tipoDiPrima);
+            Classificazione::proponi($utente, $movimento, $regola, $precedente, $imputazioni ?? [], $tipoDiPrima);
             $cambiati++;
         }
 
