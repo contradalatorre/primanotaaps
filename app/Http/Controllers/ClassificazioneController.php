@@ -39,6 +39,7 @@ class ClassificazioneController extends Controller
             'iniziative' => Iniziativa::with('predefiniti.attivita')->where(fn ($q) => $q->whereNull('archiviata_il')->orWhereIn('id', $conservati('iniziativa_id')))->orderBy('nome')->get(),
             'attivita' => Attivita::where(fn ($q) => $q->whereNull('archiviata_il')->orWhereIn('id', $conservati('attivita_id')))->orderBy('area')->orderBy('nome')->get(),
             'tag' => Tag::where(fn ($q) => $q->whereNull('archiviata_il')->orWhereIn('id', $imputazioni->flatMap->tag->pluck('id')->all()))->orderBy('nome')->get(),
+            'dubbiVisti' => $movimento->note()->dubbioAperto()->orderBy('id')->pluck('id'),
         ]);
     }
 
@@ -56,9 +57,11 @@ class ClassificazioneController extends Controller
             'imputazioni.*.attivita_id' => ['nullable', 'integer', 'exists:attivita,id'],
             'imputazioni.*.tag' => ['nullable', 'array'],
             'imputazioni.*.tag.*' => ['integer', 'exists:tag,id'],
+            'dubbi_visti' => ['nullable', 'array'],
+            'dubbi_visti.*' => ['integer'],
         ]);
 
-        Classificazione::salva($request->user(), $movimento, $dati['tipo_controparte'] ?? null, $dati['imputazioni'] ?? []);
+        Classificazione::salva($request->user(), $movimento, $dati['tipo_controparte'] ?? null, $dati['imputazioni'] ?? [], array_map('intval', $dati['dubbi_visti'] ?? []));
 
         return redirect()->route('movimenti.classificazione', $movimento)->with('ok', 'Classificazione salvata.');
     }

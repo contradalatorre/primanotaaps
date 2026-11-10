@@ -123,12 +123,13 @@ class Movimento extends Model
 
     /**
      * Classifica (e carica giustificativi) chi ha `importare_e_confermare`, sempre; l'autore con `proporre_classificazioni`
-     * sul conto, solo sul proprio movimento non ancora confermato (#16: «da lì l'autore non lo modifica più»).
+     * sul conto, solo sul proprio movimento non ancora confermato e a conto aperto, come `modificabileDa` (#16: «da lì
+     * l'autore non lo modifica più»). Chi ha `importare_e_confermare` classifica anche a conto chiuso: l'ultimo estratto si rivede dopo.
      */
     public function classificabileDa(User $utente): bool
     {
         return $utente->can('importare_e_confermare')
-            || ($this->manuale && $this->inserito_da === $utente->id && ! $this->confermato() && $utente->can('proporre_classificazioni', $this->conto_id));
+            || ($this->manuale && $this->inserito_da === $utente->id && ! $this->confermato() && ! $this->conto->chiuso() && $utente->can('proporre_classificazioni', $this->conto_id));
     }
 
     /**
