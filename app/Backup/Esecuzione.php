@@ -77,8 +77,10 @@ final class Esecuzione
     /** Il backup è fatto: una rotazione che non riesce non lo fa fallire, resta un errore non grave e riprova al prossimo. */
     private static function ruota(Drive $drive): void
     {
+        // Una rotazione per tipo: uno su richiesta non è un mensile e non deve toglierne uno (il mensile del 1° può essere l'ultima copia pulita).
         $sulDrive = Backup::sulDrive()->get()->keyBy('id');
-        foreach (Rotazione::daEliminare($sulDrive->map->avviato_il->all(), now()) as $id) {
+        $daEliminare = $sulDrive->groupBy('tipo')->flatMap(fn ($gruppo) => Rotazione::daEliminare($gruppo->map->avviato_il->all(), now()));
+        foreach ($daEliminare as $id) {
             try {
                 $drive->elimina($sulDrive[$id]->drive_id);
                 $sulDrive[$id]->update(['eliminato_il' => now()]);

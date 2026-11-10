@@ -253,7 +253,7 @@ L'elenco di chi è entrato nell'app, quando e da dove, e di ogni esportazione fa
 _Avoid_: log, registro attività
 
 **Backup**:
-L'esportazione completa dell'app (database ricostruibile e un CSV leggibile per tabella) caricata sul drive condiviso: parte da sola il primo del mese o la chiede un Amministratore. Si tengono gli ultimi 12 mesi e l'ultimo di ogni anno, per 10 anni; nello stesso mese vince il più recente. Non contiene lo spazio di prova, le sessioni né i segreti.
+L'esportazione completa dell'app (database ricostruibile e un CSV leggibile per tabella) caricata sul drive condiviso: parte da sola il primo del mese o la chiede un Amministratore. Si tengono, per i mensili e a parte per quelli su richiesta (che non tolgono mai un mensile), gli ultimi 12 mesi e l'ultimo di ogni anno, per 10 anni. Non contiene lo spazio di prova, le sessioni né i segreti.
 _Avoid_: copia, dump, salvataggio
 
 **Registro degli errori**:

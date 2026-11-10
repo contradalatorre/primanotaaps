@@ -165,6 +165,16 @@ class BackupTest extends TestCase
         Http::assertNotSent(fn (Request $r) => $r->method() === 'DELETE' && str_contains($r->url(), '/files/vecchio-2?'));
     }
 
+    public function test_un_backup_su_richiesta_non_toglie_il_mensile_dello_stesso_mese(): void
+    {
+        Backup::create(['tipo' => 'mensile', 'esito' => 'riuscito', 'avviato_il' => '2026-06-01 03:00', 'concluso_il' => '2026-06-01 03:00', 'drive_id' => 'mensile-giugno', 'file' => 'm.zip']);
+
+        $this->eseguiSuRichiesta();
+
+        $this->assertSame(2, Backup::sulDrive()->count());
+        Http::assertNotSent(fn (Request $r) => $r->method() === 'DELETE');
+    }
+
     public function test_se_il_drive_non_risponde_il_backup_fallisce_registrato_e_con_email_agli_amministratori(): void
     {
         $this->fingiDrive(['www.googleapis.com/upload/drive/v3/files*' => Http::response(['error' => ['message' => self::SEGNALE]], 500)]);

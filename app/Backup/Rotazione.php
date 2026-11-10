@@ -6,7 +6,7 @@ use Carbon\CarbonInterface;
 
 /**
  * La rotazione dei backup (#68): si tiene l'ultimo di ognuno degli ultimi 12 mesi che hanno un backup, più l'ultimo di
- * ogni anno degli ultimi 10. Il backup su richiesta non fa serie a parte: nel suo mese vince il più recente.
+ * ogni anno degli ultimi 10. Vale per una serie sola: chi la chiama la applica a parte ai mensili e a quelli su richiesta (`Esecuzione::ruota`), così uno su richiesta non toglie mai un mensile. Nello stesso mese, in una serie, vince il più recente.
  */
 final class Rotazione
 {
