@@ -106,7 +106,7 @@ final class Regole
             $errori['iniziativa_id'] = 'Scegli l’iniziativa o l’area: senza non si può proporre una classificazione.';
         }
         if ($tipologia === null && $iniziativa === null && $attivita === null && ($dati['tipo_controparte'] ?? null) === null && $tag === []) {
-            $errori['tipologia_id'] = 'Scegli almeno un effetto: tipologia, iniziativa, socio o terzo, tag.';
+            $errori['tipologia_id'] = 'Scegli almeno un effetto oltre all’area: tipologia, iniziativa, attività, socio o terzo, tag.';
         }
         if ($tipologia && ($dati['verso'] ?? null) && $tipologia->verso !== $dati['verso']) {
             $errori['tipologia_id'] = "«{$tipologia->nome}» è una tipologia di ".Tipologia::VERSI[$tipologia->verso].', ma la regola guarda le '.($dati['verso'] === 'entrata' ? 'entrate' : 'uscite').'.';
@@ -150,9 +150,12 @@ final class Regole
             $prima = $regola->exists ? $regola->istantanea() : null;
             $regola->fill($attributi)->save();
             $regola->tag()->sync($tag);
-            RegistroModifica::registra($utente, $regola, $prima ? 'modificata' : 'creata', $prima, $regola->load('tag')->istantanea());
+            $dopo = $regola->load('tag')->istantanea();
+            RegistroModifica::registra($utente, $regola, $prima ? 'modificata' : 'creata', $prima, $dopo);
+            // Rinominarla non cambia nessuna proposta: le sue si riscrivono solo se cambiano condizioni o effetti.
+            $cambiata = $prima === null || Arr::except($prima, 'nome') !== Arr::except($dopo, 'nome');
 
-            return [$regola, self::assegna($utente, $candidati, self::elenco(), $regola->id)];
+            return [$regola, self::assegna($utente, $candidati, self::elenco(), $cambiata ? $regola->id : null, $prima['tipo_controparte'] ?? null)];
         });
     }
 
@@ -270,11 +273,12 @@ final class Regole
      * toccata), oppure non c'è né l'una né l'altra.
      *
      * @param  Collection<int, Movimento>  $movimenti già bloccati, o appena inseriti da chi chiama
-     * @param  ?int  $toccata la regola salvata adesso: le sue proposte si rifanno anche se la regola è la stessa
+     * @param  ?int  $toccata la regola salvata adesso (con condizioni o effetti cambiati): le sue proposte si rifanno anche se la regola è la stessa
+     * @param  ?string  $tipoDellaToccata il socio o terzo che la regola aveva prima del salvataggio
      * @return int quanti movimenti hanno cambiato proposta
      */
     // shortcut: `risolvi` rifà alcune query per ogni movimento e regola, dentro la transazione; un estratto mensile ha qualche centinaio di righe, da ripensare solo se diventano migliaia.
-    private static function assegna(User $utente, Collection $movimenti, Collection $regole, ?int $toccata = null): int
+    private static function assegna(User $utente, Collection $movimenti, Collection $regole, ?int $toccata = null, ?string $tipoDellaToccata = null): int
     {
         $cambiati = 0;
         foreach ($movimenti as $movimento) {
@@ -286,7 +290,8 @@ final class Regole
             if ($regola?->id === $movimento->regola_id && ($regola === null || $regola->id !== $toccata)) {
                 continue;
             }
-            Classificazione::proponiDaRegola($utente, $movimento, $regola, $imputazioni ?? []);
+            $tipoDiPrima = $movimento->regola_id === $toccata ? $tipoDellaToccata : $regole->firstWhere('id', $movimento->regola_id)?->tipo_controparte;
+            Classificazione::proponiDaRegola($utente, $movimento, $regola, $imputazioni ?? [], $tipoDiPrima);
             $cambiati++;
         }
 

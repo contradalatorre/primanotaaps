@@ -101,14 +101,15 @@ final class Classificazione
      * regola, non del movimento.
      *
      * @param  list<array<string,mixed>>  $imputazioni quelle di `imputazioniDellaRegola`, già controllate da chi chiama
+     * @param  ?string  $tipoDiPrima il socio o terzo che aveva la regola di prima quando ha proposto (non quello di adesso: può essere stata appena modificata)
      */
-    public static function proponiDaRegola(User $utente, Movimento $movimento, ?Regola $regola, array $imputazioni): void
+    public static function proponiDaRegola(User $utente, Movimento $movimento, ?Regola $regola, array $imputazioni, ?string $tipoDiPrima = null): void
     {
         $prima = $movimento->istantanea();
         self::scriviImputazioni($movimento, $imputazioni);
         // Socio o terzo: si toglie solo quello che aveva messo la regola di prima; una scelta a mano resta e vince sulla regola nuova.
         $tipo = $movimento->tipo_controparte;
-        if ($tipo !== null && $movimento->regola_id !== null && $tipo === Regola::whereKey($movimento->regola_id)->value('tipo_controparte')) {
+        if ($tipo !== null && $movimento->regola_id !== null && $tipo === $tipoDiPrima) {
             $tipo = null;
         }
         $tipo ??= $regola?->tipo_controparte;

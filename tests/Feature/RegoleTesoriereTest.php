@@ -193,6 +193,44 @@ class RegoleTesoriereTest extends TestCase
         $this->assertNull($altro->refresh()->tipo_controparte, 'quello messo dalla regola se ne va con lei');
     }
 
+    public function test_cambiando_il_socio_o_terzo_di_una_regola_le_sue_proposte_lo_seguono(): void
+    {
+        $movimento = $this->movimento('Bolletta ENEL maggio');
+        $regola = $this->creaRegola(['tipo_controparte' => 'socio']);
+        $this->assertSame('socio', $movimento->refresh()->tipo_controparte);
+
+        $this->actingAs($this->tesoriere)->put("/regole/{$regola->id}", $this->dati(['tipo_controparte' => 'terzo']))->assertSessionHasNoErrors();
+        $this->assertSame('terzo', $movimento->refresh()->tipo_controparte, 'quello messo dalla regola segue la regola');
+
+        $this->actingAs($this->tesoriere)->put("/regole/{$regola->id}", $this->dati())->assertSessionHasNoErrors();
+        $this->assertNull($movimento->refresh()->tipo_controparte, 'tolto dalla regola, se ne va');
+    }
+
+    public function test_togliendo_il_socio_o_terzo_a_una_regola_la_scelta_a_mano_resta(): void
+    {
+        $aMano = $this->movimento('Bolletta ENEL giugno');
+        $aMano->forceFill(['tipo_controparte' => 'terzo'])->save();
+        $regola = $this->creaRegola(['tipo_controparte' => 'socio']);
+
+        $this->actingAs($this->tesoriere)->put("/regole/{$regola->id}", $this->dati())->assertSessionHasNoErrors();
+        $this->assertSame('terzo', $aMano->refresh()->tipo_controparte);
+    }
+
+    public function test_rinominare_una_regola_non_riscrive_le_sue_proposte(): void
+    {
+        $movimento = $this->movimento('Bolletta ENEL maggio');
+        $regola = $this->creaRegola();
+        $azioni = fn () => RegistroModifica::where('oggetto_tipo', 'movimento')->where('oggetto_id', $movimento->id)->count();
+        $prima = $azioni();
+
+        $this->actingAs($this->tesoriere)->put("/regole/{$regola->id}", $this->dati(['nome' => 'Energia']))->assertSessionHasNoErrors();
+        $this->assertSame($prima, $azioni());
+        $this->assertSame('Energia', $regola->refresh()->nome);
+
+        $this->actingAs($this->tesoriere)->put("/regole/{$regola->id}", $this->dati(['nome' => 'Energia', 'tipologia_id' => $this->tipologia('Materiali e beni di consumo')]))->assertSessionHasNoErrors();
+        $this->assertSame($prima + 1, $azioni());
+    }
+
     public function test_l_anteprima_non_mostra_i_confermati(): void
     {
         $confermato = $this->movimento('Bolletta ENEL aprile');

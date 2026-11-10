@@ -6,7 +6,10 @@ use App\Models\Conto;
 use App\Models\ImportConflitto;
 use App\Models\ImportEstratto;
 use App\Models\Movimento;
+use App\Models\Iniziativa;
 use App\Models\RegistroModifica;
+use App\Models\Regola;
+use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -313,6 +316,34 @@ class ImportCreditAgricoleTest extends TestCase
         $this->assertSame('2026-04-15', $nuovo->data_valuta->toDateString());
         $this->assertSame('da_classificare', $nuovo->stato);
         $this->anteprima($variante)->assertSeeInOrder(['Nuovi', '0'])->assertSeeInOrder(['Già presenti', '5'])->assertSeeInOrder(['In conflitto', '0']);
+    }
+
+    public function test_la_riga_importata_a_parte_riceve_la_proposta_delle_regole_e_la_lettura_precede_il_lock_del_conto(): void
+    {
+        $this->importa($this->fixture());
+        $import = $this->importa(str_replace('15/04/2026;14/04/2026;COMMISSIONI', '15/04/2026;15/04/2026;COMMISSIONI', $this->fixture()));
+        $this->post('/regole', [
+            'nome' => 'Canone', 'testo' => 'NOwbanking',
+            'tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id'), 'iniziativa_id' => Iniziativa::where('nome', 'Carnevale')->value('id'),
+        ])->assertSessionHasNoErrors();
+        $conflitto = ImportConflitto::firstOrFail();
+
+        // Una lettura fatta a transazione aperta, prima del lock del conto, fisserebbe su MySQL la fotografia delle regole.
+        $livelli = [];
+        DB::listen(function ($q) use (&$livelli) {
+            $blocco = str_contains($q->sql, 'from `conti`') && str_contains($q->sql, 'for update');
+            if ($blocco || str_contains($q->sql, 'from `import_estratti`')) {
+                $livelli[] = [$blocco, DB::transactionLevel()];
+            }
+        });
+        $base = DB::transactionLevel();
+        $this->post("/import/conflitti/{$conflitto->id}/decisione", ['decisione' => 'importa_a_parte'])->assertSessionHasNoErrors();
+
+        $nuovo = Movimento::where('import_estratto_id', $import->id)->firstOrFail();
+        $this->assertSame('proposto', $nuovo->stato);
+        $this->assertSame(Regola::where('nome', 'Canone')->value('id'), $nuovo->regola_id);
+        $this->assertSame([false, $base], $livelli[0], 'la prima lettura dell’import sta fuori dalla transazione');
+        $this->assertSame([true, $base + 1], $livelli[1], 'il lock del conto è il primo passo dentro');
     }
 
     public function test_un_buco_tra_due_estratti_segnala_il_periodo_mancante_e_il_conto_resta_non_riconciliato(): void
