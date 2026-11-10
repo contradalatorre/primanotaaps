@@ -19,6 +19,7 @@ final class CompitiPeriodici
     public const ELENCO = [
         'prova:cancella' => '0 0 * * *',
         'menzioni:riepilogo' => '0 8 * * *',
+        'backup:esegui' => '0 3 1 * *',
     ];
 
     /**
@@ -53,6 +54,7 @@ final class CompitiPeriodici
                 Artisan::call($nome);
             } catch (Throwable $e) {
                 report($e); // shortcut: un compito fallito riparte alla prossima scadenza, non alla chiamata dopo
+                RegistroErrori::registra("compito:$nome", $e, grave: true);
             }
         }
 

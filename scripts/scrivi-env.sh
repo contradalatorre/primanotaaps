@@ -19,6 +19,20 @@ for chiave in $chiavi; do
     esac
 done
 
+# Il drive condiviso (backup, #68) è facoltativo, come ogni integrazione esterna: senza, l'app va avanti e lo stato del
+# sistema dice che il backup non parte. Se ci sono, le credenziali sono il JSON del service account in base64.
+facoltative="DRIVE_CREDENZIALI DRIVE_CARTELLA_BACKUP"
+for chiave in $facoltative; do
+    eval "valore=\${$chiave:-}"
+    case "$valore" in
+        *"'"* | *"${a_capo%.}"*) echo "$chiave contiene un apice singolo o un a capo: non si può scrivere nel .env." >&2; exit 1 ;;
+    esac
+done
+if [ -n "${DRIVE_CREDENZIALI:-}" ] && ! printf '%s' "$DRIVE_CREDENZIALI" | grep -Eq '^[A-Za-z0-9+/=]+$'; then
+    echo 'DRIVE_CREDENZIALI deve essere il JSON del service account in base64 (una riga sola).' >&2
+    exit 1
+fi
+
 # Le credenziali di emergenza sbagliate si scoprirebbero solo nell'emergenza: meglio far fallire la pubblicazione.
 case "$EMERGENZA_PASSWORD_HASH" in
     '$2y$'*) ;;
@@ -58,4 +72,8 @@ echo "GOOGLE_REDIRECT_URI='${APP_URL}/accesso/google/ritorno'"
 for chiave in $chiavi; do
     eval "valore=\${$chiave}"
     printf "%s='%s'\n" "$chiave" "$valore"
+done
+for chiave in $facoltative; do
+    eval "valore=\${$chiave:-}"
+    [ -z "$valore" ] || printf "%s='%s'\n" "$chiave" "$valore"
 done

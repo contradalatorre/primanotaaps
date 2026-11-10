@@ -17,6 +17,7 @@ use App\Http\Controllers\RegistroController;
 use App\Http\Controllers\RegoleController;
 use App\Http\Controllers\RevisioneImportController;
 use App\Http\Controllers\RuoliController;
+use App\Http\Controllers\StatoSistemaController;
 use App\Http\Controllers\UtentiController;
 use App\Http\Middleware\ProvaMiddleware;
 use App\Http\Middleware\VerificaAccountGoogle;
@@ -133,6 +134,13 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         ->middleware('can:importare_e_confermare')->name('movimenti.dubbio.chiudi');
     Route::get('/registro', [RegistroController::class, 'index'])
         ->middleware('can:vedere_registro_modifiche')->name('registro');
+
+    // Stato del sistema e backup su richiesta (#68): `gestire_impostazioni` (#16, «Impostazioni, automatismo AI, backup»).
+    Route::middleware('can:gestire_impostazioni')->group(function () {
+        Route::get('/sistema', [StatoSistemaController::class, 'index'])->name('sistema');
+        Route::post('/sistema/backup', [StatoSistemaController::class, 'backup'])->name('sistema.backup');
+        Route::post('/sistema/errori/{errore}/risoluzione', [StatoSistemaController::class, 'risolvi'])->name('sistema.errori.risolvi');
+    });
 
     // Gestione di utenti, ruoli e assegnazioni (#35). Le scritture sono azioni delicate (#36): `password.confirm`
     // (timeout in config/auth.php, un'ora) manda a /riautentica chi ha l'ultimo accesso più vecchio.

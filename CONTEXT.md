@@ -185,7 +185,7 @@ Il richiamo `@utente` o `@ruolo` dentro una nota, che chiede l'attenzione di qua
 _Avoid_: tag, notifica
 
 **Compito periodico**:
-Un comando che parte da solo a una scadenza (la pulizia degli spazi di prova, il riepilogo email delle menzioni alle 8); su Aruba lo avvia la chiamata HTTP del cron, protetta da un token.
+Un comando che parte da solo a una scadenza (la pulizia degli spazi di prova, il riepilogo email delle menzioni alle 8, il backup mensile); su Aruba lo avvia la chiamata HTTP del cron, protetta da un token.
 _Avoid_: job, cron job
 
 **Dubbio**:
@@ -251,6 +251,18 @@ _Avoid_: log, cronologia, audit
 **Registro degli accessi**:
 L'elenco di chi è entrato nell'app, quando e da dove, e di ogni esportazione fatta; serve a ricostruire un incidente e si conserva dodici mesi. Non va confuso con il registro delle modifiche.
 _Avoid_: log, registro attività
+
+**Backup**:
+L'esportazione completa dell'app (database ricostruibile e un CSV leggibile per tabella) caricata sul drive condiviso: parte da sola il primo del mese o la chiede un Amministratore. Si tengono, per i mensili e a parte per quelli su richiesta (che non tolgono mai un mensile), gli ultimi 12 mesi e l'ultimo di ogni anno, per 10 anni. Non contiene lo spazio di prova, le sessioni né i segreti.
+_Avoid_: copia, dump, salvataggio
+
+**Registro degli errori**:
+L'elenco degli errori dell'app: un errore uguale e ancora aperto si conta invece di ripetersi, un Amministratore lo segna come risolto, e quelli *gravi* (un backup fallito, un compito periodico che si ferma, un'eccezione non gestita) avvisano gli Amministratori per email, al massimo una volta al giorno. Non va confuso con il registro delle modifiche né con quello degli accessi.
+_Avoid_: log, registro degli incidenti
+
+**Stato del sistema**:
+Il riquadro dell'Amministratore con la salute dell'app: ultimo backup, ultimo import e riconciliazione per conto, errori aperti, Amministratori. Le integrazioni esterne (drive condiviso, posta, Google) sono facoltative: se una non risponde l'app va avanti e lo stato del sistema lo mostra.
+_Avoid_: cruscotto, monitoraggio
 
 **Versione senza nomi**:
 Un'esportazione dei movimenti in cui le controparti persone fisiche sono sostituite dal loro tipo e mancano note e descrizione.
