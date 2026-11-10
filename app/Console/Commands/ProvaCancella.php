@@ -16,9 +16,11 @@ class ProvaCancella extends Command
 
     public function handle(Prova $prova): int
     {
-        // «Perdita» di ogni assegnazione: ne ha avute e nessuna è più attiva. Chi non ne ha mai avute (un candidato che si allena) resta finché usa lo spazio.
-        $persa = User::whereHas('assegnazioni')->whereDoesntHave('assegnazioniAttive')->pluck('id');
-        $spazi = SpazioProva::whereIn('user_id', $persa)->orWhere('ultimo_uso', '<', now()->subMonths(6))->pluck('user_id');
+        // «Perdita» di ogni assegnazione (scaduta o revocata): lo spazio nato con un'assegnazione che ora non c'è più.
+        // Un candidato che si allena senza ruolo (`con_assegnazione` falso) resta finché usa lo spazio.
+        $senzaAssegnazione = User::whereDoesntHave('assegnazioniAttive')->pluck('id');
+        $spazi = SpazioProva::where(fn ($q) => $q->where('con_assegnazione', true)->whereIn('user_id', $senzaAssegnazione))
+            ->orWhere('ultimo_uso', '<', now()->subMonths(6))->pluck('user_id');
         foreach ($spazi as $id) {
             $prova->elimina($id);
         }

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
 /** Lo spazio di prova di un utente (ADR 0003): le tabelle stanno nel database di prova, qui solo che esiste. */
-#[Fillable(['user_id', 'missione', 'ultimo_uso'])]
+#[Fillable(['user_id', 'missione', 'con_assegnazione', 'ultimo_uso'])]
 class SpazioProva extends Model
 {
     use NelDatabaseVero;

@@ -13,6 +13,9 @@ return new class extends Migration
         Schema::create('spazi_prova', function (Blueprint $table) {
             $table->foreignId('user_id')->primary()->constrained()->cascadeOnDelete();
             $table->string('missione')->nullable();
+            // Se chi ha avviato la prova aveva un'assegnazione attiva: la revoca cancella la riga, quindi solo così si
+            // distingue chi ha perso il ruolo da un candidato che si allena prima di averlo (ADR 0003).
+            $table->boolean('con_assegnazione')->default(false);
             $table->dateTime('ultimo_uso');
             $table->timestamps();
         });

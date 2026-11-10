@@ -121,7 +121,7 @@ final class Prova
             }
             Scenario::applica($utente, $missione->scenario);
         });
-        SpazioProva::updateOrCreate(['user_id' => $utente->id], ['missione' => $missione->id, 'ultimo_uso' => now()]);
+        SpazioProva::updateOrCreate(['user_id' => $utente->id], ['missione' => $missione->id, 'con_assegnazione' => $utente->assegnazioniAttive()->exists(), 'ultimo_uso' => now()]);
     }
 
     /** Cancella lo spazio di un utente (le tabelle e la riga in `spazi_prova`); timbri e avanzamento restano. */

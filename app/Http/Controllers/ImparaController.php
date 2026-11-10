@@ -33,7 +33,7 @@ class ImparaController extends Controller
         $perPercorso = fn (bool $suggerita) => $catalogo->percorsi()->map(fn (array $p) => $p + ['schede' => $schede->where('missione.percorso', $p['id'])->where('suggerita', $suggerita)->values()])
             ->filter(fn (array $p) => $p['schede']->isNotEmpty())->values();
 
-        return view('impara.indice', ['perTe' => $perPercorso(true), 'altri' => $perPercorso(false), 'inCorso' => $avanzamenti->where('stato', 'in_corso')->keys()->all()]);
+        return view('impara.indice', ['perTe' => $perPercorso(true), 'altri' => $perPercorso(false)]);
     }
 
     public function avvia(Request $request, string $missione): RedirectResponse

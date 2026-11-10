@@ -215,8 +215,9 @@ body:has(.prova-barra) .menu {
     animation: m-entra 380ms var(--merlo-uscita);
 }
 
+/* Versione rapida (missione già fatta): niente animazione d'ingresso. */
 .merlo-guida.rapida {
-    animation-duration: 120ms;
+    animation: none;
 }
 
 @keyframes m-entra {

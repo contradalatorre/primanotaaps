@@ -22,7 +22,8 @@ final class Schermate
             default => [],
         };
         if (in_array(null, $parametri, true)) {
-            return null;
+            // Senza anteprima (scartata) si riparte dal caricamento; senza movimenti importati non c'è un altro posto.
+            return in_array($rotta, ['import.mostra', 'import.revisione'], true) ? self::url('import.indice') : null;
         }
 
         try {

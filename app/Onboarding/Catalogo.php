@@ -9,7 +9,7 @@ use Symfony\Component\Yaml\Yaml;
 
 /**
  * Le missioni e i percorsi, letti dai file YAML del repo (`resources/onboarding`): i testi cambiano con una pull request.
- * Un campo mancante o sbagliato è un errore che dice file e passo, non un tutorial rotto in silenzio.
+ * Un campo mancante o sbagliato è un errore che dice file e passo, non una missione rotta in silenzio.
  */
 final class Catalogo
 {

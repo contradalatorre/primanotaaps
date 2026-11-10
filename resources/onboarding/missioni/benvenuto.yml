@@ -18,7 +18,7 @@ passi:
   - schermata: home
     elemento: menu
     posa: indica
-    frase: "Dal menu vai ovunque: conti, movimenti, classificazione e manuale. Ti accompagno nei primi tre."
+    frase: "Dal menu vai ovunque: conti, movimenti, classificazione e manuale. Adesso ti faccio vedere conti, movimenti e manuale."
   - schermata: conti
     elemento: conti-elenco
     posa: indica

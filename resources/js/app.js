@@ -91,6 +91,9 @@ if (guida) {
     if (elemento) {
         elemento.classList.add('merlo-anello');
         elemento.scrollIntoView({ block: 'center', behavior: ridotto ? 'auto' : 'smooth' });
+        // Da tastiera il focus va sull'elemento indicato (Maiusc+Tab torna alla guida, che sta all'inizio della pagina).
+        if (!elemento.matches('a, button, input, select, textarea, summary, [tabindex]')) elemento.setAttribute('tabindex', '-1');
+        elemento.focus({ preventScroll: true });
         const freccia = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         freccia.setAttribute('class', 'merlo-freccia');
         freccia.setAttribute('viewBox', '0 0 28 28');

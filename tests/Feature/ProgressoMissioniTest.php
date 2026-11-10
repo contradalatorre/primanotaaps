@@ -66,6 +66,19 @@ class ProgressoMissioniTest extends TestCase
         $this->get(route('conti'))->assertOk()->assertDontSee('Torniamo lì?')->assertSee('data-avanti', false);
     }
 
+    public function test_se_l_estratto_e_stato_scartato_torniamo_li_porta_a_caricarlo_di_nuovo(): void
+    {
+        $utente = $this->utenteCon('Tesoriere');
+        $this->actingAs($utente)->post(route('impara.avvia', 'import-e-revisione'));
+        $this->post(route('prova.avanti'));
+        $contoId = $this->prova()->per($utente, null, fn () => \App\Models\Conto::where('tipo', 'banca')->value('id'));
+        $this->post(route('prova.estratto', $contoId));
+        $this->get(route('home')); // passo 3 (anteprima)
+        $this->prova()->per($utente, null, fn () => ImportEstratto::query()->delete()); // «Scarta»
+
+        $this->get(route('movimenti'))->assertOk()->assertSee('Torniamo lì?')->assertSee('href="'.route('import.indice', $contoId).'"', false);
+    }
+
     public function test_saltare_non_da_il_timbro_e_la_missione_resta_suggerita(): void
     {
         $utente = $this->utenteCon('Tesoriere');
