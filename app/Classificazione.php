@@ -6,6 +6,7 @@ use App\Models\Attivita;
 use App\Models\Imputazione;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
+use App\Models\Regola;
 use App\Models\RegistroModifica;
 use App\Models\Tag;
 use App\Models\Tipologia;
@@ -40,12 +41,7 @@ final class Classificazione
             self::bloccaEControlla($utente, $movimento);
             $prima = $movimento->istantanea();
             $firmaPrima = self::firma($movimento->imputazioni()->orderBy('id')->get()->map->only(self::CAMPI_DELLA_CLASSIFICAZIONE));
-            $movimento->imputazioni()->delete(); // le righe dei tag seguono con la chiave esterna
-            foreach ($imputazioni as $dati) {
-                $tag = $dati['tag'];
-                unset($dati['tag']);
-                $movimento->imputazioni()->create($dati)->tag()->sync($tag);
-            }
+            self::scriviImputazioni($movimento, $imputazioni);
             // I tag non hanno effetti (spec #33): cambiandoli soli lo stato non si muove.
             $cambiata = $firmaPrima !== self::firma(collect($imputazioni)->map(fn ($i) => Arr::only($i, self::CAMPI_DELLA_CLASSIFICAZIONE)));
             $stato = [];
@@ -56,12 +52,69 @@ final class Classificazione
                     throw ValidationException::withMessages(['conferma' => $problemi]);
                 }
                 $stato = $cambiata ? ['confermato_da' => $utente->id, 'confermato_il' => now()] : [];
-            } elseif ($cambiata) {
-                $stato = ['stato' => $imputazioni === [] ? 'da_classificare' : 'proposto', 'proposto_da' => $imputazioni === [] ? null : $utente->id];
+            } elseif ($cambiata || $movimento->regola_id !== null) {
+                // Salvare a mano una proposta di regola ne fa una scelta della persona (anche senza cambiare nulla): le regole non la toccano più.
+                $stato = ['stato' => $imputazioni === [] ? 'da_classificare' : 'proposto', 'proposto_da' => $imputazioni === [] ? null : $utente->id, 'regola_id' => null];
             }
             $movimento->forceFill(['tipo_controparte' => $tipoControparte ?: null] + $stato)->save();
             RegistroModifica::registra($utente, $movimento, 'classificato', $prima, $movimento->istantanea());
         });
+    }
+
+    /** @param list<array<string,mixed>> $imputazioni come le restituisce `risolvi` */
+    private static function scriviImputazioni(Movimento $movimento, array $imputazioni): void
+    {
+        $movimento->imputazioni()->delete(); // le righe dei tag seguono con la chiave esterna
+        foreach ($imputazioni as $dati) {
+            $tag = $dati['tag'];
+            unset($dati['tag']);
+            $movimento->imputazioni()->create($dati)->tag()->sync($tag);
+        }
+    }
+
+    /**
+     * Le imputazioni che la regola propone per il movimento (una sola, per tutto l'importo), o null se non si possono
+     * proporre: tipologia o iniziativa archiviata, combinazione fuori dalla tabella delle voci, area non ricavabile.
+     * Non scrive nulla: la usano anche l'anteprima e il controllo di chi applica.
+     *
+     * @return list<array<string,mixed>>|null
+     */
+    public static function imputazioniDellaRegola(Movimento $movimento, Regola $regola): ?array
+    {
+        // Una regola con un elemento archiviato non propone più, nemmeno dove la proposta c'è già (`risolvi` lascia ripetere quello che il movimento ha).
+        if ($regola->archiviata()) {
+            return null;
+        }
+        try {
+            return self::risolvi($movimento, [[
+                'tipologia_id' => $regola->tipologia_id, 'iniziativa_id' => $regola->iniziativa_id, 'area' => $regola->area,
+                'attivita_id' => $regola->attivita_id, 'tag' => $regola->tag->modelKeys(),
+            ]]);
+        } catch (ValidationException) {
+            return null;
+        }
+    }
+
+    /**
+     * Mette sul movimento la proposta della regola, o la toglie (`$regola` null: torna da classificare). Per chi ha già
+     * bloccato la riga e controllato che sia da classificare o proposta da una regola: i permessi sono di chi salva la
+     * regola, non del movimento.
+     *
+     * @param  list<array<string,mixed>>  $imputazioni quelle di `imputazioniDellaRegola`, già controllate da chi chiama
+     * @param  ?string  $tipoDiPrima il socio o terzo che aveva la regola di prima quando ha proposto (non quello di adesso: può essere stata appena modificata)
+     */
+    public static function proponiDaRegola(User $utente, Movimento $movimento, ?Regola $regola, array $imputazioni, ?string $tipoDiPrima = null): void
+    {
+        $prima = $movimento->istantanea();
+        self::scriviImputazioni($movimento, $imputazioni);
+        // Socio o terzo: si toglie solo quello che aveva messo la regola di prima; una scelta a mano resta e vince sulla regola nuova.
+        $tipo = $movimento->tipo_controparte;
+        if ($tipo !== null && $movimento->regola_id !== null && $tipo === $tipoDiPrima) {
+            $tipo = null;
+        }
+        $tipo ??= $regola?->tipo_controparte;
+        $movimento->forceFill(['stato' => $regola ? 'proposto' : 'da_classificare', 'proposto_da' => null, 'regola_id' => $regola?->id, 'tipo_controparte' => $tipo])->save();
+        RegistroModifica::registra($utente, $movimento, $regola ? 'proposto_da_regola' : 'proposta_di_regola_tolta', $prima, $movimento->istantanea());
     }
 
     /** Quello che fa cambiare la classificazione: i tag no. */
