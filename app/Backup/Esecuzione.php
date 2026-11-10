@@ -79,7 +79,7 @@ final class Esecuzione
     {
         // Una rotazione per tipo: uno su richiesta non è un mensile e non deve toglierne uno (il mensile del 1° può essere l'ultima copia pulita).
         $sulDrive = Backup::sulDrive()->get()->keyBy('id');
-        $daEliminare = $sulDrive->groupBy('tipo')->flatMap(fn ($gruppo) => Rotazione::daEliminare($gruppo->map->avviato_il->all(), now()));
+        $daEliminare = $sulDrive->groupBy('tipo', preserveKeys: true)->flatMap(fn ($gruppo) => Rotazione::daEliminare($gruppo->map->avviato_il->all(), now()));
         foreach ($daEliminare as $id) {
             try {
                 $drive->elimina($sulDrive[$id]->drive_id);
