@@ -25,7 +25,7 @@ class RevisioneImportController extends Controller
         return view('revisione.mostra', [
             'revisione' => $revisione, 'import' => $import, 'passo' => $passo, 'movimenti' => $revisione->passo($passo),
             'iniziative' => Iniziativa::whereNull('archiviata_il')->orderBy('nome')->get(),
-            'dettaglio' =>$revisione->movimenti->firstWhere('id', $request->integer('movimento')),
+            'dettaglio' => $revisione->movimenti->firstWhere('id', $request->integer('movimento')),
         ]);
     }
 
