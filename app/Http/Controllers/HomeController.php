@@ -12,6 +12,6 @@ class HomeController extends Controller
     {
         $utente = $request->user();
 
-        return view('home', ['daVedere' => $utente->can('note') ? Menzione::daVedere($utente) : collect()]);
+        return view('home', ['daVedere' => $utente->can('note') && $utente->can('vedere') ? Menzione::daVedere($utente) : collect()]);
     }
 }

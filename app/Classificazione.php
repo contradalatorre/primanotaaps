@@ -156,10 +156,14 @@ final class Classificazione
         });
     }
 
-    /** Un'impronta di quello che si conferma (classificazione, importo, data, giustificativi): la conferma vale per la versione vista. */
+    /**
+     * Un'impronta di quello che si conferma (classificazione, importo, data, giustificativi e dubbio aperto): la conferma
+     * vale per la versione vista, e confermare chiude il dubbio, quindi chi non l'ha visto non lo chiude in silenzio.
+     * Le note semplici no: non cambiano la versione.
+     */
     public static function versione(Movimento $movimento, bool $relazioniCaricate = false): string
     {
-        return hash('sha256', json_encode($movimento->istantanea($relazioniCaricate)));
+        return hash('sha256', json_encode($movimento->istantanea($relazioniCaricate) + ['dubbio' => $movimento->inDubbio()]));
     }
 
     /** @return list<string> */

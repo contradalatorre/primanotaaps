@@ -122,7 +122,7 @@ final class Note
             self::blocca($nota, $menzione);
             $menzione->refresh();
             self::controllaPuoScrivere($utente);
-            abort_unless(Menzione::whereKey($menzione->id)->rivolteA($utente)->exists() && ! $nota->eliminata() && ! $nota->oscurata(), 403);
+            abort_unless(Menzione::whereKey($menzione->id)->rivolteA($utente)->exists() && $nota->user_id !== $utente->id && ! $nota->eliminata() && ! $nota->oscurata(), 403);
             if ($menzione->vista_il === null) {
                 $menzione->forceFill(['vista_da' => $utente->id, 'vista_il' => now()])->save();
             }
@@ -142,8 +142,8 @@ final class Note
                 $nomi['u'.$utente->id] = $utente->name;
             }
         }
-        // Un ruolo senza `note` non ha nessuno che legga: la menzione resterebbe «da vedere» per sempre.
-        foreach (Ruolo::all()->filter->haPermesso(Permesso::Note) as $ruolo) {
+        // Un ruolo senza `note` o senza `vedere` non ha nessuno che legga: la menzione resterebbe «da vedere» per sempre.
+        foreach (Ruolo::all()->filter(fn (Ruolo $r) => $r->haPermesso(Permesso::Note) && $r->haPermesso(Permesso::Vedere)) as $ruolo) {
             $nomi['r'.$ruolo->id] = $ruolo->nome;
         }
         $citati = Menzioni::trova($nota->testo, $nomi);

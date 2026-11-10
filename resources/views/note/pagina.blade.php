@@ -10,6 +10,13 @@
         @if ($movimento->inDubbio()) @include('note.pill-dubbio') @endif
     </p>
 
+    {{-- Un dubbio su un movimento già confermato non è nella revisione: qui chi può confermare lo chiude (#45). --}}
+    @if ($movimento->inDubbio())
+        @can('importare_e_confermare')
+            <form method="POST" action="{{ route('movimenti.dubbio.chiudi', $movimento) }}">@csrf <button type="submit" class="bottone-piccolo">Chiudi il dubbio</button></form>
+        @endcan
+    @endif
+
     @include('note.elenco', ['dubbioPreselezionato' => request()->boolean('dubbio')])
 
     <p><a href="{{ route('movimenti', ['conto' => $movimento->conto_id]) }}" class="link">Torna ai movimenti</a></p>

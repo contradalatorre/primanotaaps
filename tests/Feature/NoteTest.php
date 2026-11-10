@@ -114,6 +114,7 @@ class NoteTest extends TestCase
         $registro = RegistroModifica::where('azione', 'modificata')->sole();
         $this->assertSame(['Prima versione', 'Seconda versione'], [$registro->prima['testo'], $registro->dopo['testo']]);
         $this->actingAs($maria)->get("/movimenti/{$this->movimento->id}/note")->assertSee('modificata');
+        $this->actingAs($this->utenteCon('Amministratore'))->get('/registro?oggetto=nota')->assertOk()->assertSee('ha modificato');
 
         $this->travelTo($nota->created_at->copy()->addHours(24)->addMinute());
         $this->actingAs($maria)->put("/note/{$nota->id}", ['testo' => 'Troppo tardi'])->assertForbidden();
@@ -227,6 +228,61 @@ class NoteTest extends TestCase
         $this->scrivi($this->utenteCon('Consigliere'), 'Dubbio con dati personali', ['dubbio' => '1']);
         $this->actingAs($this->utenteCon('Amministratore'))->post('/note/'.Nota::sole()->id.'/oscuramento', ['motivazione' => 'Dati personali']);
         $this->assertTrue($this->movimento->refresh()->inDubbio());
+    }
+
+    public function test_un_dubbio_aperto_cambia_la_versione_e_la_conferma_sulla_versione_di_prima_non_lo_chiude(): void
+    {
+        $tina = $this->utenteCon('Tesoriere');
+        Classificazione::salva($tina, $this->movimento, null, [['tipologia_id' => \App\Models\Tipologia::where('nome', 'Materiali e beni di consumo')->value('id'), 'iniziativa_id' => \App\Models\Iniziativa::where('nome', 'Carnevale')->value('id')]]);
+        $vista = Classificazione::versione($this->movimento->refresh());
+        $this->scrivi($this->utenteCon('Consigliere'), 'Aspetta, non torna.', ['dubbio' => '1']);
+
+        $this->assertNotSame($vista, Classificazione::versione($this->movimento->refresh()));
+        $this->actingAs($tina)->post("/movimenti/{$this->movimento->id}/conferma", ['versione' => $vista])->assertSessionHasErrors('conferma');
+        $this->assertTrue($this->movimento->refresh()->inDubbio());
+        $this->assertSame('proposto', $this->movimento->stato);
+        // Rileggendo il movimento (ora con il dubbio) la conferma passa e lo chiude.
+        $this->actingAs($tina)->post("/movimenti/{$this->movimento->id}/conferma", ['versione' => Classificazione::versione($this->movimento)])->assertSessionHasNoErrors();
+        $this->assertFalse($this->movimento->refresh()->inDubbio());
+    }
+
+    public function test_la_pagina_delle_note_offre_la_chiusura_del_dubbio_a_chi_conferma(): void
+    {
+        $this->scrivi($this->utenteCon('Consigliere'), 'Boh', ['dubbio' => '1']);
+        $this->movimento->forceFill(['stato' => 'confermato'])->save(); // un confermato fuori da un import: la revisione non lo mostra
+
+        $url = "/movimenti/{$this->movimento->id}/dubbio/chiusura";
+        $this->actingAs($this->utenteCon('Consigliere'))->get("/movimenti/{$this->movimento->id}/note")->assertOk()->assertDontSee($url);
+        $tina = $this->utenteCon('Tesoriere');
+        $this->actingAs($tina)->get("/movimenti/{$this->movimento->id}/note")->assertOk()->assertSee($url);
+        $this->actingAs($tina)->post($url)->assertRedirect();
+        $this->assertFalse($this->movimento->refresh()->inDubbio());
+        $this->actingAs($tina)->get("/movimenti/{$this->movimento->id}/note")->assertDontSee($url);
+    }
+
+    public function test_chi_ha_scritto_la_nota_non_ha_la_menzione_da_segnare_vista(): void
+    {
+        $tina = $this->utenteCon('Tesoriere', [], ['name' => 'Tina Verdi']);
+        $this->scrivi($tina, '@Tesoriere ricordo a tutti lo scontrino');
+        $menzione = \App\Models\Menzione::sole();
+        $menzione->update(['user_id' => $tina->id, 'ruolo_id' => null]); // menzione a sé stessa: un dato che la scrittura normale non produce
+
+        $this->actingAs($tina)->post("/menzioni/{$menzione->id}/fatto")->assertForbidden();
+        $this->assertNull($menzione->refresh()->vista_il);
+    }
+
+    public function test_la_menzione_a_un_ruolo_senza_vedere_non_si_crea_e_la_home_chiede_vedere(): void
+    {
+        $this->utenteCon(Ruolo::create(['nome' => 'Solo note', 'permessi' => ['note']]));
+        $this->scrivi($this->utenteCon('Tesoriere'), '@Solo note ci sei?');
+        $this->assertSame(0, \App\Models\Menzione::count());
+
+        $maria = $this->utenteCon('Consigliere', [], ['name' => 'Maria Rossi']);
+        $this->scrivi($this->utenteCon('Tesoriere'), '@Maria Rossi guarda');
+        $solo = $this->utenteCon(Ruolo::create(['nome' => 'Solo note 2', 'permessi' => ['note']]));
+        \App\Models\Menzione::sole()->update(['user_id' => $solo->id]); // menzione rimasta a chi ha perso `vedere`
+        $this->actingAs($solo)->get('/')->assertOk()->assertDontSee('Da vedere');
+        $this->actingAs($maria)->get('/')->assertOk();
     }
 
     // --- Menzioni ---
