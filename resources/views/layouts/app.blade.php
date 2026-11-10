@@ -49,6 +49,12 @@
                     <span class="voce-testo">Registro</span>
                 </a>
             @endcan
+            @can('gestire_impostazioni')
+                <a href="{{ route('sistema') }}" class="voce" @if (request()->routeIs('sistema*')) aria-current="page" @endif>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
+                    <span class="voce-testo">Sistema</span>
+                </a>
+            @endcan
             @can('gestire_utenti')
                 <a href="{{ route('utenti') }}" class="voce" @if (request()->routeIs('utenti*')) aria-current="page" @endif>
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 20v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2M9.5 10a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM21 20v-2a4 4 0 00-3-3.9M16 3.1a3.5 3.5 0 010 6.8"/></svg>
