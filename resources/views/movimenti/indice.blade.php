@@ -55,8 +55,8 @@
                 @if ($movimento->tipo_controparte)
                     <p class="nota">Controparte: {{ \App\Models\Movimento::TIPI_CONTROPARTE[$movimento->tipo_controparte] }}</p>
                 @endif
-                @if ($movimento->stato === 'proposto' && $movimento->proponente)
-                    <p class="nota">Proposta da {{ $movimento->proponente->name }}</p>
+                @if ($movimento->fonteProposta())
+                    <p class="nota">{{ $movimento->fonteProposta() }}</p>
                 @endif
                 @foreach ($movimento->giustificativi as $g)
                     <p class="nota">Giustificativo: {{ $g->riferimento }}@if ($g->link) · <a href="{{ $g->link }}" class="link" rel="noopener noreferrer" target="_blank">Apri</a>@endif</p>

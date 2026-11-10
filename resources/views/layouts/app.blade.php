@@ -37,6 +37,12 @@
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 21V9H5V5h3v2h2V5h4v2h2V5h3v4h-2v12zM12 21v-5"/></svg>
                 <span class="voce-testo">Impara</span>
             </a>
+            @can('gestire_regole')
+                <a href="{{ route('regole') }}" class="voce" @if (request()->routeIs('regole*')) aria-current="page" @endif>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h6M18 14l3 3-3 3"/></svg>
+                    <span class="voce-testo">Regole</span>
+                </a>
+            @endcan
             @can('vedere_registro_modifiche')
                 <a href="{{ route('registro') }}" class="voce" @if (request()->routeIs('registro*')) aria-current="page" @endif>
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg>

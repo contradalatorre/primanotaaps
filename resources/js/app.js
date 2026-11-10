@@ -111,3 +111,22 @@ if (guida) {
 
     guida.querySelector('[data-continua-qui]')?.addEventListener('click', () => { guida.querySelector('[data-computer]').hidden = true; });
 }
+
+// Regole del tesoriere (#42): si riordinano trascinando e l'ordine nuovo si manda subito. Senza script restano Su e Giù.
+const elencoRegole = document.querySelector('[data-regole-ordine]');
+
+if (elencoRegole) {
+    let trascinata = null;
+    const ordine = () => [...elencoRegole.querySelectorAll('[name="ordine[]"]')].map((i) => i.value).join();
+    const iniziale = ordine();
+    elencoRegole.querySelectorAll('[data-regola]').forEach((voce) => {
+        voce.addEventListener('dragstart', () => { trascinata = voce; });
+        voce.addEventListener('dragover', (e) => {
+            if (!trascinata || trascinata === voce) return;
+            e.preventDefault();
+            const sopra = e.clientY < voce.getBoundingClientRect().top + voce.offsetHeight / 2;
+            voce.parentNode.insertBefore(trascinata, sopra ? voce : voce.nextSibling);
+        });
+        voce.addEventListener('dragend', () => { trascinata = null; if (ordine() !== iniziale) elencoRegole.submit(); });
+    });
+}

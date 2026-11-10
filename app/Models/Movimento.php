@@ -58,13 +58,23 @@ class Movimento extends Model
         return $this->belongsTo(User::class, 'proposto_da');
     }
 
+    public function regola(): BelongsTo
+    {
+        return $this->belongsTo(Regola::class);
+    }
+
     /**
      * Da dove viene la proposta in corso, o null se non ce n'è.
-     * shortcut: finora le proposte sono solo di persone; regole, storico e AI (#42, #43) avranno la loro fonte.
+     * shortcut: finora le fonti sono persone e regole; storico e AI (#43) avranno la loro. Da caricare prima: `proponente` e `regola`.
      */
     public function fonteProposta(): ?string
     {
-        return $this->stato === 'proposto' && $this->proponente ? 'Proposta da '.$this->proponente->name : null;
+        return match (true) {
+            $this->stato !== 'proposto' => null,
+            $this->regola_id !== null => 'Regola: '.$this->regola->nome,
+            $this->proponente !== null => 'Proposta da '.$this->proponente->name,
+            default => null,
+        };
     }
 
     public function confermato(): bool

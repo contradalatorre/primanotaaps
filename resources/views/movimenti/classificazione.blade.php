@@ -13,7 +13,7 @@
         </div>
         <p>{{ $movimento->descrizione }}</p>
         <p class="nota">{{ $movimento->data->format('d/m/Y') }} · {{ $movimento->conto->nome }} · esercizio {{ $movimento->data->year }}</p>
-        @if ($movimento->proponente) <p class="nota">Proposta da {{ $movimento->proponente->name }}</p> @endif
+        @if ($movimento->fonteProposta()) <p class="nota">{{ $movimento->fonteProposta() }}</p> @endif
         @if ($movimento->confermato()) <p class="nota">Una nuova classificazione lo lascia confermato, a nome di chi la salva.</p> @endif
     </div>
 
