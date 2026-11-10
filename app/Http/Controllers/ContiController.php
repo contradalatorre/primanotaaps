@@ -68,26 +68,33 @@ class ContiController extends Controller
      */
     public function chiudi(Request $request, Conto $conto): RedirectResponse
     {
-        if ($conto->chiuso()) {
-            throw ValidationException::withMessages(['conto' => 'Il conto è già chiuso.']);
-        }
-        // Non prima dell'ultimo movimento: i movimenti dopo la chiusura non si potrebbero più modificare.
-        $ultimo = $conto->movimenti()->max('data');
-        $request->validate([
-            'chiuso_il' => ['required', 'date', 'after_or_equal:'.max($conto->aperto_il->toDateString(), $ultimo ?? ''), 'before_or_equal:today'],
-        ], ['chiuso_il.after_or_equal' => 'Il conto non può chiudersi prima della sua apertura o dell’ultimo movimento'.($ultimo ? ' ('.date('d/m/Y', strtotime($ultimo)).')' : '').'.']);
-
         $rimasti = DB::transaction(function () use ($request, $conto) {
-            $prima = $conto->istantanea();
-            $conto->update(['chiuso_il' => $request->date('chiuso_il')]);
-            $toccate = DB::table('assegnazione_conto')->where('conto_id', $conto->id)->pluck('assegnazione_id');
-            $persone = User::whereHas('assegnazioni', fn ($a) => $a->whereIn('id', $toccate))->orderBy('name')->get();
-            DB::table('assegnazione_conto')->where('conto_id', $conto->id)->delete();
-            // Le righe tolte da assegnazione_conto non hanno un registro proprio: si riassumono qui, chi ne aveva l'ambito.
-            RegistroModifica::registra($request->user(), $conto, 'chiuso', $prima, $conto->istantanea(),
-                $persone->isEmpty() ? null : 'Assegnazioni decadute su questo conto, per ripristinarle a mano: '.$persone->pluck('name')->join(', ').' (assegnazioni n. '.$toccate->sort()->join(', ').').');
+            // Prima il conto, come la conferma dell'import: una scrittura di movimenti in corso si mette in fila e l'ultimo
+            // movimento si legge dopo. Poi gli Amministratori (la chiusura può togliere l'ambito all'ultimo), e solo dopo
+            // ogni lettura semplice: MySQL (REPEATABLE READ) fotografa alla prima.
+            $conto = Conto::lockForUpdate()->findOrFail($conto->id);
 
-            return User::senzaConti()->whereIn('id', $persone->pluck('id'))->orderBy('name')->pluck('name');
+            return User::proteggendoUltimoAmministratore(function () use ($request, $conto) {
+                if ($conto->chiuso()) {
+                    throw ValidationException::withMessages(['conto' => 'Il conto è già chiuso.']);
+                }
+                // Non prima dell'ultimo movimento: i movimenti dopo la chiusura non si potrebbero più modificare.
+                $ultimo = $conto->movimenti()->max('data');
+                $request->validate([
+                    'chiuso_il' => ['required', 'date', 'after_or_equal:'.max($conto->aperto_il->toDateString(), $ultimo ?? ''), 'before_or_equal:today'],
+                ], ['chiuso_il.after_or_equal' => 'Il conto non può chiudersi prima della sua apertura o dell’ultimo movimento'.($ultimo ? ' ('.date('d/m/Y', strtotime($ultimo)).')' : '').'.']);
+
+                $prima = $conto->istantanea();
+                $conto->update(['chiuso_il' => $request->date('chiuso_il')]);
+                $toccate = DB::table('assegnazione_conto')->where('conto_id', $conto->id)->pluck('assegnazione_id');
+                $persone = User::whereHas('assegnazioni', fn ($a) => $a->whereIn('id', $toccate))->orderBy('name')->get();
+                DB::table('assegnazione_conto')->where('conto_id', $conto->id)->delete();
+                // Le righe tolte da assegnazione_conto non hanno un registro proprio: si riassumono qui, chi ne aveva l'ambito.
+                RegistroModifica::registra($request->user(), $conto, 'chiuso', $prima, $conto->istantanea(),
+                    $persone->isEmpty() ? null : 'Assegnazioni decadute su questo conto, per ripristinarle a mano: '.$persone->pluck('name')->join(', ').' (assegnazioni n. '.$toccate->sort()->join(', ').').');
+
+                return User::senzaConti()->whereIn('id', $persone->pluck('id'))->orderBy('name')->pluck('name');
+            });
         });
 
         $risposta = redirect()->route('conti')->with('ok', 'Conto chiuso: le assegnazioni su questo conto sono decadute.');
