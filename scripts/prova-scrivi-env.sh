@@ -30,5 +30,8 @@ verifica '! (MAIL_HOST= sh ./scrivi-env.sh >/dev/null 2>&1)' "la posta mancante 
 verifica '! (EMERGENZA_PASSWORD_HASH=password-in-chiaro sh ./scrivi-env.sh >/dev/null 2>&1)' "un hash che non è bcrypt è rifiutato"
 verifica '! (EMERGENZA_TOTP_SECRET="jbsw y3dp" sh ./scrivi-env.sh >/dev/null 2>&1)' "un segreto TOTP non base32 è rifiutato"
 verifica '! (DB_HOST= sh ./scrivi-env.sh >/dev/null 2>&1)' "un segreto mancante è rifiutato"
+verifica '! echo "$env_scritto" | grep -q "^DRIVE_"' "senza drive condiviso il .env non ha le sue chiavi e la pubblicazione non si ferma"
+verifica 'DRIVE_CREDENZIALI=eyJhIjoxfQ== DRIVE_CARTELLA_BACKUP=cartella123 sh ./scrivi-env.sh | grep -qxF "DRIVE_CREDENZIALI='"'"'eyJhIjoxfQ=='"'"'"' "le credenziali del drive sono scritte alla lettera"
+verifica '! (DRIVE_CREDENZIALI="{\"a\":1}" sh ./scrivi-env.sh >/dev/null 2>&1)' "credenziali del drive che non sono base64 sono rifiutate"
 
 exit "$fallimenti"
