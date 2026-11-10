@@ -159,7 +159,7 @@ final class Classificazione
     /**
      * Un'impronta di quello che si conferma (classificazione, importo, data, giustificativi e dubbio aperto): la conferma
      * vale per la versione vista, e confermare chiude il dubbio, quindi chi non l'ha visto non lo chiude in silenzio.
-     * Le note semplici no: non cambiano la versione.
+     * Le note semplici no: non cambiano la versione. Con `$relazioniCaricate` il dubbio si legge da `conNote()`, senza query.
      */
     public static function versione(Movimento $movimento, bool $relazioniCaricate = false): string
     {
