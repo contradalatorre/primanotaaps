@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccessoController;
 use App\Http\Controllers\ClassificazioneController;
 use App\Http\Controllers\ContiController;
+use App\Http\Controllers\CronController;
 use App\Http\Controllers\DatiDiClassificazioneController;
 use App\Http\Controllers\EmergenzaController;
 use App\Http\Controllers\HomeController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\ManualeController;
 use App\Http\Controllers\MigrazioniController;
 use App\Http\Controllers\MovimentiController;
 use App\Http\Controllers\NoteController;
+use App\Http\Controllers\PreferenzeController;
 use App\Http\Controllers\RegistroController;
 use App\Http\Controllers\RegoleController;
 use App\Http\Controllers\RevisioneImportController;
@@ -38,6 +40,8 @@ Route::get('/accesso/google/ritorno', [AccessoController::class, 'ritornoDaGoogl
 Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class])->group(function () {
     Route::get('/', [HomeController::class, 'index'])->name('home');
     Route::post('/esci', [AccessoController::class, 'esci'])->name('esci');
+    Route::get('/preferenze', [PreferenzeController::class, 'index'])->name('preferenze');
+    Route::put('/preferenze', [PreferenzeController::class, 'salva'])->name('preferenze.salva');
     Route::get('/riautentica', [AccessoController::class, 'riautentica'])->name('riautentica');
 
     // Conti e movimenti (#38). Leggere è per tutti: l'ambito limita la scrittura, non la lettura. Dove il permesso
@@ -155,6 +159,10 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
 
 // Prima installazione: il database è vuoto, quindi niente sessione (la tabella `sessions` non c'è) né CSRF.
 Route::post('/manutenzione/migrazioni/prima-installazione', [MigrazioniController::class, 'primaInstallazione'])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class]);
+
+// Cron HTTP di Aruba (ADR 0001, #46): niente sessione né CSRF, solo il token `CRON_TOKEN`.
+Route::get('/manutenzione/cron', CronController::class)
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class]);
 
 // Onboarding (#71): il menu Impara e la guida di Merlo, fuori dal gruppo sopra perché lavorano anche sul database vero.

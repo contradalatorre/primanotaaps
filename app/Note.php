@@ -8,6 +8,7 @@ use App\Models\Nota;
 use App\Models\RegistroModifica;
 use App\Models\Ruolo;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -27,12 +28,13 @@ final class Note
      */
     public static function scrivi(User $utente, Movimento $movimento, string $testo, bool $dubbio): Nota
     {
-        return DB::transaction(function () use ($utente, $movimento, $testo, $dubbio) {
+        $nuove = collect();
+        $nota = DB::transaction(function () use ($utente, $movimento, $testo, $dubbio, &$nuove) {
             Classificazione::blocca($movimento);
             self::controllaPuoScrivere($utente);
 
             $nota = $movimento->note()->create(['user_id' => $utente->id, 'testo' => $testo, 'dubbio' => $dubbio]);
-            self::sincronizzaMenzioni($nota);
+            $nuove = self::sincronizzaMenzioni($nota);
             // Chi risponde chiude le menzioni a lui rivolte sullo stesso movimento (non quella appena scritta, che non lo cita).
             Menzione::whereNull('vista_il')->rivolteA($utente)
                 ->whereIn('nota_id', $movimento->note()->where('user_id', '!=', $utente->id)->select('id'))->update(['vista_da' => $utente->id, 'vista_il' => now()]);
@@ -40,19 +42,24 @@ final class Note
 
             return $nota;
         });
+        EmailMenzioni::immediate($nuove); // dopo la transazione: la posta lenta o giù non tiene i lock né annulla la nota
+
+        return $nota;
     }
 
     /** Solo l'autore, entro 24 ore: altrimenti 403 (`abort`). */
     public static function modifica(User $utente, Nota $nota, string $testo): void
     {
-        DB::transaction(function () use ($utente, $nota, $testo) {
+        $nuove = collect();
+        DB::transaction(function () use ($utente, $nota, $testo, &$nuove) {
             self::blocca($nota);
             self::controllaAutore($utente, $nota);
             $prima = $nota->istantanea();
             $nota->forceFill(['testo' => $testo, 'modificata_il' => now()])->save();
-            self::sincronizzaMenzioni($nota);
+            $nuove = self::sincronizzaMenzioni($nota);
             RegistroModifica::registra($utente, $nota, 'modificata', $prima, $nota->istantanea());
         });
+        EmailMenzioni::immediate($nuove); // solo le menzioni aggiunte con la modifica: le altre sono già partite
     }
 
     /** L'autore cancella la propria nota: resta il segno «nota eliminata da X», il testo resta nel registro. */
@@ -133,8 +140,10 @@ final class Note
      * Rifà l'elenco delle menzioni di una nota dal suo testo: chiama in causa gli utenti attivi che leggono le note
      * (e non l'autore) e i ruoli. Un nome che non c'è tra loro (un utente senza più assegnazioni, un esterno scaduto)
      * resta testo e non crea niente. Le menzioni già viste restano viste.
+     *
+     * @return Collection<int, Menzione> quelle create adesso
      */
-    private static function sincronizzaMenzioni(Nota $nota): void
+    private static function sincronizzaMenzioni(Nota $nota): Collection
     {
         $nomi = [];
         foreach (User::where('emergenza', false)->where('id', '!=', $nota->user_id)->get() as $utente) {
@@ -156,9 +165,7 @@ final class Note
                 $esistente->delete();
             }
         }
-        foreach ($citati as $chiave) {
-            $nota->menzioni()->create([$chiave[0] === 'u' ? 'user_id' : 'ruolo_id' => (int) substr($chiave, 1)]);
-        }
+        return collect($citati)->map(fn (string $chiave) => $nota->menzioni()->create([$chiave[0] === 'u' ? 'user_id' : 'ruolo_id' => (int) substr($chiave, 1)]));
     }
 
     /** Blocca nell'ordine fisso, oggetto, nota, menzione, e solo dopo rilegge la nota: un oggetto eliminato nel frattempo dà 404. */

@@ -20,6 +20,7 @@ In Settings > Environments crea `produzione` e `prova`. Su ciascuno imposta *Dep
 | Segreto | `EMERGENZA_PASSWORD_HASH`, `EMERGENZA_TOTP_SECRET` | hash della password e segreto TOTP dell'account di emergenza (#36), diversi per ogni ambiente: si generano con `docker compose run --rm tools php artisan emergenza:credenziali` (vedi sotto) |
 | Segreto | `MAIL_USERNAME`, `MAIL_PASSWORD` | account SMTP della posta del Workspace da cui parte l'avviso di accesso di emergenza (#36; lo riuserà anche #46). `MAIL_PASSWORD` dev'essere una **password per le app** di Google (l'account deve avere la verifica in due passaggi): con la password normale Gmail risponde 535 e l'avviso non parte, senza che nessuno se ne accorga |
 | Segreto | `MIGRAZIONI_TOKEN` | stringa lunga e casuale, per la prima installazione |
+| Segreto | `CRON_TOKEN` | stringa lunga e casuale (almeno 32 caratteri, solo lettere e cifre), per il cron HTTP (vedi *Compiti periodici*), diversa per ogni ambiente |
 | Variabile | `SITO_URL` | indirizzo dell'app senza barra finale, es. `https://sito.example/contabilita` |
 | Variabile | `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM_ADDRESS` | trasporto della posta: `smtp`, il server SMTP del Workspace (per Gmail `smtp.gmail.com`, porta `465`: TLS implicito, Laravel sceglie `smtps` da solo) e il mittente. Senza `MAIL_MAILER=smtp` Laravel scrive le email nel log e non le spedisce |
 | Variabile | `GOOGLE_WORKSPACE_DOMAIN` | dominio del Workspace |
@@ -44,6 +45,12 @@ Ogni uso, riuscito o fallito, finisce nel registro degli accessi e quelli riusci
 - **Aggiornamenti**: dopo una pubblicazione con cambiamenti allo schema, un Amministratore apre *Migrazioni* nel menu e preme "Avvia le migrazioni".
 - **Prima installazione**: a database vuoto nessuno può ancora entrare, perché mancano le tabelle degli utenti e delle sessioni. Ci pensa il workflow: dopo il caricamento chiama `<SITO_URL>/manutenzione/migrazioni/prima-installazione` con il `MIGRAZIONI_TOKEN`. La chiamata funziona solo finché la tabella `migrations` non esiste o è vuota; dopo risponde 409 e non fa nulla (scelta registrata nell'ADR 0002). Se le migrazioni falliscono risponde 424 e il passo del workflow diventa rosso; il workflow non ripete mai la chiamata.
 - **Prima installazione fallita**: il database resta migrato a metà, e rilanciando il workflow la chiamata risponderebbe 409 (verde, ma senza le tabelle mancanti). Si ripristina a mano: dal pannello Aruba (phpMyAdmin) si cancellano tutte le tabelle del database dell'ambiente, si legge il motivo nel log dell'app (`storage/logs`, via FTPS) e si rilancia la pubblicazione. L'endpoint non cancella mai tabelle da solo.
+
+## Compiti periodici
+
+Su Aruba c'è solo il cron come chiamata HTTP (ADR 0001). Nel pannello Aruba si crea, per ciascun ambiente, un cron che ogni 10 minuti chiama `<SITO_URL>/manutenzione/cron?token=<CRON_TOKEN>`: l'app avvia da sola i compiti scaduti dall'ultima chiamata (l'elenco e le scadenze sono in `App\CompitiPeriodici`), una volta sola anche dopo giorni di silenzio. La risposta è un JSON con i comandi avviati. Oggi sono due: la pulizia degli spazi di prova (a mezzanotte) e il riepilogo email delle menzioni (alle 8, ora dell'app). Il token sta nell'indirizzo perché il cron di Aruba non sa mandare intestazioni: finisce nei log di accesso del sito, quindi va tenuto solo lì, cambiato se trapela, e non va riusato altrove. Senza `CRON_TOKEN` l'endpoint risponde sempre 403. Su una VPS basterà `schedule:run` ogni minuto.
+
+Le email delle menzioni usano la posta di `MAIL_*` e non contengono mai il testo della nota. Dopo la pubblicazione di #46 serve avviare le migrazioni dalla pagina *Migrazioni*.
 
 ## Prove a secco
 

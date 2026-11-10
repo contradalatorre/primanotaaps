@@ -5,7 +5,7 @@
 # né andare a capo (tipico di un segreto incollato con l'invio finale).
 set -eu
 
-chiavi="APP_URL APP_KEY DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GOOGLE_WORKSPACE_DOMAIN AMMINISTRATORI_INIZIALI EMERGENZA_PASSWORD_HASH EMERGENZA_TOTP_SECRET MIGRAZIONI_TOKEN MAIL_MAILER MAIL_HOST MAIL_PORT MAIL_USERNAME MAIL_PASSWORD MAIL_FROM_ADDRESS"
+chiavi="APP_URL APP_KEY DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GOOGLE_WORKSPACE_DOMAIN AMMINISTRATORI_INIZIALI EMERGENZA_PASSWORD_HASH EMERGENZA_TOTP_SECRET MIGRAZIONI_TOKEN CRON_TOKEN MAIL_MAILER MAIL_HOST MAIL_PORT MAIL_USERNAME MAIL_PASSWORD MAIL_FROM_ADDRESS"
 a_capo=$(printf '\n.')
 
 for chiave in $chiavi; do
@@ -26,6 +26,12 @@ case "$EMERGENZA_PASSWORD_HASH" in
 esac
 if ! printf '%s' "$EMERGENZA_TOTP_SECRET" | grep -Eq '^[A-Z2-7]+=*$'; then
     echo 'EMERGENZA_TOTP_SECRET non è un segreto base32 (A-Z, 2-7): rigeneralo con emergenza:credenziali.' >&2
+    exit 1
+fi
+
+# Il token del cron finisce in un indirizzo (e nei log di accesso): lungo, e solo caratteri che non vanno codificati.
+if ! printf '%s' "$CRON_TOKEN" | grep -Eq '^[A-Za-z0-9]{32,}$'; then
+    echo 'CRON_TOKEN deve avere almeno 32 caratteri, solo lettere e cifre.' >&2
     exit 1
 fi
 

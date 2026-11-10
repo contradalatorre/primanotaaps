@@ -67,6 +67,10 @@
         <form method="POST" action="{{ route('esci') }}" class="menu-utente">
             @csrf
             <span class="utente-nome">{{ auth()->user()->name }}</span>
+            <a href="{{ route('preferenze') }}" class="voce" @if (request()->routeIs('preferenze*')) aria-current="page" @endif>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0M14 4v4M8 10v4M18 16v4"/></svg>
+                <span class="voce-testo">Preferenze</span>
+            </a>
             <button type="submit" class="voce">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>
                 <span class="voce-testo">Esci</span>
