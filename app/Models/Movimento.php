@@ -82,7 +82,7 @@ class Movimento extends Model
 
     /**
      * Da dove viene la proposta in corso, o null se non ce n'è.
-     * shortcut: finora le fonti sono persone, regole e storico; l'AI (#47) avrà la sua. Da caricare prima: `proponente`, `regola`, `storicoMovimento` e `storicoEsempio`.
+     * shortcut: finora le fonti sono persone, regole e storico; l'AI (#66) avrà la sua. Da caricare prima: `proponente`, `regola`, `storicoMovimento` e `storicoEsempio`.
      */
     public function fonteProposta(): ?string
     {

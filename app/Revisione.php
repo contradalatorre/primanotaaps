@@ -34,7 +34,7 @@ final class Revisione
     /**
      * I movimenti di un passo; tranne «Tutti» solo quelli ancora da confermare.
      * Le proposte ora sono tutte di chi può confermare (in un import classifica solo chi ha `importare_e_confermare`):
-     * quando arriverà l'AI (#47), «Proposte pronte» lascerà fuori AI e consiglieri (#33, storia 72).
+     * quando arriverà l'AI (#66), «Proposte pronte» lascerà fuori AI e consiglieri (#33, storia 72).
      *
      * @return Collection<int, Movimento>
      */

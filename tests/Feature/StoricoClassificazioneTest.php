@@ -8,6 +8,7 @@ use App\Models\EsempioClassificazione;
 use App\Models\ImportEstratto;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
+use App\Models\RegistroModifica;
 use App\Models\Regola;
 use App\Models\Ruolo;
 use App\Models\Tipologia;
@@ -129,6 +130,19 @@ class StoricoClassificazioneTest extends TestCase
         $this->actingAs($this->tesoriere)->post('/regole', $this->dati(['nome' => 'Per ricalcolare', 'testo' => 'ZZZ']))->assertSessionHasNoErrors();
 
         $this->assertSame('Materiali e beni di consumo', $this->nomeTipologia($this->bolletta()));
+    }
+
+    public function test_salvare_una_regola_che_non_c_entra_non_riscrive_le_proposte_dello_storico(): void
+    {
+        $this->precedente('SDD A : FORNITORE ENERGIA ESEMPIO IT60X0542811101000000987654');
+        $this->importaAprile();
+        $bolletta = $this->bolletta();
+        $prima = RegistroModifica::where('oggetto_tipo', 'movimento')->where('oggetto_id', $bolletta->id)->count();
+
+        $this->actingAs($this->tesoriere)->post('/regole', $this->dati(['nome' => 'Altra', 'testo' => 'ZZZ']))->assertRedirect()
+            ->assertSessionHas('ok', 'Regola salvata. Nessuna proposta è cambiata.');
+
+        $this->assertSame($prima, RegistroModifica::where('oggetto_tipo', 'movimento')->where('oggetto_id', $bolletta->id)->count());
     }
 
     public function test_le_condizioni_suggerite_contengono_una_parola_della_controparte(): void
