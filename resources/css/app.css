@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './merlo.css';
 
 @source '../views';
 /* L'elenco dei movimenti e il registro sono a pagine: servono gli stili della paginazione di Laravel. */
