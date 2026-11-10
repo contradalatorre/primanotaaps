@@ -140,8 +140,8 @@ final class Classificazione
         $azione = match (true) {
             $regola !== null => 'proposto_da_regola',
             $precedente !== null => 'proposto_da_storico',
-            $movimento->storico_movimento_id !== null || $movimento->storico_esempio_id !== null => 'proposta_dello_storico_tolta',
-            default => 'proposta_di_regola_tolta',
+            $movimento->regola_id !== null => 'proposta_di_regola_tolta',
+            default => 'proposta_dello_storico_tolta', // anche quella rimasta senza origine: una regola non sparisce (restrictOnDelete), lo storico sì
         };
         self::scriviImputazioni($movimento, $imputazioni);
         // Socio o terzo: si toglie solo quello che aveva messo la regola di prima; una scelta a mano resta e vince sulla regola nuova.

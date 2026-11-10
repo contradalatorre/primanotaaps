@@ -228,6 +228,7 @@ class StoricoClassificazioneTest extends TestCase
         $bolletta->refresh();
         $this->assertSame('da_classificare', $bolletta->stato);
         $this->assertSame(0, $bolletta->imputazioni()->count());
+        $this->assertSame('proposta_dello_storico_tolta', RegistroModifica::where('oggetto_tipo', 'movimento')->where('oggetto_id', $bolletta->id)->latest('id')->value('azione'));
     }
 
     public function test_se_del_precedente_cambiano_solo_i_tag_la_proposta_li_segue(): void
