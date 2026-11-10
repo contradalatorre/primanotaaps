@@ -81,7 +81,7 @@
                 <p class="nota">{{ [
                     'giroconti' => 'I giroconti spostano denaro tra due conti dell’associazione e non sono né entrate né uscite: li abbina l’app, in un prossimo passo.',
                     'pronte' => 'Raggruppate per tipologia e iniziativa. Controlla ogni gruppo e confermalo in un colpo; se un movimento è sbagliato, aprilo e correggilo prima.',
-                    'decidere' => 'Apri ogni movimento e scegli la tipologia: senza non si conferma. Qui stanno anche i movimenti in dubbio, che si confermano uno per uno. Per più movimenti insieme, selezionali e imposta l’iniziativa.',
+                    'decidere' => 'Apri ogni movimento e scegli la tipologia: senza non si conferma. Qui stanno anche i movimenti in dubbio: si confermano con la ✓ o spuntandoli, mai con le proposte pronte. Per più movimenti insieme, selezionali e imposta l’iniziativa.',
                     'tutti' => 'Tutti i movimenti dell’import, in ordine di data.',
                     'dubbi' => 'Hanno una nota dubbio aperta. Confermare un movimento chiude il suo dubbio; il ? di una riga lo toglie senza confermare.',
                 ][$passo] }}</p>
