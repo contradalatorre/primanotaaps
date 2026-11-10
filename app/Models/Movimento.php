@@ -60,6 +60,17 @@ class Movimento extends Model
         return $this->morphMany(Nota::class, 'oggetto', 'oggetto_tipo', 'oggetto_id');
     }
 
+    /** Fuori dai totali di entrate e uscite: le metà di un giroconto non sono né l'una né l'altra (glossario). */
+    public function scopeSenzaGiroconto(Builder $query): void
+    {
+        $query->whereNotIn('movimenti.id', Giroconto::select('uscita_id'))->whereNotIn('movimenti.id', Giroconto::select('entrata_id'));
+    }
+
+    public function scopeInGiroconto(Builder $query): void
+    {
+        $query->where(fn (Builder $q) => $q->whereIn('movimenti.id', Giroconto::select('uscita_id'))->orWhereIn('movimenti.id', Giroconto::select('entrata_id')));
+    }
+
     /** Conteggio delle note visibili (`note_count`) e dubbio aperto (`in_dubbio`) già nella query dell'elenco, senza una query per riga. */
     public function scopeConNote(Builder $query): void
     {
@@ -147,6 +158,11 @@ class Movimento extends Model
      */
     public function classificabileDa(User $utente): bool
     {
+        // Una metà di giroconto non si classifica: non è un'entrata né un'uscita. Prima si scioglie il giroconto.
+        if ($this->confermato() && Giroconto::di($this) !== null) { // una metà di giroconto è sempre confermata
+            return false;
+        }
+
         return $utente->can('importare_e_confermare')
             || ($this->manuale && $this->inserito_da === $utente->id && ! $this->confermato() && ! $this->conto->chiuso() && $utente->can('proporre_classificazioni', $this->conto_id));
     }

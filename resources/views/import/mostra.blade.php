@@ -18,6 +18,7 @@
             <div><dt>Nuovi</dt><dd>{{ count($classi['nuove']) }}</dd></div>
             <div><dt>Già presenti</dt><dd>{{ count($classi['presenti']) }}</dd></div>
             <div><dt>In conflitto</dt><dd>{{ count($classi['conflitti']) }}</dd></div>
+            <div><dt>Giroconti proposti</dt><dd>{{ $giroconti }}</dd></div>
         @else
             <div><dt>Movimenti importati</dt><dd>{{ $movimenti }}</dd></div>
             <div><dt>Caricato da</dt><dd>{{ $import->utente->name }}, confermato il {{ $import->confermato_il->format('d/m/Y') }}</dd></div>

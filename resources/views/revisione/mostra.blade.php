@@ -51,6 +51,9 @@
                     <div><dt>Saldo al {{ $import->periodo_dal->copy()->subDay()->format('d/m/Y') }}</dt><dd>{{ $euro($catena['iniziale']) }}</dd></div>
                     <div><dt>+ Entrate</dt><dd>{{ $euro($catena['entrate']) }}</dd></div>
                     <div><dt>− Uscite</dt><dd>{{ $euro($catena['uscite']) }}</dd></div>
+                    @if ($catena['nGiroconti'])
+                        <div><dt>± Giroconti ({{ $catena['nGiroconti'] }})</dt><dd>{{ $catena['giroconti'] < 0 ? '−' : '' }}{{ $euro(abs($catena['giroconti'])) }}</dd></div>
+                    @endif
                     <div><dt>= Saldo al {{ $import->periodo_al->format('d/m/Y') }}</dt><dd>{{ $euro($catena['finale']) }}</dd></div>
                 </dl>
             </details>
@@ -81,7 +84,7 @@
                     </div>
                 </div>
                 <p class="nota">{{ [
-                    'giroconti' => 'I giroconti spostano denaro tra due conti dell’associazione e non sono né entrate né uscite: li abbina l’app, in un prossimo passo.',
+                    'giroconti' => 'I giroconti spostano denaro tra due conti dell’associazione e non sono né entrate né uscite. L’app propone gli abbinamenti, tu confermi ognuno: i giroconti restano fuori dai totali.',
                     'pronte' => 'Raggruppate per tipologia e iniziativa. Controlla ogni gruppo e confermalo in un colpo; se un movimento è sbagliato, aprilo e correggilo prima.',
                     'decidere' => 'Apri ogni movimento e scegli la tipologia: senza non si conferma. Qui stanno anche i movimenti in dubbio: si confermano con la ✓ o spuntandoli, mai con le proposte pronte. Per più movimenti insieme, selezionali e imposta l’iniziativa.',
                     'tutti' => 'Tutti i movimenti dell’import, in ordine di data.',
@@ -114,6 +117,8 @@
                         'tutti' => 'Questo import non ha movimenti.',
                         'dubbi' => 'Nessun movimento in dubbio.',
                     ][$passo] }}</p>
+                @elseif ($passo === 'giroconti')
+                    @include('revisione.giroconti')
                 @elseif ($passo === 'pronte')
                     @foreach ($revisione->gruppi($movimenti) as $etichetta => $gruppo)
                         <div class="gruppo">
