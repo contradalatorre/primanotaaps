@@ -13,20 +13,20 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Cosa resta da fare su un import confermato (#41): i suoi movimenti divisi nei passi della schermata di revisione,
- * la catena del saldo e l'avanzamento. Qui stanno le regole dei passi, non nel controllore né nella vista: giroconti,
- * dubbi e regole (#45, #47, #42) aggiungeranno i loro qui.
+ * la catena del saldo e l'avanzamento. Qui stanno le regole dei passi, non nel controllore né nella vista: i dubbi (#45)
+ * ci sono già, giroconti e regole (#47, #42) aggiungeranno i loro qui.
  */
 final class Revisione
 {
     /** Le schede, nell'ordine in cui si lavora. */
-    public const PASSI = ['giroconti' => 'Giroconti', 'pronte' => 'Proposte pronte', 'decidere' => 'Da decidere', 'tutti' => 'Tutti'];
+    public const PASSI = ['giroconti' => 'Giroconti', 'pronte' => 'Proposte pronte', 'decidere' => 'Da decidere', 'tutti' => 'Tutti', 'dubbi' => 'In dubbio'];
 
     /** @var Collection<int, Movimento> in ordine di data, con quello che serve a versione, voce e fonte già caricato */
     public readonly Collection $movimenti;
 
     public function __construct(public readonly ImportEstratto $import)
     {
-        $this->movimenti = $import->movimenti()
+        $this->movimenti = $import->movimenti()->conNote()
             ->with('proponente', 'regola', 'giustificativi', 'imputazioni.attivita', 'imputazioni.iniziativa', 'imputazioni.tipologia', 'imputazioni.tag')
             ->orderBy('data')->orderBy('id')->get();
     }
@@ -40,13 +40,15 @@ final class Revisione
      */
     public function passo(string $passo): Collection
     {
-        $pronta = fn (Movimento $m) => $m->stato === 'proposto' && $m->confermabile();
+        // Un dubbio resta fuori da «Conferma le proposte pronte» e dai gruppi: la conferma lo chiude (#16) e non deve succedere in silenzio. Lo si conferma con la ✓ o spuntandolo.
+        $pronta = fn (Movimento $m) => $m->stato === 'proposto' && $m->confermabile() && ! $m->inDubbio();
 
         return match ($passo) {
-            'giroconti' => collect(), // arrivano con #45
+            'giroconti' => collect(), // arrivano con #47
             'pronte' => $this->movimenti->filter($pronta)->values(),
             'decidere' => $this->movimenti->reject(fn (Movimento $m) => $m->confermato() || $pronta($m))->values(),
             'tutti' => $this->movimenti,
+            'dubbi' => $this->movimenti->filter->inDubbio()->values(),
         };
     }
 
@@ -93,7 +95,7 @@ final class Revisione
 
     /**
      * Saldo iniziale + entrate − uscite = saldo finale, calcolati sul conto nel periodo dell'estratto e confrontati con
-     * quello che dice il file. I giroconti, quando ci saranno (#45), vanno tolti dalle entrate e dalle uscite.
+     * quello che dice il file. I giroconti, quando ci saranno (#47), vanno tolti dalle entrate e dalle uscite.
      *
      * @return array{iniziale: int, entrate: int, uscite: int, finale: int, estratto: int, uguale: bool}
      */

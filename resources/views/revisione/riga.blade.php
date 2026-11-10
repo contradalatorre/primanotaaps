@@ -5,7 +5,7 @@
     $posizione = $ordine->search(fn ($m) => $m->id === $movimento->id);
     $dopo = $ordine->get($posizione + 1);
 @endphp
-<li class="riga {{ $movimento->confermato() ? 'riga-fatta' : '' }}" id="riga-{{ $movimento->id }}" @if ($dettaglio?->id === $movimento->id) aria-current="true" @endif>
+<li class="riga {{ $movimento->confermato() ? 'riga-fatta' : '' }} {{ $movimento->inDubbio() ? 'riga-dubbio' : '' }}" id="riga-{{ $movimento->id }}" @if ($dettaglio?->id === $movimento->id) aria-current="true" @endif>
     <span class="riga-sel">
         @unless ($movimento->confermato())
             <input type="checkbox" form="selezione" name="movimenti[{{ $movimento->id }}]" value="{{ $versione }}" aria-label="Seleziona: {{ $movimento->descrizione }}">
@@ -21,6 +21,6 @@
         {{ $classificazione ?: 'Da classificare' }}
         @if ($voci)<span class="nota">{{ $voci }}</span>@endif
     </span>
-    <span class="riga-stato">@include('revisione.pill')</span>
-    <div class="riga-azione">@include('revisione.conferma', ['dove' => 'riga', 'dopo' => $dopo, 'etichetta' => ''])</div>
+    <span class="riga-stato">@include('revisione.pill')@if ($movimento->inDubbio()) @include('note.pill-dubbio') @endif</span>
+    <div class="riga-azione">@can('note') @include('note.icona', ['href' => $url(['movimento' => $movimento->id]).'#note']) @endcan @include('revisione.dubbio')@include('revisione.conferma', ['dove' => 'riga', 'dopo' => $dopo, 'etichetta' => ''])</div>
 </li>

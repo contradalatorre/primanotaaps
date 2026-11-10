@@ -4,10 +4,12 @@ namespace App\Models;
 
 use Database\Factories\MovimentoFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -51,6 +53,24 @@ class Movimento extends Model
     public function giustificativi(): HasMany
     {
         return $this->hasMany(Giustificativo::class);
+    }
+
+    public function note(): MorphMany
+    {
+        return $this->morphMany(Nota::class, 'oggetto', 'oggetto_tipo', 'oggetto_id');
+    }
+
+    /** Conteggio delle note visibili (`note_count`) e dubbio aperto (`in_dubbio`) già nella query dell'elenco, senza una query per riga. */
+    public function scopeConNote(Builder $query): void
+    {
+        $query->withCount(['note' => fn (Builder $n) => $n->whereNull('eliminata_il')])
+            ->withExists(['note as in_dubbio' => fn (Builder $n) => $n->dubbioAperto()]);
+    }
+
+    /** In dubbio finché ha una nota dubbio aperta (glossario). Negli elenchi legge `in_dubbio` da `conNote`. */
+    public function inDubbio(): bool
+    {
+        return (bool) ($this->attributes['in_dubbio'] ?? $this->note()->dubbioAperto()->exists());
     }
 
     public function proponente(): BelongsTo
