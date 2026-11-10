@@ -54,7 +54,8 @@ jobs:
           MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
           MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
           MAIL_FROM_ADDRESS: ${{ vars.MAIL_FROM_ADDRESS }}
-          DRIVE_CREDENZIALI: ${{ secrets.DRIVE_CREDENZIALI }}
+          DB_PROVA_DATABASE: ${{ vars.DB_PROVA_DATABASE }}
+          DRIVE_CREDENZIALI:${{ secrets.DRIVE_CREDENZIALI }}
           DRIVE_CARTELLA_BACKUP: ${{ vars.DRIVE_CARTELLA_BACKUP }}
         run: sh scripts/scrivi-env.sh > .env
 

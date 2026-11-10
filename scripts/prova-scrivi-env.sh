@@ -32,6 +32,9 @@ verifica '! (EMERGENZA_TOTP_SECRET="jbsw y3dp" sh ./scrivi-env.sh >/dev/null 2>&
 verifica '! (DB_HOST= sh ./scrivi-env.sh >/dev/null 2>&1)' "un segreto mancante è rifiutato"
 verifica '! echo "$env_scritto" | grep -q "^DRIVE_"' "senza drive condiviso il .env non ha le sue chiavi e la pubblicazione non si ferma"
 verifica 'DRIVE_CREDENZIALI=eyJhIjoxfQ== DRIVE_CARTELLA_BACKUP=cartella123 sh ./scrivi-env.sh | grep -qxF "DRIVE_CREDENZIALI='"'"'eyJhIjoxfQ=='"'"'"' "le credenziali del drive sono scritte alla lettera"
+verifica '! echo "$env_scritto" | grep -q "^DB_PROVA_DATABASE"' "senza database di prova dedicato il .env non ha la chiave e l app usa il nome predefinito"
+verifica 'DB_PROVA_DATABASE=d_prova sh ./scrivi-env.sh | grep -qxF "DB_PROVA_DATABASE='"'"'d_prova'"'"'"' "il database di prova dedicato è scritto alla lettera"
+verifica '! (DB_PROVA_DATABASE="a'"'"'b" sh ./scrivi-env.sh >/dev/null 2>&1)' "un apice singolo nel nome del database di prova è rifiutato"
 verifica '! (DRIVE_CREDENZIALI="{\"a\":1}" sh ./scrivi-env.sh >/dev/null 2>&1)' "credenziali del drive che non sono base64 sono rifiutate"
 
 exit "$fallimenti"

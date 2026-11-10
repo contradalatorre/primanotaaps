@@ -79,6 +79,12 @@ class ProgressoMissioniTest extends TestCase
         $this->get(route('movimenti'))->assertOk()->assertSee('Torniamo lì?')->assertSee('href="'.route('import.indice', $contoId).'"', false);
     }
 
+    public function test_la_pagina_dei_timbri_ignora_un_parametro_nuovo_che_non_e_un_testo(): void
+    {
+        $this->actingAs($this->utenteCon('Tesoriere'))->get(route('impara.timbri', ['nuovo' => ['x']]))
+            ->assertOk()->assertDontSee('completata: ecco il tuo timbro');
+    }
+
     public function test_saltare_non_da_il_timbro_e_la_missione_resta_suggerita(): void
     {
         $utente = $this->utenteCon('Tesoriere');
