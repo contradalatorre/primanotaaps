@@ -15,7 +15,7 @@
     <p class="dettaglio-originale">{{ $dettaglio->descrizione }}</p>
 
     <dl class="dati">
-        <div><dt>Fonte</dt><dd>{{ $dettaglio->fonteProposta() ?? 'Nessuna proposta: scegli tu la classificazione.' }}</dd></div>
+        <div><dt>Fonte</dt><dd>@if (($origine = $dettaglio->movimentoDiOrigine()) && $origine->classificabileDa(auth()->user()))<a href="{{ route('movimenti.classificazione', $origine) }}" class="link">{{ $dettaglio->fonteProposta() }}</a>@else{{ $dettaglio->fonteProposta() ?? 'Nessuna proposta: scegli tu la classificazione.' }}@endif</dd></div>
         @forelse ($dettaglio->imputazioni as $imputazione)
             <div><dt>Imputazione</dt><dd>{{ $imputazione->riassunto() }}</dd></div>
             <div><dt>Voce Modello D</dt><dd>{{ $imputazione->etichettaVoce() ?? 'Si ricava da area e tipologia: scegli la tipologia.' }}</dd></div>

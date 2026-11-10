@@ -10,6 +10,7 @@ use App\Models\Regola;
 use App\Models\Tag;
 use App\Models\Tipologia;
 use App\Regole;
+use App\Storico;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -18,12 +19,17 @@ class RegoleController extends Controller
 {
     public function index()
     {
-        return view('regole.indice', ['regole' => Regole::elenco()]);
+        return view('regole.indice', ['regole' => Regole::elenco(), 'suggerimenti' => Storico::regoleSuggerite()]);
     }
 
-    public function nuova()
+    /** Il modulo vuoto, o precompilato dai valori nell'indirizzo (il suggerimento dello storico): si vedono nel modulo, non si salvano da soli. */
+    public function nuova(Request $request)
     {
-        return $this->modulo(new Regola);
+        // Solo valori semplici (`?nome[]=x` non è un nome); i tag sono l'unico elenco.
+        $iniziali = collect($request->only(['nome', 'verso', 'causale', 'testo', 'tipologia_id', 'iniziativa_id', 'area', 'attivita_id', 'tag']))
+            ->filter(fn ($v, $campo) => $campo === 'tag' ? is_array($v) && collect($v)->every(fn ($x) => is_scalar($x)) : is_scalar($v))->all();
+
+        return $this->modulo(new Regola, null, $iniziali);
     }
 
     public function modifica(Regola $regola)
@@ -69,7 +75,7 @@ class RegoleController extends Controller
         return $cambiati === 0 ? 'Nessuna proposta è cambiata.' : ($cambiati === 1 ? 'Una proposta è cambiata.' : "$cambiati proposte sono cambiate.");
     }
 
-    private function modulo(Regola $regola, ?array $anteprima = null)
+    private function modulo(Regola $regola, ?array $anteprima = null, array $iniziali = [])
     {
         // Le scelte archiviate non si offrono più, tranne quella che la regola ha già.
         $attive = fn ($modello, $corrente) => $modello::query()->orderBy('nome')->get()->reject(fn ($e) => $e->archiviata() && ! in_array($e->id, (array) $corrente, true));
@@ -80,7 +86,7 @@ class RegoleController extends Controller
                 + [
                     'importo_min' => $regola->importo_min === null ? null : Euro::formatta($regola->importo_min), 'importo_max' => $regola->importo_max === null ? null : Euro::formatta($regola->importo_max),
                     'valida_dal' => $regola->valida_dal?->toDateString(), 'valida_al' => $regola->valida_al?->toDateString(), 'tag' => $regola->tag->modelKeys(),
-                ] : [],
+                ] : $iniziali,
             'conti' => Conto::orderBy('nome')->get(),
             'tipologie' => $attive(Tipologia::class, $regola->tipologia_id),
             'iniziative' => $attive(Iniziativa::class, $regola->iniziativa_id),

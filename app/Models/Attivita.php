@@ -24,6 +24,7 @@ class Attivita extends Model
     public function usata(): bool
     {
         return Imputazione::where('attivita_id', $this->id)->exists()
-            || DB::table('iniziativa_esercizio')->where('attivita_id', $this->id)->exists();
+            || DB::table('iniziativa_esercizio')->where('attivita_id', $this->id)->exists()
+            || Regola::where('attivita_id', $this->id)->exists() || EsempioClassificazione::where('attivita_id', $this->id)->exists();
     }
 }

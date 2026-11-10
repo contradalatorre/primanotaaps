@@ -109,7 +109,7 @@
                 <p>Non prenderebbe più <strong>{{ $anteprima['lasciati']->count() }}</strong> {{ $anteprima['lasciati']->count() === 1 ? 'movimento' : 'movimenti' }}, che oggi sono suoi.</p>
                 <ul>
                     @foreach ($anteprima['lasciati'] as $r)
-                        <li>{{ $r['movimento']->data->format('d/m/Y') }} · {{ $r['movimento']->descrizione }} · {{ $r['a'] ? 'passa alla regola «'.$r['a'].'»' : 'torna da classificare' }}</li>
+                        <li>{{ $r['movimento']->data->format('d/m/Y') }} · {{ $r['movimento']->descrizione }} · {{ $r['a'] ? 'passa alla regola «'.$r['a'].'»' : ($r['storico'] ? 'passa allo storico' : 'torna da classificare') }}</li>
                     @endforeach
                 </ul>
             @endif

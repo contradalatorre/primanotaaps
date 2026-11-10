@@ -83,15 +83,34 @@ class Movimento extends Model
         return $this->belongsTo(Regola::class);
     }
 
+    /** Il movimento da cui lo storico ha preso la proposta (anche eliminato: la fonte ne dice la data, il collegamento no). */
+    public function storicoMovimento(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'storico_movimento_id')->withTrashed();
+    }
+
+    public function storicoEsempio(): BelongsTo
+    {
+        return $this->belongsTo(EsempioClassificazione::class, 'storico_esempio_id');
+    }
+
+    /** Il movimento di origine della proposta dallo storico, se esiste ancora (a cui si può collegare). Da caricare prima: `storicoMovimento`. */
+    public function movimentoDiOrigine(): ?self
+    {
+        return $this->storicoMovimento?->trashed() === false ? $this->storicoMovimento : null;
+    }
+
     /**
      * Da dove viene la proposta in corso, o null se non ce n'è.
-     * shortcut: finora le fonti sono persone e regole; storico e AI (#43) avranno la loro. Da caricare prima: `proponente` e `regola`.
+     * shortcut: finora le fonti sono persone, regole e storico; l'AI (#66) avrà la sua. Da caricare prima: `proponente`, `regola`, `storicoMovimento` e `storicoEsempio`.
      */
     public function fonteProposta(): ?string
     {
         return match (true) {
             $this->stato !== 'proposto' => null,
             $this->regola_id !== null => 'Regola: '.$this->regola->nome,
+            $this->storico_movimento_id !== null => 'Storico: come il movimento del '.$this->storicoMovimento->data->format('d/m/Y'),
+            $this->storico_esempio_id !== null => 'Storico: come l’esempio del '.$this->storicoEsempio->data->format('d/m/Y'),
             $this->proponente !== null => 'Proposta da '.$this->proponente->name,
             default => null,
         };

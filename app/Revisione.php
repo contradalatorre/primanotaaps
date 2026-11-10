@@ -27,21 +27,21 @@ final class Revisione
     public function __construct(public readonly ImportEstratto $import)
     {
         $this->movimenti = $import->movimenti()->conNote()
-            ->with('proponente', 'regola', 'giustificativi', 'imputazioni.attivita', 'imputazioni.iniziativa', 'imputazioni.tipologia', 'imputazioni.tag')
+            ->with('proponente', 'regola', 'storicoMovimento', 'storicoEsempio', 'giustificativi', 'imputazioni.attivita', 'imputazioni.iniziativa', 'imputazioni.tipologia', 'imputazioni.tag')
             ->orderBy('data')->orderBy('id')->get();
     }
 
     /**
      * I movimenti di un passo; tranne «Tutti» solo quelli ancora da confermare.
      * Le proposte ora sono tutte di chi può confermare (in un import classifica solo chi ha `importare_e_confermare`):
-     * quando arriveranno regole, storico e AI (#42, #43), «Proposte pronte» lascerà fuori AI e consiglieri (#33, storia 72).
+     * quando arriverà l'AI (#66), «Proposte pronte» lascerà fuori AI e consiglieri (#33, storia 72).
      *
      * @return Collection<int, Movimento>
      */
     public function passo(string $passo): Collection
     {
         // Un dubbio resta fuori da «Conferma le proposte pronte» e dai gruppi: la conferma lo chiude (#16) e non deve succedere in silenzio. Lo si conferma con la ✓ o spuntandolo.
-        $pronta = fn (Movimento $m) => $m->stato === 'proposto' && $m->confermabile() && ! $m->inDubbio();
+        $pronta = fn (Movimento $m) => $m->stato === 'proposto' && $m->fonteProposta() !== null && $m->confermabile() && ! $m->inDubbio();
 
         return match ($passo) {
             'giroconti' => collect(), // arrivano con #47

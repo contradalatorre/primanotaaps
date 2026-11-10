@@ -34,6 +34,8 @@
             @endif
         </header>
 
+        @include('regole.suggerimenti')
+
         {{-- Catena del saldo e barra dei confermati. Sul telefono la catena si riduce alla riga del saldo e si espande. --}}
         <section class="catena-e-barra" aria-label="Saldo e avanzamento">
             <details class="catena" data-catena data-merlo="catena-saldo">
