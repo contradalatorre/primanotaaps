@@ -100,7 +100,7 @@ class ProgressoMissioniTest extends TestCase
         $this->get(route('home'))->assertSee('data-rapida="1"', false);
         $this->post(route('prova.salta'));
         $this->assertSame(1, $this->stato($utente, 'benvenuto')->versione_completata);
-        $this->assertSame('Rifai (versione rapida)', trim(strip_tags($this->get(route('impara'))->assertSee('timbro ottenuto')->assertSee('Rifai (versione rapida)') ? 'Rifai (versione rapida)' : '')));
+        $this->get(route('impara'))->assertSee('timbro ottenuto')->assertSee('Rifai (versione rapida)');
     }
 
     public function test_la_prima_volta_si_vede_la_guida_con_animazione_e_la_missione_da_telefono_non_avvisa(): void
@@ -128,7 +128,8 @@ class ProgressoMissioniTest extends TestCase
         $this->get(route('import.indice', $this->prova()->per($consigliere, null, fn () => \App\Models\Conto::value('id'))))->assertOk();
         $this->post(route('prova.esci'));
         $this->get(route('conti'))->assertOk(); // fuori dalla prova: i permessi veri
-        $this->get(route('import.indice', 1))->assertForbidden();
+        $contoVero = \App\Models\Conto::create(['tipo' => 'cassa', 'nome' => 'Cassa vera', 'formato_import' => 'manuale', 'riga_modello_d' => 'cassa', 'aperto_il' => '2026-01-01', 'saldo_iniziale' => 0]);
+        $this->get(route('import.indice', $contoVero))->assertForbidden();
     }
 
     public function test_al_primo_accesso_merlo_invita_senza_bloccare_e_non_insiste(): void

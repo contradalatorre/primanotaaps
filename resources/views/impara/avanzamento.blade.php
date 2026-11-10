@@ -4,7 +4,7 @@
 
 @section('contenuto')
     <h1>Missioni completate</h1>
-    <p class="nota">Solo quali missioni ha completato ciascuno: nessun errore, tempo o tentativo.</p>
+    <p class="nota">Solo quali missioni ha completato ciascuno, e niente altro.</p>
     <p><a href="{{ route('impara') }}" class="link">Torna a Impara</a></p>
 
     <ul class="schede">
