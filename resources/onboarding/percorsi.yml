@@ -1,0 +1,3 @@
+# I percorsi servono solo a raggruppare e ordinare le missioni (#21); l'ordine del file è quello dell'elenco.
+- {id: tutti, titolo: Per tutti}
+- {id: tesoriere, titolo: Tesoriere}

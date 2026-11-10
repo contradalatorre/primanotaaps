@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Onboarding\Prova;
 use App\Permesso;
 use Closure;
 use Database\Factories\UserFactory;
@@ -97,6 +98,12 @@ class User extends Authenticatable
      */
     public function puo(Permesso $permesso, ?int $contoId = null): bool
     {
+        // In prova (#71, ADR 0003) valgono i permessi della missione in corso, non quelli dell'assegnazione: un candidato
+        // tesoriere si allena prima di avere il ruolo. Un esterno resta comunque entro `valePerEsterni`.
+        if (($inProva = app(Prova::class)->permessi()) !== null) {
+            return in_array($permesso, $inProva, true) && ! ($this->esterno && ! $permesso->valePerEsterni());
+        }
+
         // L'account di emergenza (#36) vale come un Amministratore su tutto, senza avere assegnazioni: con una
         // conterebbe tra gli Amministratori e nasconderebbe l'avviso di quando non ne resta nessuno.
         if ($this->emergenza) {

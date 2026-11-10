@@ -7,7 +7,7 @@
     <h1>{{ $import->stato === 'anteprima' ? 'Anteprima dell’import' : 'Import' }} · {{ $import->conto->nome }}</h1>
     <p><a href="{{ route('import.indice', $import->conto) }}" class="link">Tutti gli import del conto</a></p>
 
-    <dl class="dati">
+    <dl class="dati" data-merlo="anteprima-saldi">
         <div><dt>Stato</dt><dd>{{ \App\Models\ImportEstratto::STATI[$import->stato] }}</dd></div>
         <div><dt>Periodo</dt><dd>dal {{ $import->periodo_dal->format('d/m/Y') }} al {{ $import->periodo_al->format('d/m/Y') }}</dd></div>
         <div><dt>Righe</dt><dd>{{ $import->righe }}</dd></div>
@@ -25,7 +25,7 @@
     </dl>
 
     @if ($import->stato === 'confermato')
-        <p><a href="{{ route('import.revisione', $import) }}" class="bottone">Rivedi i movimenti</a></p>
+        <p><a href="{{ route('import.revisione', $import) }}" class="bottone" data-merlo="rivedi-movimenti">Rivedi i movimenti</a></p>
     @endif
 
     @if ($import->stato === 'anteprima')
@@ -41,7 +41,7 @@
         @endif
         <form method="POST" action="{{ route('import.conferma', $import) }}" class="modulo-in-riga">
             @csrf
-            <button type="submit" class="bottone">Conferma l’import</button>
+            <button type="submit" class="bottone" data-merlo="conferma-import">Conferma l’import</button>
         </form>
         <form method="POST" action="{{ route('import.scarta', $import) }}" class="modulo-in-riga">
             @csrf

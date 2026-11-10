@@ -26,7 +26,7 @@
         </p>
     @endif
 
-    <ul class="schede">
+    <ul class="schede" data-merlo="movimenti-elenco">
         @forelse ($movimenti as $movimento)
             <li class="scheda">
                 <div class="scheda-testa">

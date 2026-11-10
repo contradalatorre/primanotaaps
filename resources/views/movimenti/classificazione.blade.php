@@ -46,7 +46,7 @@
                 @error("imputazioni.$i.importo") <span class="nota">{{ $message }}</span> @enderror
 
                 <label>Tipologia
-                    <select name="imputazioni[{{ $i }}][tipologia_id]">
+                    <select name="imputazioni[{{ $i }}][tipologia_id]" data-merlo="tipologia">
                         <option value="">Da scegliere</option>
                         @foreach ($tipologie as $t) <option value="{{ $t->id }}" @selected((int) old("imputazioni.$i.tipologia_id", $imputazione?->tipologia_id) === $t->id)>{{ $t->nome }}{{ $t->archiviata() ? ' (archiviata)' : '' }}</option> @endforeach
                     </select>

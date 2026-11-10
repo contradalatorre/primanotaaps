@@ -65,6 +65,53 @@ if (revisione) {
     });
 }
 
+// Merlo (#71): testo che si scrive da solo, anello e freccia sull'elemento del passo. Senza script il testo c'è tutto
+// e i pulsanti funzionano; con `prefers-reduced-motion`, o rifacendo la missione (versione rapida), il testo è subito intero.
+const guida = document.querySelector('[data-guida]');
+
+if (guida) {
+    const ridotto = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const frase = guida.querySelector('[data-frase]');
+    if (frase && !ridotto && guida.dataset.rapida !== '1') {
+        const testo = frase.dataset.testo;
+        let n = 0;
+        frase.textContent = '';
+        frase.classList.add('scrive');
+        const scrivi = setInterval(() => {
+            frase.textContent = testo.slice(0, ++n);
+            if (n >= testo.length) { clearInterval(scrivi); frase.classList.remove('scrive'); }
+        }, 22);
+        // Un clic sul riquadro, o un tasto, completa subito la frase.
+        const subito = () => { clearInterval(scrivi); frase.textContent = testo; frase.classList.remove('scrive'); };
+        guida.addEventListener('click', subito, { once: true });
+        guida.addEventListener('keydown', subito, { once: true });
+    }
+
+    const elemento = guida.dataset.elemento && document.querySelector(`[data-merlo="${CSS.escape(guida.dataset.elemento)}"]`);
+    if (elemento) {
+        elemento.classList.add('merlo-anello');
+        elemento.scrollIntoView({ block: 'center', behavior: ridotto ? 'auto' : 'smooth' });
+        // Da tastiera il focus va sull'elemento indicato (Maiusc+Tab torna alla guida, che sta all'inizio della pagina).
+        if (!elemento.matches('a, button, input, select, textarea, summary, [tabindex]')) elemento.setAttribute('tabindex', '-1');
+        elemento.focus({ preventScroll: true });
+        const freccia = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        freccia.setAttribute('class', 'merlo-freccia');
+        freccia.setAttribute('viewBox', '0 0 28 28');
+        freccia.setAttribute('aria-hidden', 'true');
+        freccia.innerHTML = '<path d="M14 26 3 12h7V2h8v10h7z" fill="#ffd900" stroke="#111" stroke-width="2" stroke-linejoin="round"/>';
+        document.body.append(freccia);
+        const posiziona = () => {
+            const r = elemento.getBoundingClientRect();
+            freccia.style.left = `${r.left + scrollX + Math.min(r.width / 2, 40) - 14}px`;
+            freccia.style.top = `${r.top + scrollY - 36}px`;
+        };
+        posiziona();
+        addEventListener('resize', posiziona);
+    }
+
+    guida.querySelector('[data-continua-qui]')?.addEventListener('click', () => { guida.querySelector('[data-computer]').hidden = true; });
+}
+
 // Regole del tesoriere (#42): si riordinano trascinando e l'ordine nuovo si manda subito. Senza script restano Su e Giù.
 const elencoRegole = document.querySelector('[data-regole-ordine]');
 

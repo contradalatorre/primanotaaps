@@ -1,0 +1,59 @@
+# Missione «Import e revisione» (#71, da #22 variante «Dialogo»). Vedi benvenuto.yml per il formato.
+# I passi con `verifica` sono pratici: si completano da soli quando lo stato dello spazio di prova li conferma
+# (nomi in App\Onboarding\Verifiche; `almeno` è la soglia di movimenti_confermati).
+titolo: Import e revisione
+versione: 1
+cosa_e_cambiato: null
+percorso: tesoriere
+ordine: 1
+durata: 5 minuti
+permessi: [vedere, importare_e_confermare]
+scenario: import-revisione
+telefono: false
+passi:
+  - schermata: conti
+    elemento: importa-estratto
+    posa: indica
+    frase: "Gli estratti conto entrano dal conto a cui appartengono. Ho preparato un conto corrente: di qui si importa."
+  - schermata: import.indice
+    elemento: prova-estratto
+    posa: indica
+    frase: "Di solito qui carichi il file CSV scaricato dalla banca. Per la prova usa l'estratto pronto: sono movimenti inventati."
+    verifica: estratto_caricato
+  - schermata: import.mostra
+    elemento: anteprima-saldi
+    posa: pensa
+    frase: "Questa è l'anteprima: non è ancora entrato nulla. Guarda se il saldo iniziale è quello che l'app ha alla stessa data."
+  - schermata: import.mostra
+    elemento: conferma-import
+    posa: indica
+    frase: "Se i saldi tornano, conferma l'import. I movimenti già presenti si saltano da soli."
+    verifica: import_confermato
+  - schermata: import.mostra
+    elemento: rivedi-movimenti
+    posa: indica
+    frase: "Ora i movimenti ci sono, ma vanno rivisti. Apri la revisione."
+  - schermata: import.revisione
+    elemento: catena-saldo
+    posa: pensa
+    frase: "Prima la catena del saldo: se il saldo finale è uguale a quello dell'estratto, non manca nessun movimento."
+  - schermata: import.revisione
+    elemento: conferma-pronte
+    posa: indica
+    frase: "Quattro movimenti hanno già una proposta, preparata per la prova. Guardali e confermali insieme."
+    verifica: movimenti_confermati
+    almeno: 4
+  - schermata: movimenti.classificazione
+    elemento: tipologia
+    posa: pensa
+    frase: "Questo non ha proposta: è la spesa al market per la cena dei soci. Scegli la tipologia «Acquisti per la somministrazione» e l'iniziativa «Aggregazione e convivialità», poi salva."
+    verifica: nessun_da_classificare
+  - schermata: import.revisione
+    elemento: conferma-pronte
+    posa: indica
+    frase: "Ora anche lui è una proposta: confermala. Se scegli una tipologia sbagliata non succede niente di grave, la correggi."
+    verifica: tutto_confermato
+  - schermata: import.revisione
+    elemento: barra-confermati
+    posa: festeggia
+    frase: "Tutto confermato! Ecco il tuo lavoro: la barra è piena e il saldo torna con l'estratto."

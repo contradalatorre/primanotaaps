@@ -1,0 +1,37 @@
+# Missione «Benvenuto» (#71). Si modifica con una pull request: `schermata` è il nome di una rotta, `elemento` il valore
+# di un attributo data-merlo nella vista (un test controlla che esista), `posa` una di Catalogo::POSE.
+# Cambio piccolo: nessun effetto. Cambio sostanziale: alza `versione` e scrivi `cosa_e_cambiato`.
+titolo: Benvenuto
+versione: 1
+cosa_e_cambiato: null
+percorso: tutti
+ordine: 1
+durata: 3 minuti
+permessi: [vedere]
+scenario: base
+telefono: true
+passi:
+  - schermata: home
+    elemento: saluto
+    posa: saluta
+    frase: "Ciao, sono Merlo! Vivo sulla merlatura della torre e ti faccio fare un giro dell'app. Sono dati inventati: non puoi rompere niente."
+  - schermata: home
+    elemento: menu
+    posa: indica
+    frase: "Dal menu vai ovunque: conti, movimenti, classificazione e manuale. Adesso ti faccio vedere conti, movimenti e manuale."
+  - schermata: conti
+    elemento: conti-elenco
+    posa: indica
+    frase: "Un conto è un posto dove l'associazione tiene denaro: la cassa, la banca, PayPal, Satispay."
+  - schermata: movimenti
+    elemento: movimenti-elenco
+    posa: pensa
+    frase: "Ogni movimento è un'entrata o un'uscita di un conto, con data e importo. Qui li trovi tutti, i più recenti per primi."
+  - schermata: manuale
+    elemento: manuale-sezioni
+    posa: indica
+    frase: "Se non sai come classificare una spesa, guarda il manuale: ogni sezione ha un numero che si cita, per esempio «manuale § 9»."
+  - schermata: home
+    elemento: menu-impara
+    posa: festeggia
+    frase: "Fatto! Da «Impara» rifai questa missione o ne scegli altre, quando vuoi. Il tuo primo timbro ti aspetta."
