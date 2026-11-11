@@ -30,7 +30,7 @@ class ConteDiCassaTest extends TestCase
         // Il saldo dell'app della festa è 100,00 (fondo cassa 50,00 più un incasso di 50,00).
         $this->festa = Conto::factory()->create(['nome' => 'Cassa Festa', 'aperto_il' => '2026-05-01', 'saldo_iniziale' => 5000]);
         $this->principale = Conto::factory()->create(['nome' => 'Cassa contanti', 'aperto_il' => '2026-01-01', 'saldo_iniziale' => 20000]);
-        Movimento::factory()->create(['conto_id' => $this->festa->id, 'data' => '2026-05-10', 'importo' => 5000, 'verso' => 'entrata', 'inserito_da' => $this->tesoriere->id]);
+        Movimento::factory()->confermato()->create(['conto_id' => $this->festa->id, 'data' => '2026-05-10', 'importo' => 5000, 'verso' => 'entrata', 'inserito_da' => $this->tesoriere->id]);
     }
 
     private function conta(array $dati = [], ?User $utente = null, ?Conto $conto = null)
@@ -252,9 +252,10 @@ class ConteDiCassaTest extends TestCase
     public function test_i_movimenti_di_una_cassa_chiusa_non_si_eliminano(): void
     {
         $this->conta(['importo' => '97,50', 'correggi' => '1'])->assertSessionHasNoErrors();
+        $correzione = Movimento::findOrFail(ContaDiCassa::firstOrFail()->correzione_id);
+        $correzione->forceFill(['stato' => 'confermato'])->save(); // classificata e confermata: alla chiusura nessun movimento è da classificare
         $this->versa(9750, '2026-05-13');
         $this->chiudi()->assertSessionHasNoErrors();
-        $correzione = Movimento::findOrFail(ContaDiCassa::firstOrFail()->correzione_id);
 
         $this->actingAs($this->tesoriere)->post("/movimenti/{$correzione->id}/eliminazione", ['motivazione' => 'Errore'])->assertSessionHasErrors('movimento');
         $this->assertNull($correzione->fresh()->eliminato_il);
@@ -309,6 +310,34 @@ class ConteDiCassaTest extends TestCase
         // La cassa si svuota col versamento e poi si conta zero: l'ultima conta è dopo il giroconto.
         $this->versa(10000, '2026-05-12');
         $this->conta(['data' => '2026-05-13', 'importo' => '0'])->assertSessionHasNoErrors();
+
+        $this->chiudi()->assertSessionHasNoErrors();
+        $this->assertNotNull($this->festa->fresh()->chiuso_il);
+    }
+
+    public function test_un_versamento_scritto_a_mano_e_mai_abbinato_non_azzera_la_cassa(): void
+    {
+        // L'uscita «Versamento in banca» è da classificare: non è un giroconto e non è una spesa confermata.
+        Movimento::factory()->create(['conto_id' => $this->festa->id, 'data' => '2026-05-11', 'importo' => 10000, 'verso' => 'uscita', 'descrizione' => 'Versamento in banca', 'manuale' => true]);
+        $this->conta(['data' => '2026-05-12', 'importo' => '0'])->assertSessionHasNoErrors();
+
+        $this->chiudi()->assertSessionHasErrors('conto');
+        $this->assertStringContainsString('giroconto', session('errors')->first('conto'));
+        $this->assertNull($this->festa->fresh()->chiuso_il);
+    }
+
+    public function test_una_correzione_non_azzera_la_cassa(): void
+    {
+        $this->conta(['data' => '2026-05-12', 'importo' => '0', 'correggi' => '1'])->assertSessionHasNoErrors();
+
+        $this->chiudi()->assertSessionHasErrors('conto');
+        $this->assertNull($this->festa->fresh()->chiuso_il);
+    }
+
+    public function test_una_cassa_che_ha_speso_tutto_in_spese_confermate_si_chiude_senza_giroconto(): void
+    {
+        Movimento::factory()->confermato()->create(['conto_id' => $this->festa->id, 'data' => '2026-05-11', 'importo' => 10000, 'verso' => 'uscita']);
+        $this->conta(['data' => '2026-05-12', 'importo' => '0'])->assertSessionHasNoErrors();
 
         $this->chiudi()->assertSessionHasNoErrors();
         $this->assertNotNull($this->festa->fresh()->chiuso_il);
