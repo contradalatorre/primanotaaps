@@ -26,7 +26,8 @@ class ClassificazioneController extends Controller
     public function modifica(Request $request, Movimento $movimento)
     {
         $this->controlla($request, $movimento);
-        $imputazioni = $movimento->imputazioni()->with('attivita', 'iniziativa', 'tipologia', 'tag')->orderBy('id')->get();
+        // Senza la commissione: la aggiunge `Classificazione::salva`, la pagina la mostra a parte.
+        $imputazioni = $movimento->imputazioni()->with('attivita', 'iniziativa', 'tipologia', 'tag')->where('importo', '>', 0)->orderBy('id')->get();
 
         // Si scelgono gli elementi attivi; quelli archiviati restano nell'elenco solo dove il movimento li ha già.
         $conservati = fn (string $campo) => $imputazioni->pluck($campo)->filter()->all();

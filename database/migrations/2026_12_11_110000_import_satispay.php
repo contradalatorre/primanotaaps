@@ -8,12 +8,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // La commissione trattenuta su un incasso (Satispay #49; vale anche per PayPal): `importo` resta quello che entra davvero,
-        // al netto, e il lordo è importo + commissione. La classificazione ne ricava l'imputazione in uscita (voce D1).
-        Schema::table('movimenti', function (Blueprint $table) {
-            $table->bigInteger('commissione')->nullable(); // centesimi, mai negativa
-        });
-
         // Un estratto può non avere saldi (Satispay): non si inventano, il conto si riconcilia con il saldo dichiarato.
         Schema::table('import_estratti', function (Blueprint $table) {
             $table->bigInteger('saldo_iniziale')->nullable()->change();
@@ -27,7 +21,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users');
             $table->date('data');
             $table->bigInteger('importo'); // centesimi
-            $table->text('spiegazione')->nullable(); // obbligatoria se alla data il saldo dell'app è diverso
+            $table->text('spiegazione')->nullable(); // come si spiega la differenza con l'app, se c'è (si calcola a ogni lettura)
             $table->timestamps();
             $table->unique(['conto_id', 'data']);
         });
@@ -39,9 +33,6 @@ return new class extends Migration
         Schema::table('import_estratti', function (Blueprint $table) {
             $table->bigInteger('saldo_iniziale')->nullable(false)->change();
             $table->bigInteger('saldo_finale')->nullable(false)->change();
-        });
-        Schema::table('movimenti', function (Blueprint $table) {
-            $table->dropColumn('commissione');
         });
     }
 };

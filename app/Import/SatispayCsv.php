@@ -52,10 +52,10 @@ class SatispayCsv implements FormatoImport
                 continue;
             }
             $riga = $this->riga($celle, $colonne, $n);
-            if (isset($viste[$riga->idEsterno])) {
-                throw new EstrattoNonValido("Riga $n: la transazione {$riga->idEsterno} compare due volte nel file.");
+            if (isset($viste[$riga->codice])) {
+                throw new EstrattoNonValido("Riga $n: la transazione {$riga->codice} compare due volte nel file.");
             }
-            $viste[$riga->idEsterno] = true;
+            $viste[$riga->codice] = true;
             $righe[] = $riga;
         }
         fclose($flusso);
@@ -84,6 +84,9 @@ class SatispayCsv implements FormatoImport
         $id = $cella('transaction_id');
         if ($id === '') {
             throw new EstrattoNonValido("Riga $n: manca l'id della transazione.");
+        }
+        if (strlen($id) > 40) { // la chiave contro i doppioni sta in 40 caratteri (`movimenti.chiave`)
+            throw new EstrattoNonValido("Riga $n: l'id della transazione è più lungo di 40 caratteri: il formato non è quello atteso.");
         }
         if (! in_array($cella('transaction_type'), self::TIPI_NOTI, true)) {
             throw new EstrattoNonValido("Riga $n: la transazione $id è di un tipo che l'app non conosce («{$cella('transaction_type')}»). Non è stata importata, e con lei nessuna riga del file: serve decidere come trattarla (un rimborso, ad esempio, ha il segno opposto).");

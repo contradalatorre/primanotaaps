@@ -18,6 +18,10 @@ _Avoid_: operazione, transazione, riga
 L'elenco dei movimenti di un conto per un periodo, così come lo esporta il fornitore del conto.
 _Avoid_: export, lista movimenti
 
+**Commissione**:
+La somma che il fornitore del conto (PayPal, Satispay) trattiene su un incasso: il movimento è al netto, e classificandolo la commissione diventa un'imputazione in uscita in "Commissioni e oneri bancari" (area D, voce D1) accanto a quella dell'incasso per il suo importo lordo.
+_Avoid_: tariffa, fee, spesa
+
 **Causale**:
 L'etichetta breve con cui il fornitore del conto indica il tipo di operazione (es. "PAGAMENTO TRAMITE POS", "Pagamento preautorizzato utenza").
 _Avoid_: tipo operazione, codice

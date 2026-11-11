@@ -27,6 +27,9 @@ class CreditAgricoleCsv implements FormatoImport
     public function regoleGiroconti(): array
     {
         return [
+            // Prima di «versamento»: vince la prima che corrisponde. Il versamento di Satispay in banca (#49) lo dice l'ordinante, nella descrizione.
+            // shortcut: la parola «SATISPAY» è un'ipotesi (#33: descrizione del versamento da verificare su un estratto vero, fuori dal repo).
+            'satispay' => ['nome' => 'Versamento da Satispay', 'verso' => 'entrata', 'contiene' => ['SATISPAY'], 'con' => 'satispay', 'giorni' => 3, 'meta' => 'Versamento su {conto}'],
             'prelievo' => ['nome' => 'Prelievo di contanti', 'verso' => 'uscita', 'contiene' => ['PRELIEV'], 'con' => 'cassa', 'giorni' => 3, 'meta' => 'Prelievo da {conto}'],
             'versamento' => ['nome' => 'Versamento di contanti', 'verso' => 'entrata', 'contiene' => ['VERSAMENT'], 'con' => 'cassa', 'giorni' => 3, 'meta' => 'Versamento su {conto}'],
         ];
