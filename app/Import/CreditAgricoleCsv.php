@@ -9,7 +9,7 @@ use App\Euro;
  * delle colonne, poi una riga di saldo iniziale, i movimenti dal più vecchio e una riga di saldo finale. Le due
  * righe di saldo si riconoscono dall'importo vuoto. Il formato è descritto in #11 e #14.
  */
-class CreditAgricoleCsv
+class CreditAgricoleCsv implements FormatoImport
 {
     /** Le uniche colonne che si leggono: ogni altra si scarta (#27). */
     private const COLONNE = ['Data Op.', 'Data Val.', 'Causale', 'Descrizione', 'Importo', 'Saldo Parziale'];

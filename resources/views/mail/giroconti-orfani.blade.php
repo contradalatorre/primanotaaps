@@ -3,6 +3,6 @@ Queste metà di giroconto aspettano ancora l'altra metà:
 
 @foreach ($orfane as $proposta)
 @php($movimento = $proposta['movimento'])
-- {!! $movimento->verso !!} di {!! \App\Euro::formatta($movimento->importo) !!} euro, {!! $movimento->data->format('d/m/Y') !!}, {!! $movimento->conto->nome !!}
+- {!! $movimento->verso === 'uscita' ? '−' : '+' !!}{!! \App\Euro::formatta($movimento->importo) !!} euro,{!! $movimento->data->format('d/m/Y') !!}, {!! $movimento->conto->nome !!}
   {!! \App\Giroconti::urlPerAbbinare($movimento) !!}
 @endforeach

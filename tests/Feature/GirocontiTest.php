@@ -340,7 +340,8 @@ class GirocontiTest extends TestCase
         $mail = Mail::sent(GirocontiOrfani::class)->sole();
         $this->assertTrue($mail->hasTo($this->tesoriere->email));
         $this->assertFalse($mail->hasTo($consigliere->email));
-        $mail->assertSeeInText('123,45');
+        $mail->assertSeeInText('−123,45');
+        $mail->assertDontSeeInText('uscita');
         $mail->assertSeeInText('10/05/2026');
         $mail->assertSeeInText('Conto corrente');
         $mail->assertSeeInText(route('import.revisione', [$this->import, 'passo' => 'giroconti']));

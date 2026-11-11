@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Import\CreditAgricoleCsv;
 use App\Import\Estratto;
+use App\Import\FormatoImport;
 use App\Import\RigaEstratto;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,7 +34,7 @@ class ImportEstratto extends Model
         ];
     }
 
-    public static function lettorePer(Conto $conto): ?CreditAgricoleCsv
+    public static function lettorePer(Conto $conto): ?FormatoImport
     {
         $classe = self::LETTORI[$conto->formato_import] ?? null;
 
