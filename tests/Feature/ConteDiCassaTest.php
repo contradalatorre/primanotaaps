@@ -173,6 +173,15 @@ class ConteDiCassaTest extends TestCase
         $this->actingAs($this->tesoriere)->get('/conti')->assertSee("/conti/{$this->festa->id}/conte", false);
     }
 
+    public function test_l_elenco_distingue_la_conta_com_era_da_come_e_oggi(): void
+    {
+        $this->conta(['data' => '2026-05-12', 'importo' => '100,00'])->assertSessionHasNoErrors();
+        Movimento::factory()->create(['conto_id' => $this->festa->id, 'data' => '2026-05-11', 'importo' => 300, 'verso' => 'uscita']); // arriva dopo e la fa arretrare
+
+        $this->actingAs($this->tesoriere)->get("/conti/{$this->festa->id}/conte")->assertOk()
+            ->assertSeeText('Al momento della conta: senza differenze')->assertSeeText('Oggi: non riconciliata');
+    }
+
     public function test_la_conta_non_ha_data_futura_ne_precedente_all_apertura(): void
     {
         $this->conta(['data' => '2026-05-21'])->assertSessionHasErrors('data');
