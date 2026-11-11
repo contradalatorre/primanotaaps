@@ -2,29 +2,31 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\ProvaMiddleware;
 use App\Models\Conto;
 use App\Models\Menzione;
 use App\Models\Movimento;
-use App\Models\Ruolo;
 use App\Models\RegistroModifica;
+use App\Models\Ruolo;
 use App\Models\SpazioProva;
 use App\Models\User;
+use App\Onboarding\Catalogo;
 use App\Onboarding\Prova;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\StrayRequestException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Tests\ConSpazioDiProva;
 use Tests\TestCase;
 
 /** Lo spazio di prova (#71, ADR 0003): separato dal database vero, uno per utente, azzerato a ogni avvio, senza chiamate esterne. */
 class SpazioDiProvaTest extends TestCase
 {
-    use RefreshDatabase, ConSpazioDiProva;
+    use ConSpazioDiProva, RefreshDatabase;
 
     public function test_avviare_una_missione_prepara_lo_spazio_con_lo_scenario_e_non_tocca_il_database_vero(): void
     {
@@ -106,7 +108,7 @@ class SpazioDiProvaTest extends TestCase
 
     public function test_in_prova_non_parte_nessuna_chiamata_esterna_ne_email(): void
     {
-        Route::middleware(['web', 'auth', \App\Http\Middleware\ProvaMiddleware::class])->get('/_prova/esterno', function () {
+        Route::middleware(['web', 'auth', ProvaMiddleware::class])->get('/_prova/esterno', function () {
             Mail::raw('Ciao', fn ($m) => $m->to('qualcuno@esempio.test')->subject('x'));
             try {
                 Http::get('https://api.anthropic.com/v1/messages');
@@ -215,7 +217,7 @@ class SpazioDiProvaTest extends TestCase
     public function test_in_prova_le_menzioni_a_un_ruolo_valgono_per_i_ruoli_dello_spazio_non_per_quelli_veri(): void
     {
         $consigliere = $this->utenteCon('Consigliere'); // il ruolo vero; nello spazio di prova non ha assegnazioni
-        $this->prova()->prepara($consigliere, \App\Onboarding\Catalogo::predefinito()->missione('import-e-revisione'));
+        $this->prova()->prepara($consigliere, Catalogo::predefinito()->missione('import-e-revisione'));
         $rivolte = $this->prova()->per($consigliere, null, function () use ($consigliere) {
             $nota = DB::table('note')->insertGetId(['oggetto_tipo' => 'movimento', 'oggetto_id' => 1, 'user_id' => $consigliere->id, 'testo' => 'Prova', 'created_at' => now(), 'updated_at' => now()]);
             DB::table('menzioni')->insert(['nota_id' => $nota, 'ruolo_id' => Ruolo::where('nome', 'Consigliere')->value('id'), 'created_at' => now(), 'updated_at' => now()]);
@@ -224,7 +226,7 @@ class SpazioDiProvaTest extends TestCase
         });
 
         $this->assertSame(0, $rivolte);
-        $this->assertSame('mysql', $consigliere->getConnectionName(),'uscendo dalla prova l’utente torna sulla connessione vera');
+        $this->assertSame('mysql', $consigliere->getConnectionName(), 'uscendo dalla prova l’utente torna sulla connessione vera');
     }
 
     public function test_in_prova_le_preferenze_si_scrivono_nello_spazio_non_sulla_riga_vera(): void
