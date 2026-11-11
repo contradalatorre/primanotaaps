@@ -97,7 +97,7 @@ final class Esecuzione
             // Come in `avvia`: dei nostri errori il messaggio è sicuro, degli altri resta il dettaglio nel log. Al primo errore ci si ferma (il drive non risponde).
             $nostro = $e instanceof DriveNonDisponibile;
             $nostro || report($e);
-            RegistroErrori::registra('backup.rotazione', 'Un backup vecchio non si è potuto togliere dal drive: '.($nostro ? $e->getMessage() : RegistroErrori::descrivi($e)));
+            RegistroErrori::registra('backup.rotazione', 'La rotazione dei backup vecchi non è riuscita: '.($nostro ? $e->getMessage() : RegistroErrori::descrivi($e)));
         }
     }
 }
