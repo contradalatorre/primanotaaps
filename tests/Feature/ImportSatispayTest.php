@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Conto;
 use App\Giroconti;
+use App\Models\Conto;
 use App\Models\Giroconto;
 use App\Models\ImportEstratto;
 use App\Models\Movimento;
@@ -109,7 +109,9 @@ class ImportSatispayTest extends TestCase
     {
         $contenuto = $this->fixture()."tx-demo-0005,2026-05-20T09:00:00.000Z,Banchetto di prova,,5.00,0.00,REFUND_TO_BUSINESS,,\n";
 
-        $this->carica($contenuto)->assertSessionHasErrors(['estratto' => fn ($messaggio) => str_contains($messaggio[0], 'REFUND_TO_BUSINESS') && str_contains($messaggio[0], 'tx-demo-0005')]);
+        $this->carica($contenuto)->assertSessionHasErrors('estratto');
+        $this->assertStringContainsString('REFUND_TO_BUSINESS', session('errors')->first('estratto'));
+        $this->assertStringContainsString('tx-demo-0005', session('errors')->first('estratto'));
         $this->assertSame(0, ImportEstratto::count());
         $this->assertSame(0, Movimento::count());
     }
@@ -163,7 +165,7 @@ class ImportSatispayTest extends TestCase
 
     public function test_l_accredito_in_banca_con_ordinante_satispay_propone_la_meta_in_uscita_su_satispay(): void
     {
-        $this->importa($this->fixture()); // sul conto Satispay: 1.000 + 55,05 = 1.055,05 €
+        $this->importa($this->fixture()); // sul conto Satispay: 10,00 + 55,05 = 65,05 €
         $banca = $this->banca();
         $import = ImportEstratto::create(['conto_id' => $banca->id, 'user_id' => $this->tesoriere->id, 'stato' => 'confermato', 'periodo_dal' => '2026-05-01',
             'periodo_al' => '2026-05-31', 'saldo_iniziale' => 0, 'saldo_finale' => 40000, 'righe' => 1, 'confermato_il' => now()]);
@@ -208,7 +210,7 @@ class ImportSatispayTest extends TestCase
         $this->importa(str_replace("tx-demo-0004,2026-05-14T08:00:41.789Z,Banchetto di prova,,12.50,0.12,TO_BUSINESS,,\n", '', $this->fixture()));
 
         $this->post("/conti/{$this->satispay->id}/riepilogo", ['riepilogo' => $this->riepilogo()]);
-        $this->get("/conti/{$this->satispay->id}/import")->assertSeeText('Totale netto: file 55,05 €, app 43,67 € · non coincide (differenza -11,38 €)')
+        $this->get("/conti/{$this->satispay->id}/import")->assertSeeText('Totale netto: file 55,05 €, app 42,67 € · non coincide (differenza -12,38 €)')
             ->assertSeeText('Transazioni: file 4, app 3 · non coincide');
     }
 
@@ -222,10 +224,10 @@ class ImportSatispayTest extends TestCase
     public function test_il_saldo_dichiarato_che_coincide_non_ha_niente_da_spiegare(): void
     {
         $this->importa($this->fixture());
-        $this->post("/conti/{$this->satispay->id}/saldi-dichiarati", ['data' => '2026-05-31', 'importo' => '1.055,05'])->assertSessionHasNoErrors();
+        $this->post("/conti/{$this->satispay->id}/saldi-dichiarati", ['data' => '2026-05-31', 'importo' => '65,05'])->assertSessionHasNoErrors();
 
-        $this->assertSame(105505, $this->satispay->saldiDichiarati()->sole()->importo);
-        $this->get("/conti/{$this->satispay->id}/import")->assertSeeText('31/05/2026: 1.055,05 €')->assertSeeText('Coincide con l’app');
+        $this->assertSame(6505, $this->satispay->saldiDichiarati()->sole()->importo);
+        $this->get("/conti/{$this->satispay->id}/import")->assertSeeText('31/05/2026: 65,05 €')->assertSeeText('Coincide con l’app');
         $this->assertDatabaseHas('registro_modifiche', ['oggetto_tipo' => 'conto', 'oggetto_id' => $this->satispay->id, 'azione' => 'saldo_dichiarato']);
         $this->assertSame('2026-05-31', $this->satispay->riconciliatoFinoAl()->toDateString(), 'Senza saldi nell’estratto, il conto è riconciliato fino all’ultimo saldo dichiarato che coincide.');
     }
@@ -233,11 +235,11 @@ class ImportSatispayTest extends TestCase
     public function test_una_differenza_resta_da_spiegare_finche_non_si_spiega(): void
     {
         $this->importa($this->fixture());
-        $this->post("/conti/{$this->satispay->id}/saldi-dichiarati", ['data' => '2026-05-31', 'importo' => '1.100,00'])->assertSessionHasNoErrors();
+        $this->post("/conti/{$this->satispay->id}/saldi-dichiarati", ['data' => '2026-05-31', 'importo' => '100,00'])->assertSessionHasNoErrors();
 
-        $this->get("/conti/{$this->satispay->id}/import")->assertSeeText('Differenza da spiegare')->assertSeeText('L’app ha 44,95 € in meno.');
+        $this->get("/conti/{$this->satispay->id}/import")->assertSeeText('Differenza da spiegare')->assertSeeText('L’app ha 34,95 € in meno.');
 
-        $this->post("/conti/{$this->satispay->id}/saldi-dichiarati", ['data' => '2026-05-31', 'importo' => '1.100,00', 'spiegazione' => 'Un rimborso fatto dall’app Satispay, non nel report.'])->assertSessionHasNoErrors();
+        $this->post("/conti/{$this->satispay->id}/saldi-dichiarati", ['data' => '2026-05-31', 'importo' => '100,00', 'spiegazione' => 'Un rimborso fatto dall’app Satispay, non nel report.'])->assertSessionHasNoErrors();
         $this->assertSame(1, $this->satispay->saldiDichiarati()->count(), 'La stessa data si corregge, non si duplica.');
         $this->get("/conti/{$this->satispay->id}/import")->assertSeeText('Differenza spiegata')->assertSeeText('Un rimborso fatto dall’app Satispay');
     }

@@ -43,6 +43,9 @@ final class SatispayRiepilogo
                 throw new EstrattoNonValido("Riga $n: il mese («{$cella('data')}») non è nella forma mm-aaaa.");
             }
             $mese = ($m[3] ?? '') !== '' ? "$m[3]-$m[4]" : "$m[2]-$m[1]";
+            if (! checkdate((int) substr($mese, 5), 1, (int) $mese)) {
+                throw new EstrattoNonValido("Riga $n: il mese («{$cella('data')}») non esiste.");
+            }
             $importo = function (string $nome) use ($cella, $n) {
                 $centesimi = Euro::daTesto($cella($nome));
                 if ($centesimi === null) {
