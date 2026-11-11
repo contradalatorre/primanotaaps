@@ -122,6 +122,11 @@ class MovimentiController extends Controller
     private function eliminaLogicamente(Request $request, Movimento $movimento, string $azione, ?string $motivazione, bool $comeAutore = false): void
     {
         DB::transaction(function () use ($request, $movimento, $azione, $motivazione, $comeAutore) {
+            // Prima il conto, come `crea`, `salva` e la chiusura: una cassa si chiude a saldo zero (#50) e un movimento eliminato
+            // mentre si chiude lo cambierebbe; su un conto chiuso non si scrive, nemmeno per eliminare.
+            if (Conto::lockForUpdate()->findOrFail($movimento->conto_id)->chiuso()) {
+                throw ValidationException::withMessages(['movimento' => 'Il conto è chiuso: i suoi movimenti non si eliminano.']);
+            }
             // Anche per il Tesoriere: un ritiro concorrente porterebbe due righe di registro e sovrascriverebbe chi ha eliminato.
             // Il movimento già eliminato non si trova più (404).
             Classificazione::blocca($movimento);

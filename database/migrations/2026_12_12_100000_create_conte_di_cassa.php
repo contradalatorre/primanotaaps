@@ -16,6 +16,7 @@ return new class extends Migration
             $table->date('data');
             $table->bigInteger('importo_contato'); // centesimi
             $table->bigInteger('saldo_app'); // il saldo dell'app a `data` prima dell'eventuale correzione, fotografato (quello dal vivo cambia con ogni movimento)
+            $table->unsignedBigInteger('ultimo_movimento_id'); // il movimento con l'id più alto quando si è contato: i movimenti della stessa data scritti dopo (es. il versamento) non fanno parte di quel che si è contato
             $table->bigInteger('differenza'); // contato meno saldo dell'app, con segno
             $table->foreignId('correzione_id')->nullable()->constrained('movimenti'); // il movimento che spiega la differenza
             $table->text('spiegazione')->nullable(); // oppure una nota (non quella dei movimenti: qui non c'è un movimento)

@@ -8,6 +8,7 @@ use App\Models\Conto;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * La conta di cassa e la sua storia (#50). Leggere è per tutti (`vedere`, come i movimenti); contare è del Tesoriere
@@ -22,7 +23,7 @@ class ConteDiCassaController extends Controller
         return view('conte.indice', [
             'conto' => $conto,
             'saldo' => $conto->saldoAl(today()->toDateString()),
-            'conte' => $conto->conte()->with('contataDa', 'contataCon', 'correzione')->orderByDesc('data')->orderByDesc('id')->get(),
+            'conte' => $conto->conte()->with('contataDa', 'contataCon', 'correzione')->orderByDesc('data')->orderByDesc('id')->get()->each->setRelation('conto', $conto),
             'persone' => User::where('emergenza', false)->where('id', '!=', auth()->id())->orderBy('name')->get(['id', 'name']),
         ]);
     }
@@ -30,7 +31,7 @@ class ConteDiCassaController extends Controller
     public function registra(Request $request, Conto $conto): RedirectResponse
     {
         $dati = $request->validate([
-            'data' => ['required', 'date'],
+            'data' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.$conto->aperto_il->toDateString(), 'before_or_equal:today'],
             'importo' => ['required', 'string', function ($campo, $valore, $fallisci) {
                 $centesimi = Euro::daTesto($valore);
                 if ($centesimi === null || $centesimi < 0) {
@@ -38,7 +39,7 @@ class ConteDiCassaController extends Controller
                 }
             }],
             'spiegazione' => ['nullable', 'string', 'max:2000'],
-            'contata_con' => ['nullable', 'integer', 'exists:users,id', fn ($campo, $valore, $fallisci) => (int) $valore === $request->user()->id
+            'contata_con' => ['nullable', 'integer', Rule::exists('users', 'id')->where('emergenza', false), fn ($campo, $valore, $fallisci) => (int) $valore === $request->user()->id
                 && $fallisci('La conta congiunta ha due nomi diversi.')],
         ], attributes: ['importo' => 'importo contato', 'contata_con' => 'secondo nome']);
 

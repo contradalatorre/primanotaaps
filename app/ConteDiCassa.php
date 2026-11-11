@@ -48,6 +48,8 @@ final class ConteDiCassa
 
             $correzione = $differenza !== 0 && $correggi ? self::correggi($utente, $conto, $data, $differenza, $contato, $saldo) : null;
             $conta = ContaDiCassa::create([
+                // Gli id crescono: ogni movimento scritto dopo (il conto è bloccato) ha un id più alto, e non fa parte di quel che si è contato.
+                'ultimo_movimento_id' => Movimento::withTrashed()->max('id') ?? 0,
                 'conto_id' => $conto->id, 'data' => $data, 'importo_contato' => $contato, 'saldo_app' => $saldo, 'differenza' => $differenza,
                 'correzione_id' => $correzione?->id, 'spiegazione' => $spiegazione, 'contata_da' => $utente->id, 'contata_con' => $contataCon,
             ]);
@@ -68,11 +70,14 @@ final class ConteDiCassa
      */
     public static function controllaChiusura(Conto $conto, string $chiusaIl): void
     {
-        $conta = $conto->riconciliatoFinoAl();
+        $conta = $conto->contaRiconciliata();
         $errore = match (true) {
             $conta === null => 'Prima di chiudere la cassa serve una conta di cassa senza differenze: fai la conta dei contanti (e correggi o riconta se c’è una differenza).',
-            $conto->movimenti()->senzaGiroconto()->where('data', '>', $conta->toDateString())->exists()
-                => 'Dopo la conta del '.$conta->format('d/m/Y').' ci sono movimenti che non sono versamenti in giroconto: rifai la conta.',
+            $chiusaIl < $conta->data->toDateString() => 'La cassa non si chiude prima dell’ultima conta ('.$conta->data->format('d/m/Y').').',
+            // Quel che si è versato dopo la conta si abbina come giroconto: una spesa o un incasso nuovi vogliono una nuova conta.
+            $conto->movimenti()->senzaGiroconto()->where(fn ($m) => $m->where('data', '>', $conta->data->toDateString())
+                ->orWhere(fn ($oggi) => $oggi->where('data', $conta->data->toDateString())->where('id', '>', $conta->ultimo_movimento_id)))->exists()
+                => 'Dopo la conta del '.$conta->data->format('d/m/Y').' ci sono movimenti che non sono versamenti in giroconto: rifai la conta.',
             ($saldo = $conto->saldoAl($chiusaIl)) !== 0 => 'Nella cassa restano '.Euro::formatta($saldo).' €: versali (il versamento è un giroconto, si abbina nel passo Giroconti) prima di chiuderla.',
             default => null,
         };

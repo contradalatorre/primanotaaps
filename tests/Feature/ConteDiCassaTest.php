@@ -229,6 +229,45 @@ class ConteDiCassaTest extends TestCase
         $this->assertSame(0, $this->festa->saldoAl('2026-05-14'));
     }
 
+    public function test_il_versamento_dello_stesso_giorno_della_conta_non_la_invalida(): void
+    {
+        // Si conta e poi si versa, tutto il 12: la conta precede il versamento, e il saldo dopo è zero.
+        $this->conta(['data' => '2026-05-12', 'importo' => '100,00'])->assertSessionHasNoErrors();
+        $this->versa(10000, '2026-05-12');
+
+        $this->assertSame('2026-05-12', $this->riconciliato());
+        $this->chiudi('2026-05-12')->assertSessionHasNoErrors();
+        $this->assertNotNull($this->festa->fresh()->chiuso_il);
+    }
+
+    public function test_la_cassa_non_si_chiude_prima_dell_ultima_conta(): void
+    {
+        $this->versa(10000, '2026-05-12');
+        $this->conta(['data' => '2026-05-15', 'importo' => '0'])->assertSessionHasNoErrors();
+
+        $this->chiudi('2026-05-13')->assertSessionHasErrors('conto');
+        $this->assertNull($this->festa->fresh()->chiuso_il);
+    }
+
+    public function test_i_movimenti_di_una_cassa_chiusa_non_si_eliminano(): void
+    {
+        $this->conta(['importo' => '97,50', 'correggi' => '1'])->assertSessionHasNoErrors();
+        $this->versa(9750, '2026-05-13');
+        $this->chiudi()->assertSessionHasNoErrors();
+        $correzione = Movimento::findOrFail(ContaDiCassa::firstOrFail()->correzione_id);
+
+        $this->actingAs($this->tesoriere)->post("/movimenti/{$correzione->id}/eliminazione", ['motivazione' => 'Errore'])->assertSessionHasErrors('movimento');
+        $this->assertNull($correzione->fresh()->eliminato_il);
+    }
+
+    public function test_il_secondo_nome_non_e_l_account_di_emergenza(): void
+    {
+        $emergenza = User::factory()->create(['emergenza' => true]);
+
+        $this->conta(['contata_con' => $emergenza->id])->assertSessionHasErrors('contata_con');
+        $this->assertSame(0, ContaDiCassa::count());
+    }
+
     public function test_la_cassa_con_un_saldo_diverso_da_zero_non_si_chiude(): void
     {
         $this->conta(['data' => '2026-05-12', 'importo' => '100,00'])->assertSessionHasNoErrors();

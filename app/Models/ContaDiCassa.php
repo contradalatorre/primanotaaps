@@ -6,8 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Una conta di cassa (glossario): i contanti contati a una data, confrontati con il saldo dell'app. È «senza differenze»
- * se i due coincidono o se la differenza è stata corretta con un movimento; una nota la spiega ma non la toglie.
+ * Una conta di cassa (glossario): i contanti contati a una data, confrontati con il saldo dell'app. Quadra se i due
+ * coincidono o se la differenza è stata corretta con un movimento; una nota la spiega ma non la toglie. `saldo_app` e
+ * `differenza` sono la fotografia del momento, per la storia: se quadra si rilegge sempre dal saldo.
  */
 class ContaDiCassa extends Model
 {
@@ -40,9 +41,9 @@ class ContaDiCassa extends Model
         return $this->belongsTo(Movimento::class, 'correzione_id')->withTrashed();
     }
 
-    /** Com'era alla registrazione; la riconciliazione della cassa rilegge il saldo (`Conto::riconciliatoFinoAl`). */
-    public function senzaDifferenze(): bool
+    /** Senza differenze oggi: i contanti contati sono ancora il saldo dell'app di allora (una correzione eliminata o un movimento antecedente arrivato dopo la toglie). */
+    public function quadra(): bool
     {
-        return $this->differenza === 0 || $this->correzione_id !== null;
+        return $this->conto->saldoDellaConta($this) === $this->importo_contato;
     }
 }

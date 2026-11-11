@@ -29,7 +29,7 @@ class ContiTest extends TestCase
     private function cassaContata(array $dati = []): Conto
     {
         $conto = Conto::factory()->create($dati);
-        ContaDiCassa::create(['conto_id' => $conto->id, 'data' => $conto->aperto_il, 'importo_contato' => 0, 'saldo_app' => 0, 'differenza' => 0, 'contata_da' => User::factory()->create()->id]);
+        ContaDiCassa::create(['conto_id' => $conto->id, 'data' => $conto->aperto_il, 'importo_contato' => 0, 'saldo_app' => 0, 'ultimo_movimento_id' => 0, 'differenza' => 0, 'contata_da' => User::factory()->create()->id]);
 
         return $conto;
     }

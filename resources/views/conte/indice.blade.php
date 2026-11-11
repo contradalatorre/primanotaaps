@@ -39,7 +39,7 @@
             <li class="scheda">
                 <div class="scheda-testa">
                     <strong>{{ $conta->data->format('d/m/Y') }}</strong>
-                    <span class="etichetta">{{ $conta->senzaDifferenze() ? 'Senza differenze' : 'Con differenza' }}</span>
+                    <span class="etichetta">{{ $conta->quadra() ? 'Senza differenze' : 'Con differenza' }}</span>
                 </div>
                 <dl class="dati">
                     <div><dt>Contati</dt><dd>{{ \App\Euro::formatta($conta->importo_contato) }} €</dd></div>
