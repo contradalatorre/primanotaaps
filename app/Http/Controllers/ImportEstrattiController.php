@@ -216,7 +216,7 @@ class ImportEstrattiController extends Controller
                 // Lo stesso conflitto può esserci in due import sovrapposti: la riga entra una volta sola.
                 // Lettura con lock (corrente): su MySQL una lettura semplice vede la fotografia della transazione,
                 // fissata già dalla lettura di $conflitto->importEstratto, e non il movimento di una decisione appena conclusa.
-                if ($conto->movimenti()->where(['chiave' => $riga->chiave(), 'data_valuta' => $riga->dataValuta, 'causale' => $riga->causale])->lockForUpdate()->first()) {
+                if ($conto->movimenti()->where('chiave', $riga->chiave())->lockForUpdate()->get()->contains(fn (Movimento $m) => $conto->stessaRiga($m, $riga))) {
                     $this->rifiuta('Questa riga è già entrata, da un altro import o da un’altra decisione: tieni il movimento già presente.');
                 }
                 $movimento = (new Movimento)->forceFill($import->attributiMovimento($riga, $request->user()->id));

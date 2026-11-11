@@ -49,6 +49,15 @@ class Imputazione extends Model
         return $this->belongsToMany(Tag::class, 'imputazione_tag', 'imputazione_id', 'tag_id');
     }
 
+    /**
+     * La commissione che il fornitore ha trattenuto su un incasso (#48): l'app la aggiunge da sola a ogni classificazione del
+     * movimento (area D, «Commissioni e oneri bancari», importo negativo), nessuno la sceglie. Le altre imputazioni sono sempre positive.
+     */
+    public function commissione(): bool
+    {
+        return $this->importo < 0;
+    }
+
     /** La voce del Modello D per l'esercizio del movimento («A1», «Imposte»), o null senza tipologia. */
     public function voce(): ?string
     {

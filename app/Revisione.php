@@ -70,7 +70,7 @@ final class Revisione
      */
     public function gruppi(Collection $movimenti): Collection
     {
-        $nomi = fn (Movimento $m, string $relazione) => $m->imputazioni->map(fn ($i) => $i->$relazione?->nome)->filter()->unique()->sort()->join(', ');
+        $nomi = fn (Movimento $m, string $relazione) => $m->imputazioni->reject->commissione()->map(fn ($i) => $i->$relazione?->nome)->filter()->unique()->sort()->join(', ');
 
         return $movimenti->groupBy(fn (Movimento $m) => ($nomi($m, 'tipologia') ?: 'Senza tipologia').' · '.($nomi($m, 'iniziativa') ?: 'senza iniziativa'))->sortKeys();
     }
@@ -219,7 +219,8 @@ final class Revisione
             if (! hash_equals(Classificazione::versione($movimento), $versione)) {
                 throw ValidationException::withMessages(['conferma' => 'Il movimento è cambiato dopo che lo hai aperto: rileggilo prima di cambiarlo.']);
             }
-            $imputazioni = $movimento->imputazioni()->with('tag:id')->orderBy('id')->get();
+            // Senza la commissione di PayPal: `salva` la riaggiunge da sola (#48).
+            $imputazioni = $movimento->imputazioni()->with('tag:id')->where('importo', '>', 0)->orderBy('id')->get();
             // Con una sola riga l'importo è quello del movimento; con più, in euro come lo scrive l'utente.
             $righe = $imputazioni->map(fn ($i) => [
                 'importo' => $imputazioni->count() > 1 ? Euro::formatta($i->importo) : '', 'tipologia_id' => $i->tipologia_id,

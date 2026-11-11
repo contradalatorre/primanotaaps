@@ -31,7 +31,10 @@
             @endforeach
         </fieldset>
 
-        <p class="nota">Una sola imputazione prende tutto l’importo. Per dividere il movimento scrivi l’importo di ogni imputazione: la somma deve essere {{ \App\Euro::formatta($movimento->importo) }} €. Area e attività si prendono dall’iniziativa, se le lasci come sono.</p>
+        <p class="nota">Una sola imputazione prende tutto l’importo. Per dividere il movimento scrivi l’importo di ogni imputazione: la somma deve essere {{ \App\Euro::formatta($movimento->lordo()) }} €. Area e attività si prendono dall’iniziativa, se le lasci come sono.</p>
+        @if ($movimento->commissione > 0)
+            <p class="nota">Il conto ha ricevuto {{ \App\Euro::formatta($movimento->importo) }} €: il fornitore ha trattenuto {{ \App\Euro::formatta($movimento->commissione) }} € di commissione, che si aggiunge da sola in uscita in «{{ \App\Models\Tipologia::COMMISSIONI }}» (area D), così le imputazioni sommano al netto.</p>
+        @endif
         @error('imputazioni') <p class="avviso" role="alert">{{ $message }}</p> @enderror
 
         @for ($i = 0; $i < $righe; $i++)
@@ -44,7 +47,7 @@
             @endphp
             <fieldset>
                 <legend>Imputazione {{ $i + 1 }}</legend>
-                <label>Importo (€) <input type="text" name="imputazioni[{{ $i }}][importo]" inputmode="decimal" autocomplete="off" placeholder="{{ \App\Euro::formatta($movimento->importo) }}"
+                <label>Importo (€) <input type="text" name="imputazioni[{{ $i }}][importo]" inputmode="decimal" autocomplete="off" placeholder="{{ \App\Euro::formatta($movimento->lordo()) }}"
                     value="{{ old("imputazioni.$i.importo", $imputazione && $imputazioni->count() > 1 ? \App\Euro::formatta($imputazione->importo) : '') }}"></label>
                 @error("imputazioni.$i.importo") <span class="nota">{{ $message }}</span> @enderror
 

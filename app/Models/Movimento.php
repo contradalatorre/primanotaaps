@@ -32,12 +32,21 @@ class Movimento extends Model
 
     protected function casts(): array
     {
-        return ['data' => 'date', 'data_valuta' => 'date', 'importo' => 'integer', 'saldo_parziale' => 'integer', 'manuale' => 'boolean', 'confermato_il' => 'datetime'];
+        return ['data' => 'date', 'data_valuta' => 'date', 'importo' => 'integer', 'commissione' => 'integer', 'saldo_parziale' => 'integer', 'manuale' => 'boolean', 'confermato_il' => 'datetime'];
     }
 
     public function conto(): BelongsTo
     {
         return $this->belongsTo(Conto::class);
+    }
+
+    /**
+     * Quello che si classifica: il netto più la commissione che il fornitore ha trattenuto (#48). La commissione, una volta
+     * classificato il movimento, è un'imputazione a sé in uscita (`Imputazione::commissione`), e la somma resta il netto.
+     */
+    public function lordo(): int
+    {
+        return $this->importo + $this->commissione;
     }
 
     public function autore(): BelongsTo

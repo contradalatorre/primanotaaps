@@ -88,15 +88,14 @@ class Conto extends Model
         $esistenti = $this->movimenti()->whereIn('chiave', array_map(fn (RigaEstratto $r) => $r->chiave(), $estratto->righe))->get()->groupBy('chiave');
         // Un conflitto già deciso «tieni il presente» non si riapre a ogni file che si sovrappone.
         $tenuti = ImportConflitto::where('decisione', 'tieni_esistente')->whereIn('movimento_id', $esistenti->flatten()->pluck('id'))->get()
-            ->map(fn (ImportConflitto $c) => $c->movimento_id.'|'.$c->riga['dataValuta'].'|'.$c->riga['causale'])->flip();
+            ->map(fn (ImportConflitto $c) => $c->movimento_id.'|'.RigaEstratto::daArray($c->riga)->impronta())->flip();
         $risultato = ['nuove' => [], 'presenti' => [], 'conflitti' => []];
 
         foreach ($estratto->righe as $riga) {
             $uguali = $esistenti->get($riga->chiave(), collect());
             if ($uguali->isEmpty()) {
                 $risultato['nuove'][] = $riga;
-            } elseif ($uguali->contains(fn (Movimento $m) => ($m->data_valuta?->toDateString() === $riga->dataValuta && $m->causale === $riga->causale)
-                || $tenuti->has($m->id.'|'.$riga->dataValuta.'|'.$riga->causale))) {
+            } elseif ($uguali->contains(fn (Movimento $m) => $this->stessaRiga($m, $riga) || $tenuti->has($m->id.'|'.$riga->impronta()))) {
                 $risultato['presenti'][] = $riga;
             } else {
                 $risultato['conflitti'][] = ['riga' => $riga, 'movimento' => $uguali->first()];
@@ -104,6 +103,17 @@ class Conto extends Model
         }
 
         return $risultato;
+    }
+
+    /**
+     * Il movimento è già quella riga: tutto ciò che il file dice coincide. Con la chiave fatta di data, importo, descrizione e saldo
+     * (Crédit Agricole) restano da guardare data valuta e causale; con una chiave che è solo un codice (PayPal, #48) anche il resto.
+     */
+    public function stessaRiga(Movimento $movimento, RigaEstratto $riga): bool
+    {
+        return $movimento->data->toDateString() === $riga->data && $movimento->importo === abs($riga->importo) && $movimento->verso === $riga->verso()
+            && $movimento->descrizione === $riga->descrizione && $movimento->saldo_parziale === $riga->saldoParziale && $movimento->commissione === $riga->commissione
+            && $movimento->data_valuta?->toDateString() === $riga->dataValuta && $movimento->causale === $riga->causale;
     }
 
     public function scopeAperti(Builder $query): void

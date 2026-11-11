@@ -38,7 +38,8 @@ final class Precedente
     /** @param  Movimento  $movimento confermato, con le imputazioni (e i loro tag) già caricati; null se non ha una sola imputazione con tipologia */
     public static function daMovimento(Movimento $movimento): ?self
     {
-        $imputazione = $movimento->imputazioni->count() === 1 ? $movimento->imputazioni->first() : null;
+        $proprie = $movimento->imputazioni->reject->commissione(); // la commissione di PayPal si riaggiunge da sola (#48)
+        $imputazione = $proprie->count() === 1 ? $proprie->first() : null;
         if ($imputazione === null || $imputazione->tipologia_id === null) {
             return null;
         }
