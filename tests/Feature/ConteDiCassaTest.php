@@ -343,6 +343,17 @@ class ConteDiCassaTest extends TestCase
         $this->assertNotNull($this->festa->fresh()->chiuso_il);
     }
 
+    public function test_il_registro_legge_la_conta_in_euro_e_con_i_nomi(): void
+    {
+        $collega = User::factory()->create(['name' => 'Gino Bianchi']);
+        $this->conta(['importo' => '97,50', 'correggi' => '1', 'contata_con' => $collega->id])->assertSessionHasNoErrors();
+
+        $this->actingAs($this->tesoriere)->get('/registro')->assertOk()
+            ->assertSeeText('ha fatto una conta di cassa')
+            ->assertSeeText('97,50 €')->assertSeeText('100,00 €')->assertSeeText('-2,50 €')
+            ->assertSeeText('Gino Bianchi')->assertDontSeeText('9750');
+    }
+
     public function test_il_permesso_si_rilegge_dopo_il_blocco_del_conto(): void
     {
         // Una revoca arrivata tra la richiesta e il blocco del conto (gli assegnamenti caricati dalla rotta sono di prima).
