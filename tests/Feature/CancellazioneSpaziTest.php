@@ -13,7 +13,7 @@ use Tests\TestCase;
 /** Pulizia periodica degli spazi di prova (#71, ADR 0003): senza assegnazioni o inattivi da 6 mesi; i timbri restano. */
 class CancellazioneSpaziTest extends TestCase
 {
-    use RefreshDatabase, ConSpazioDiProva;
+    use ConSpazioDiProva, RefreshDatabase;
 
     public function test_si_cancellano_gli_spazi_di_chi_non_ha_piu_assegnazioni_e_di_chi_e_inattivo_da_sei_mesi(): void
     {

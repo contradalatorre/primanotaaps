@@ -6,8 +6,8 @@ use App\Models\Attivita;
 use App\Models\Conto;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
-use App\Models\Regola;
 use App\Models\RegistroModifica;
+use App\Models\Regola;
 use App\Models\Tag;
 use App\Models\Tipologia;
 use App\Models\User;
@@ -118,7 +118,7 @@ final class Regole
         // Un elemento archiviato non si sceglie più, ma una regola che lo ha già può tenerlo (e viene segnalata).
         $scelte = ['tipologia_id' => $tipologia, 'iniziativa_id' => $iniziativa, 'attivita_id' => $attivita];
         foreach ($scelte as $campo => $elemento) {
-            if ($elemento?->archiviata() && $regola?->$campo !== $elemento->id) {
+            if ($elemento?->archiviata() && $elemento->id !== $regola?->$campo) {
                 $errori[$campo] = "«{$elemento->nome}» è archiviata: non si sceglie più.";
             }
         }
@@ -163,7 +163,7 @@ final class Regole
     /**
      * Mette le regole nell'ordine dato (tutte, una volta ciascuna) e rifà le proposte.
      *
-     * @param  list<int>  $ordine gli id delle regole, dalla prima
+     * @param  list<int>  $ordine  gli id delle regole, dalla prima
      * @return int quanti movimenti hanno cambiato proposta
      *
      * @throws ValidationException se l'elenco non è più quello che l'utente aveva davanti
@@ -194,7 +194,7 @@ final class Regole
      * Le regole sui movimenti appena entrati da un import. Per chi ha già bloccato il conto e fatto la sua prima lettura
      * dopo il lock: le regole si leggono qui, e un salvataggio di regole (che blocca tutti i conti) non può essere a metà.
      *
-     * @param  Collection<int, Movimento>  $movimenti da classificare, appena inseriti
+     * @param  Collection<int, Movimento>  $movimenti  da classificare, appena inseriti
      */
     public static function applicaAiNuovi(User $utente, Collection $movimenti): int
     {
@@ -277,9 +277,9 @@ final class Regole
      * Si scrive solo dove qualcosa cambia: la proposta c'è già della stessa regola (e la regola non è stata appena
      * toccata), oppure non c'è né l'una né l'altra.
      *
-     * @param  Collection<int, Movimento>  $movimenti già bloccati, o appena inseriti da chi chiama
-     * @param  ?int  $toccata la regola salvata adesso (con condizioni o effetti cambiati): le sue proposte si rifanno anche se la regola è la stessa
-     * @param  ?string  $tipoDellaToccata il socio o terzo che la regola aveva prima del salvataggio
+     * @param  Collection<int, Movimento>  $movimenti  già bloccati, o appena inseriti da chi chiama
+     * @param  ?int  $toccata  la regola salvata adesso (con condizioni o effetti cambiati): le sue proposte si rifanno anche se la regola è la stessa
+     * @param  ?string  $tipoDellaToccata  il socio o terzo che la regola aveva prima del salvataggio
      * @return int quanti movimenti hanno cambiato proposta
      */
     // shortcut: `risolvi` rifà alcune query per ogni movimento e regola, dentro la transazione; un estratto mensile ha qualche centinaio di righe, da ripensare solo se diventano migliaia.

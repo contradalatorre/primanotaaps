@@ -4,8 +4,8 @@ namespace Tests\Feature;
 
 use App\Onboarding\Catalogo;
 use App\Onboarding\Verifiche;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 /** I file delle missioni (#71): lo schema, e che tutto ciò che citano esista nell'app. */

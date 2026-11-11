@@ -24,7 +24,7 @@ use Tests\TestCase;
  */
 class SvolgimentoMissioniTest extends TestCase
 {
-    use RefreshDatabase, ConSpazioDiProva;
+    use ConSpazioDiProva, RefreshDatabase;
 
     /** @return iterable<string, array{string}> una riga per ogni file in resources/onboarding/missioni */
     public static function missioni(): iterable

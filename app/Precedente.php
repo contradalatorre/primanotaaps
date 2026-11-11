@@ -17,8 +17,8 @@ use Illuminate\Support\Carbon;
 final class Precedente
 {
     /**
-     * @param  array<string,true>  $parole le parole della descrizione che contano, vedi `Storico::parole`
-     * @param  array{tipologia_id: int, iniziativa_id: ?int, area: string, attivita_id: ?int, tag: list<int>}  $riga la classificazione, come la vuole `Classificazione`
+     * @param  array<string,true>  $parole  le parole della descrizione che contano, vedi `Storico::parole`
+     * @param  array{tipologia_id: int, iniziativa_id: ?int, area: string, attivita_id: ?int, tag: list<int>}  $riga  la classificazione, come la vuole `Classificazione`
      */
     private function __construct(
         public readonly ?Movimento $movimento, public readonly ?EsempioClassificazione $esempio,

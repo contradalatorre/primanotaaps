@@ -10,6 +10,7 @@ use App\Models\Nota;
 use App\Models\User;
 use App\Onboarding\Catalogo;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Tests\ConSpazioDiProva;
@@ -18,7 +19,7 @@ use Tests\TestCase;
 /** Riepilogo delle 8 ed email immediata delle menzioni (#46). Posta simulata, dati inventati. */
 class EmailMenzioniTest extends TestCase
 {
-    use RefreshDatabase, ConSpazioDiProva;
+    use ConSpazioDiProva, RefreshDatabase;
 
     private const SEGRETO = 'testo-segreto-della-nota-3141';
 
@@ -43,7 +44,7 @@ class EmailMenzioniTest extends TestCase
         return $this->actingAs($autore)->post('/movimenti/'.($movimento ?? $this->movimento)->id.'/note', ['testo' => $testo]);
     }
 
-    private function inviate(): \Illuminate\Support\Collection
+    private function inviate(): Collection
     {
         return Mail::sent(MenzioniDaVedere::class);
     }

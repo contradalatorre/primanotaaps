@@ -171,6 +171,7 @@ final class Note
                 $esistente->delete();
             }
         }
+
         return collect($citati)->map(fn (string $chiave) => $nota->menzioni()->create([$chiave[0] === 'u' ? 'user_id' : 'ruolo_id' => (int) substr($chiave, 1)]));
     }
 

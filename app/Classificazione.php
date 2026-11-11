@@ -6,8 +6,8 @@ use App\Models\Attivita;
 use App\Models\Imputazione;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
-use App\Models\Regola;
 use App\Models\RegistroModifica;
+use App\Models\Regola;
 use App\Models\Tag;
 use App\Models\Tipologia;
 use App\Models\User;
@@ -33,7 +33,7 @@ final class Classificazione
      * Riclassificare un confermato chiude i suoi dubbi aperti: tutti, o solo quelli in `$dubbiVisti` (id delle note) se
      * chi salva parte da una pagina che li mostrava; un dubbio nato dopo non lo ha visto nessuno e non si chiude in silenzio.
      *
-     * @param  ?list<int>  $dubbiVisti null: tutti (per chi ha già controllato la versione, come la revisione)
+     * @param  ?list<int>  $dubbiVisti  null: tutti (per chi ha già controllato la versione, come la revisione)
      *
      * @throws ValidationException con gli errori sotto `imputazioni.N.campo`
      */
@@ -137,8 +137,8 @@ final class Classificazione
      * Per chi ha già bloccato la riga e controllato che sia da classificare o proposta da una regola o dallo storico: i
      * permessi sono di chi salva la regola o importa, non del movimento. Una regola ha la precedenza sullo storico.
      *
-     * @param  list<array<string,mixed>>  $imputazioni quelle di `imputazioniDellaRegola` o `imputazioniDelloStorico`, già controllate da chi chiama
-     * @param  ?string  $tipoDiPrima il socio o terzo che aveva la regola di prima quando ha proposto (non quello di adesso: può essere stata appena modificata)
+     * @param  list<array<string,mixed>>  $imputazioni  quelle di `imputazioniDellaRegola` o `imputazioniDelloStorico`, già controllate da chi chiama
+     * @param  ?string  $tipoDiPrima  il socio o terzo che aveva la regola di prima quando ha proposto (non quello di adesso: può essere stata appena modificata)
      */
     public static function proponi(User $utente, Movimento $movimento, ?Regola $regola, ?Precedente $precedente, array $imputazioni, ?string $tipoDiPrima = null): void
     {

@@ -8,6 +8,7 @@ use App\Models\ImportEstratto;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
+use App\Models\Ruolo;
 use App\Models\Tag;
 use App\Models\Tipologia;
 use App\Models\User;
@@ -427,7 +428,7 @@ class RevisioneImportTest extends TestCase
     public function test_chi_non_scrive_note_non_vede_il_punto_interrogativo(): void
     {
         $s = $this->scenario();
-        $senzaNote = $this->utenteCon(\App\Models\Ruolo::create(['nome' => 'Revisore', 'permessi' => ['vedere', 'importare_e_confermare']]));
+        $senzaNote = $this->utenteCon(Ruolo::create(['nome' => 'Revisore', 'permessi' => ['vedere', 'importare_e_confermare']]));
 
         $this->actingAs($senzaNote)->get("/import/{$this->import->id}/revisione?passo=pronte&movimento={$s['ghiaccio']->id}")
             ->assertOk()->assertDontSee('dubbio=1', false)->assertDontSeeText('Scrivi una nota');
