@@ -215,6 +215,7 @@ class SpazioDiProvaTest extends TestCase
     public function test_in_prova_le_menzioni_a_un_ruolo_valgono_per_i_ruoli_dello_spazio_non_per_quelli_veri(): void
     {
         $consigliere = $this->utenteCon('Consigliere'); // il ruolo vero; nello spazio di prova non ha assegnazioni
+        $this->prova()->prepara($consigliere, \App\Onboarding\Catalogo::predefinito()->missione('import-e-revisione'));
         $rivolte = $this->prova()->per($consigliere, null, function () use ($consigliere) {
             $nota = DB::table('note')->insertGetId(['oggetto_tipo' => 'movimento', 'oggetto_id' => 1, 'user_id' => $consigliere->id, 'testo' => 'Prova', 'created_at' => now(), 'updated_at' => now()]);
             DB::table('menzioni')->insert(['nota_id' => $nota, 'ruolo_id' => Ruolo::where('nome', 'Consigliere')->value('id'), 'created_at' => now(), 'updated_at' => now()]);
@@ -223,7 +224,7 @@ class SpazioDiProvaTest extends TestCase
         });
 
         $this->assertSame(0, $rivolte);
-        $this->assertNull($consigliere->getConnectionName(), 'uscendo dalla prova l’utente torna sulla connessione vera');
+        $this->assertSame('mysql', $consigliere->getConnectionName(),'uscendo dalla prova l’utente torna sulla connessione vera');
     }
 
     public function test_in_prova_le_preferenze_si_scrivono_nello_spazio_non_sulla_riga_vera(): void

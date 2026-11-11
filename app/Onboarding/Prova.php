@@ -33,6 +33,10 @@ final class Prova
 
     private bool $httpPrima = false;
 
+    private ?User $utente = null;
+
+    private ?string $connessioneUtente = null;
+
     public function attiva(): bool
     {
         return $this->reale !== null;
@@ -89,10 +93,14 @@ final class Prova
         $this->httpPrima = Http::preventingStrayRequests();
         Http::preventStrayRequests();
         DB::setDefaultConnection(self::CONNESSIONE);
-        $utente->unsetRelations();
+        // `auth` ha caricato l'utente sul database vero: finché si è in prova anche lui, con le sue relazioni (assegnazioni,
+        // sottoquery di `Menzione::rivolteA`) e i suoi salvataggi (preferenze), lavora sulla sua riga nello spazio.
+        $this->utente = $utente;
+        $this->connessioneUtente = $utente->getConnectionName();
+        $utente->setConnection(self::CONNESSIONE)->unsetRelations();
     }
 
-    public function esci(?User $utente = null): void
+    public function esci(): void
     {
         if (! $this->attiva()) {
             return;
@@ -101,8 +109,8 @@ final class Prova
         DB::purge(self::CONNESSIONE);
         Http::preventStrayRequests($this->httpPrima);
         config(['mail.default' => $this->mailPrima]);
-        $this->reale = $this->missione = $this->mailPrima = null;
-        $utente?->unsetRelations();
+        $this->utente->setConnection($this->connessioneUtente)->unsetRelations();
+        $this->reale = $this->missione = $this->mailPrima = $this->utente = $this->connessioneUtente = null;
     }
 
     /** Esegue `$lavoro` nello spazio dell'utente e ne esce sempre. */
@@ -112,7 +120,7 @@ final class Prova
         try {
             return $lavoro();
         } finally {
-            $this->esci($utente);
+            $this->esci();
         }
     }
 
