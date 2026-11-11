@@ -37,6 +37,7 @@ class ImportEstrattiController extends Controller
             'conto' => $conto,
             'importazioni' => $conto->importEstratti()->with('utente')->latest('id')->get(),
             'riconciliatoFinoAl' => $conto->riconciliatoFinoAl(),
+            'saldiDichiarati' => $conto->formato_import === 'satispay_csv' ? $conto->saldiDichiarati()->with('utente')->orderByDesc('data')->get() : null, // #49: il saldo che l'estratto non ha
         ]);
     }
 
@@ -95,7 +96,7 @@ class ImportEstrattiController extends Controller
             $atteso = $conto->saldoAl($import->periodo_dal->toDateString(), false);
             // I giroconti proposti (#47): le righe nuove che una regola riconosce, da abbinare nel passo Giroconti dopo la conferma.
             $dati += ['giroconti' => collect($classi['nuove'])->filter(fn ($r) => Giroconti::regolaPer($conto, $r->verso(), $r->causale.' '.$r->descrizione) !== null)->count()];
-            $dati += ['classi' => $classi, 'saldoApp' => $atteso, 'buco' => $atteso === $import->saldo_iniziale ? null : $this->buco($conto, $import)];
+            $dati += ['classi' => $classi, 'saldoApp' => $atteso, 'buco' => $import->saldo_iniziale === null || $atteso === $import->saldo_iniziale ? null : $this->buco($conto, $import)];
         } else {
             $dati += ['conflitti' => $import->conflitti()->with('movimento')->get(), 'movimenti' => $import->movimenti()->count()];
         }

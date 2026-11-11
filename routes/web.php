@@ -19,6 +19,7 @@ use App\Http\Controllers\RegistroController;
 use App\Http\Controllers\RegoleController;
 use App\Http\Controllers\RevisioneImportController;
 use App\Http\Controllers\RuoliController;
+use App\Http\Controllers\SatispayController;
 use App\Http\Controllers\StatoSistemaController;
 use App\Http\Controllers\UtentiController;
 use App\Http\Middleware\ProvaMiddleware;
@@ -99,6 +100,9 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
     Route::middleware('can:importare_e_confermare')->group(function () {
         Route::get('/conti/{conto}/import', [ImportEstrattiController::class, 'index'])->name('import.indice');
         Route::post('/conti/{conto}/import', [ImportEstrattiController::class, 'carica'])->name('import.carica');
+        // Conti senza saldo nell'estratto (Satispay, #49): riepilogo mensile di controllo e saldo dichiarato.
+        Route::post('/conti/{conto}/riepilogo', [SatispayController::class, 'riepilogo'])->name('import.riepilogo');
+        Route::post('/conti/{conto}/saldi-dichiarati', [SatispayController::class, 'saldoDichiarato'])->name('import.saldo');
         Route::get('/import/{import}', [ImportEstrattiController::class, 'mostra'])->name('import.mostra');
         // Revisione dei movimenti di un import (#41)
         Route::get('/import/{import}/revisione', [RevisioneImportController::class, 'mostra'])->name('import.revisione');

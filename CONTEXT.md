@@ -35,12 +35,16 @@ Un caricamento di un estratto conto: prima un'anteprima, poi la conferma, dopo l
 _Avoid_: caricamento, upload
 
 **Conflitto**:
-Una riga dell'estratto con la stessa chiave di un movimento già presente (per la banca data operazione, importo, descrizione, saldo parziale; per PayPal il codice transazione) ma con altri dati diversi (data valuta o causale; per PayPal anche data, importo, commissione, descrizione o saldo); non entra finché un operatore non decide se tenere il movimento presente o importare anche la riga, e non si sovrascrive mai nulla.
+Una riga dell'estratto con la stessa chiave di un movimento già presente (per la banca data operazione, importo, descrizione, saldo parziale; per PayPal e Satispay il codice transazione) ma con altri dati diversi (data valuta o causale; per PayPal e Satispay anche data, importo, commissione o descrizione, e per PayPal il saldo); non entra finché un operatore non decide se tenere il movimento presente o importare anche la riga, e non si sovrascrive mai nulla.
 _Avoid_: doppione, duplicato
 
 **Riconciliazione**:
 L'accordo tra il saldo dell'app e quello dichiarato dall'estratto; il conto è riconciliato fino all'ultima data in cui i due saldi coincidono, e un buco tra due estratti lo fa arretrare. Per una cassa contanti vale l'ultima conta di cassa che concorda ancora con il saldo dell'app.
 _Avoid_: quadratura
+
+**Saldo dichiarato**:
+Il saldo che l'operatore legge dal fornitore di un conto il cui estratto non ha saldi (Satispay) e scrive nell'app a una data; la differenza con il saldo dell'app si spiega, e il conto è riconciliato fino all'ultimo saldo dichiarato che coincide. Il riepilogo mensile di Satispay è invece un file di controllo, confrontato con i movimenti e mai salvato.
+_Avoid_: saldo inserito, saldo manuale
 
 **Conta di cassa**:
 I contanti contati dal Tesoriere a una data, confrontati con il saldo dell'app; la differenza si spiega con un movimento di correzione (e la cassa quadra) o con una nota (e non quadra). L'ultima conta che concorda ancora con il saldo è la data di riconciliazione della cassa. Può avere due nomi (conta congiunta, per il passaggio di consegne). Una cassa si chiude solo dopo una conta e vuota, con i contanti versati come giroconto.

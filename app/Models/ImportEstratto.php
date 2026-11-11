@@ -7,6 +7,7 @@ use App\Import\Estratto;
 use App\Import\FormatoImport;
 use App\Import\PayPalCsv;
 use App\Import\RigaEstratto;
+use App\Import\SatispayCsv;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -27,6 +28,7 @@ class ImportEstratto extends Model
     /** Un modulo per formato (lettura, chiave contro i doppioni e regole dei giroconti). Un formato nuovo si registra qui, su una riga sua. */
     public const LETTORI = [
         'credit_agricole_csv' => CreditAgricoleCsv::class,
+        'satispay_csv' => SatispayCsv::class,
         'paypal_csv' => PayPalCsv::class,
     ];
 

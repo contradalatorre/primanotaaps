@@ -16,7 +16,7 @@ final readonly class RigaEstratto
         public ?string $causale,
         public string $descrizione,
         public int $importo,
-        public int $saldoParziale,
+        public ?int $saldoParziale,
         public ?string $codice = null,
         public int $commissione = 0,
     ) {}

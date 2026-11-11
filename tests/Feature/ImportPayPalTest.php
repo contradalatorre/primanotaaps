@@ -308,6 +308,7 @@ class ImportPayPalTest extends TestCase
         $this->importa($this->estratto([$this->donazione('12/3/2026', '30,00', '-1,00', '29,00', '79,00')]));
         $this->assertSame(1915, $this->movimento('TEST00000000000A2')->importo);
         $this->assertSame(1, ImportConflitto::count());
+        $this->get('/import/'.ImportEstratto::latest('id')->first()->id)->assertSeeText('Importo: nel file 29,00 €, già presente 19,15 €');
         $this->assertSame(5, Movimento::count());
     }
 
