@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\ContaDiCassa;
 use App\Models\Conto;
 use App\Models\Giroconto;
-use App\Models\ContaDiCassa;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
 use App\Models\User;
