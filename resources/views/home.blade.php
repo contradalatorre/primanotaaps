@@ -5,6 +5,27 @@
 @section('contenuto')
     <h1 data-merlo="saluto">Ciao, {{ auth()->user()->name }}</h1>
 
+    {{-- Una metà di giroconto senza corrispondenza dopo alcuni giorni si segnala qui (#47): un trasferimento perso emerge. --}}
+    @if ($orfane->isNotEmpty())
+        <section class="da-vedere" aria-label="Giroconti senza corrispondenza" data-orfane>
+            <h2>Giroconti senza corrispondenza <span class="nota">{{ $orfane->count() }}</span></h2>
+            <ul class="schede">
+                @foreach ($orfane as $proposta)
+                    @php($movimento = $proposta['movimento'])
+                    <li class="scheda">
+                        <p>{{ $movimento->descrizione }}</p>
+                        <p class="nota">
+                            {{ $movimento->verso === 'uscita' ? '−' : '+' }}{{ \App\Euro::formatta($movimento->importo) }} € · {{ $movimento->conto->nome }} · del {{ $movimento->data->format('d/m/Y') }}, da {{ $proposta['giorni'] }} giorni senza l’altra metà
+                        </p>
+                        <div class="azioni">
+                            <a href="{{ \App\Giroconti::urlPerAbbinare($movimento) }}" class="bottone-piccolo">Abbinalo</a>
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
     {{-- Le menzioni restano qui finché qualcuno non preme Fatto o risponde nella nota del movimento (#16). --}}
     @if ($daVedere->isNotEmpty())
         <section class="da-vedere" aria-label="Da vedere">

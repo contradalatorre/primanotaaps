@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Import\CreditAgricoleCsv;
 use App\Import\Estratto;
+use App\Import\FormatoImport;
 use App\Import\RigaEstratto;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,8 +23,8 @@ class ImportEstratto extends Model
 
     public const STATI = ['anteprima' => 'In anteprima', 'confermato' => 'Confermato', 'annullato' => 'Annullato'];
 
-    /** Un modulo per formato (lettura e chiave contro i doppioni): per ora solo la banca. */
-    private const LETTORI = ['credit_agricole_csv' => CreditAgricoleCsv::class];
+    /** Un modulo per formato (lettura, chiave contro i doppioni e regole dei giroconti): per ora solo la banca. Un formato nuovo si registra qui. */
+    public const LETTORI = ['credit_agricole_csv' => CreditAgricoleCsv::class];
 
     protected function casts(): array
     {
@@ -33,11 +34,11 @@ class ImportEstratto extends Model
         ];
     }
 
-    public static function lettorePer(Conto $conto): ?CreditAgricoleCsv
+    public static function lettorePer(Conto $conto): ?FormatoImport
     {
         $classe = self::LETTORI[$conto->formato_import] ?? null;
 
-        return $classe ? new $classe : null;
+        return $classe ? app($classe) : null; // dal contenitore: i test sostituiscono il modulo
     }
 
     public function conto(): BelongsTo

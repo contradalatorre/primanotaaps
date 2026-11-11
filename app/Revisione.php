@@ -3,6 +3,7 @@
 namespace App;
 
 use App\Models\Conto;
+use App\Models\Giroconto;
 use App\Models\ImportEstratto;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
@@ -14,7 +15,8 @@ use Illuminate\Validation\ValidationException;
 /**
  * Cosa resta da fare su un import confermato (#41): i suoi movimenti divisi nei passi della schermata di revisione,
  * la catena del saldo e l'avanzamento. Qui stanno le regole dei passi, non nel controllore né nella vista: i dubbi (#45)
- * ci sono già, giroconti e regole (#47, #42) aggiungeranno i loro qui.
+ * e i giroconti (#47) ci sono già. Il giroconto precede la classificazione (cascata di #33): un movimento con una proposta
+ * di giroconto non è «da decidere» né «pronto», finché l'operatore non lo abbina o lo classifica a mano.
  */
 final class Revisione
 {
@@ -23,6 +25,12 @@ final class Revisione
 
     /** @var Collection<int, Movimento> in ordine di data, con quello che serve a versione, voce e fonte già caricato */
     public readonly Collection $movimenti;
+
+    /** @var ?Collection<int, array<string,mixed>> le proposte di giroconto che toccano questo import, calcolate una volta */
+    private ?Collection $proposteGiroconti = null;
+
+    /** @var ?Collection<int, Giroconto> i giroconti confermati con una metà in questo import */
+    private ?Collection $girocontiConfermati = null;
 
     public function __construct(public readonly ImportEstratto $import)
     {
@@ -43,10 +51,12 @@ final class Revisione
         // Un dubbio resta fuori da «Conferma le proposte pronte» e dai gruppi: la conferma lo chiude (#16) e non deve succedere in silenzio. Lo si conferma con la ✓ o spuntandolo.
         $pronta = fn (Movimento $m) => $m->stato === 'proposto' && $m->fonteProposta() !== null && $m->confermabile() && ! $m->inDubbio();
 
+        $inGiroconto = $this->movimentiInProposta();
+
         return match ($passo) {
-            'giroconti' => collect(), // arrivano con #47
-            'pronte' => $this->movimenti->filter($pronta)->values(),
-            'decidere' => $this->movimenti->reject(fn (Movimento $m) => $m->confermato() || $pronta($m))->values(),
+            'giroconti' => $this->movimenti->filter(fn (Movimento $m) => $inGiroconto->has($m->id))->values(),
+            'pronte' => $this->movimenti->filter(fn (Movimento $m) => $pronta($m) && ! $inGiroconto->has($m->id))->values(),
+            'decidere' => $this->movimenti->reject(fn (Movimento $m) => $m->confermato() || $pronta($m) || $inGiroconto->has($m->id))->values(),
             'tutti' => $this->movimenti,
             'dubbi' => $this->movimenti->filter->inDubbio()->values(),
         };
@@ -65,6 +75,37 @@ final class Revisione
         return $movimenti->groupBy(fn (Movimento $m) => ($nomi($m, 'tipologia') ?: 'Senza tipologia').' · '.($nomi($m, 'iniziativa') ?: 'senza iniziativa'))->sortKeys();
     }
 
+    /**
+     * Le proposte di giroconto che toccano i movimenti di questo import (una metà dentro, l'altra magari su un altro conto
+     * o in un altro import), in ordine di data. Il passo Giroconti le mostra una per una.
+     *
+     * @return Collection<int, array<string,mixed>> come `Giroconti::proposte`
+     */
+    public function giroconti(): Collection
+    {
+        $mie = $this->movimenti->modelKeys();
+
+        return $this->proposteGiroconti ??= Giroconti::proposte()
+            ->filter(fn (array $p) => in_array($p['movimento']->id, $mie, true) || in_array($p['controparte']?->id, $mie, true))->values();
+    }
+
+    /** @return Collection<int, true> gli id dei movimenti di questo import che sono metà di una proposta di giroconto */
+    private function movimentiInProposta(): Collection
+    {
+        $mie = array_flip($this->movimenti->modelKeys());
+
+        return $this->giroconti()->flatMap(fn (array $p) => [$p['movimento']->id, $p['controparte']?->id])
+            ->filter(fn ($id) => isset($mie[$id]))->flip()->map(fn () => true);
+    }
+
+    /** Il giroconto confermato di cui il movimento è una metà, con le due metà e i loro conti già caricati. */
+    public function girocontoDi(Movimento $movimento): ?Giroconto
+    {
+        $this->girocontiConfermati ??= Giroconto::delle($this->movimenti->modelKeys())->with('uscita.conto', 'entrata.conto')->get();
+
+        return $this->girocontiConfermati->first(fn (Giroconto $g) => $g->uscita_id === $movimento->id || $g->entrata_id === $movimento->id);
+    }
+
     public function conteggio(string $passo): int
     {
         return $this->passo($passo)->count();
@@ -72,7 +113,9 @@ final class Revisione
 
     public function passoIniziale(): string
     {
-        return $this->conteggio('pronte') > 0 ? 'pronte' : ($this->conteggio('decidere') > 0 ? 'decidere' : 'tutti');
+        $primo = collect(['giroconti', 'pronte', 'decidere'])->first(fn (string $passo) => $this->conteggio($passo) > 0);
+
+        return $primo ?? 'tutti';
     }
 
     public function confermati(): int
@@ -85,32 +128,39 @@ final class Revisione
     {
         $da = $this->conteggio('decidere');
         $pronte = $this->conteggio('pronte');
+        $giroconti = $this->conteggio('giroconti');
         $parti = array_filter([
+            $giroconti ? $giroconti.($giroconti === 1 ? ' giroconto' : ' giroconti').' da controllare' : null,
             $da ? $da.($da === 1 ? ' movimento' : ' movimenti').' da decidere' : null,
             $pronte ? $pronte.($pronte === 1 ? ' proposta pronta' : ' proposte pronte') : null,
         ]);
 
-        return $parti === [] ? null : implode(' e ', $parti);
+        $parti = array_values($parti);
+
+        return $parti === [] ? null : implode(', ', array_slice($parti, 0, -1)).(count($parti) > 1 ? ' e ' : '').end($parti);
     }
 
     /**
-     * Saldo iniziale + entrate − uscite = saldo finale, calcolati sul conto nel periodo dell'estratto e confrontati con
-     * quello che dice il file. I giroconti, quando ci saranno (#47), vanno tolti dalle entrate e dalle uscite.
+     * Saldo iniziale + entrate − uscite ± giroconti = saldo finale, calcolati sul conto nel periodo dell'estratto e
+     * confrontati con quello che dice il file. I giroconti (#47) non sono né entrate né uscite: stanno in una riga a
+     * parte, col saldo netto che portano al conto, così il saldo continua a tornare con la banca.
      *
-     * @return array{iniziale: int, entrate: int, uscite: int, finale: int, estratto: int, uguale: bool}
+     * @return array{iniziale: int, entrate: int, uscite: int, giroconti: int, nGiroconti: int, finale: int, estratto: int, uguale: bool}
      */
     public function catena(): array
     {
         $conto = $this->import->conto;
-        $somme = $conto->movimenti()->whereBetween('data', [$this->import->periodo_dal->toDateString(), $this->import->periodo_al->toDateString()])
-            ->selectRaw('verso, cast(sum(importo) as signed) as totale')->groupBy('verso')->pluck('totale', 'verso');
+        $periodo = fn () => $conto->movimenti()->whereBetween('data', [$this->import->periodo_dal->toDateString(), $this->import->periodo_al->toDateString()]);
+        $somme = $periodo()->senzaGiroconto()->selectRaw('verso, cast(sum(importo) as signed) as totale')->groupBy('verso')->pluck('totale', 'verso');
+        $giroconti = $periodo()->inGiroconto()->selectRaw('verso, cast(sum(importo) as signed) as totale, count(*) as n')->groupBy('verso')->get()->keyBy('verso');
         $iniziale = $conto->saldoAl($this->import->periodo_dal->toDateString(), false);
         $entrate = (int) ($somme['entrata'] ?? 0);
         $uscite = (int) ($somme['uscita'] ?? 0);
-        $finale = $iniziale + $entrate - $uscite;
+        $nettoGiroconti = (int) ($giroconti['entrata']->totale ?? 0) - (int) ($giroconti['uscita']->totale ?? 0);
+        $finale = $iniziale + $entrate - $uscite + $nettoGiroconti;
 
-        return ['iniziale' => $iniziale, 'entrate' => $entrate, 'uscite' => $uscite, 'finale' => $finale,
-            'estratto' => $this->import->saldo_finale, 'uguale' => $finale === $this->import->saldo_finale];
+        return ['iniziale' => $iniziale, 'entrate' => $entrate, 'uscite' => $uscite, 'giroconti' => $nettoGiroconti, 'nGiroconti' => (int) $giroconti->sum('n'),
+            'finale' => $finale, 'estratto' => $this->import->saldo_finale, 'uguale' => $finale === $this->import->saldo_finale];
     }
 
     /**

@@ -60,10 +60,23 @@ class Movimento extends Model
         return $this->morphMany(Nota::class, 'oggetto', 'oggetto_tipo', 'oggetto_id');
     }
 
-    /** Conteggio delle note visibili (`note_count`) e dubbio aperto (`in_dubbio`) già nella query dell'elenco, senza una query per riga. */
+    /** Fuori dai totali di entrate e uscite: le metà di un giroconto non sono né l'una né l'altra (glossario). */
+    public function scopeSenzaGiroconto(Builder $query): void
+    {
+        $query->whereNotIn('movimenti.id', Giroconto::select('uscita_id'))->whereNotIn('movimenti.id', Giroconto::select('entrata_id'));
+    }
+
+    public function scopeInGiroconto(Builder $query): void
+    {
+        $query->where(fn (Builder $q) => $q->whereIn('movimenti.id', Giroconto::select('uscita_id'))->orWhereIn('movimenti.id', Giroconto::select('entrata_id')));
+    }
+
+    /** Conteggio delle note visibili (`note_count`), dubbio aperto (`in_dubbio`) e giroconto confermato (`in_giroconto`, #47) già nella query dell'elenco, senza una query per riga. */
     public function scopeConNote(Builder $query): void
     {
-        $query->withCount(['note' => fn (Builder $n) => $n->whereNull('eliminata_il')])
+        // Con il builder e non in SQL grezzo: nello spazio di prova le tabelle hanno il prefisso (ADR 0003).
+        $query->addSelect('movimenti.*')->selectSub(Giroconto::selectRaw('1')->where(fn (Builder $g) => $g->whereColumn('uscita_id', 'movimenti.id')->orWhereColumn('entrata_id', 'movimenti.id'))->limit(1), 'in_giroconto')
+            ->withCount(['note' => fn (Builder $n) => $n->whereNull('eliminata_il')])
             ->withExists(['note as in_dubbio' => fn (Builder $n) => $n->dubbioAperto()]);
     }
 
@@ -147,6 +160,11 @@ class Movimento extends Model
      */
     public function classificabileDa(User $utente): bool
     {
+        // Una metà di giroconto non si classifica: non è un'entrata né un'uscita. Prima si scioglie il giroconto.
+        if ($this->confermato() && (array_key_exists('in_giroconto', $this->attributes) ? (bool) $this->attributes['in_giroconto'] : Giroconto::di($this) !== null)) { // una metà di giroconto è sempre confermata
+            return false;
+        }
+
         return $utente->can('importare_e_confermare')
             || ($this->manuale && $this->inserito_da === $utente->id && ! $this->confermato() && ! $this->conto->chiuso() && $utente->can('proporre_classificazioni', $this->conto_id));
     }

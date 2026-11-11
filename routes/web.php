@@ -6,6 +6,7 @@ use App\Http\Controllers\ContiController;
 use App\Http\Controllers\CronController;
 use App\Http\Controllers\DatiDiClassificazioneController;
 use App\Http\Controllers\EmergenzaController;
+use App\Http\Controllers\GirocontiController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ImportEstrattiController;
 use App\Http\Controllers\ManualeController;
@@ -100,6 +101,10 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::post('/import/{import}/conferme', [RevisioneImportController::class, 'conferma'])->name('import.revisione.conferma');
         Route::post('/import/{import}/conferme-pronte', [RevisioneImportController::class, 'confermaPronte'])->name('import.revisione.conferma-pronte');
         Route::post('/import/{import}/iniziativa', [RevisioneImportController::class, 'iniziativa'])->name('import.revisione.iniziativa');
+        // Giroconti (#47): abbinamento proposto, metà proposta, scioglimento. Il permesso è lo stesso della conferma.
+        Route::post('/import/{import}/giroconti', [GirocontiController::class, 'conferma'])->name('import.giroconti.conferma');
+        Route::post('/import/{import}/giroconti/meta', [GirocontiController::class, 'meta'])->name('import.giroconti.meta');
+        Route::post('/import/{import}/giroconti/{giroconto}/scioglimento', [GirocontiController::class, 'scioglie'])->name('import.giroconti.scioglie');
         Route::post('/import/{import}/conferma', [ImportEstrattiController::class, 'conferma'])->name('import.conferma');
         Route::post('/import/{import}/scarto', [ImportEstrattiController::class, 'scarta'])->name('import.scarta');
         Route::post('/import/{import}/annullamento', [ImportEstrattiController::class, 'annulla'])->name('import.annulla');

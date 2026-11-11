@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Classificazione;
 use App\Euro;
 use App\Models\Conto;
+use App\Models\Giroconto;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
 use Illuminate\Http\RedirectResponse;
@@ -127,6 +128,9 @@ class MovimentiController extends Controller
             $movimento->refresh();
             if ($comeAutore) {
                 $this->controllaAutore($request, $movimento);
+            }
+            if (Giroconto::di($movimento)) { // l'altra metà resterebbe sola: prima si scioglie il giroconto (#47)
+                throw ValidationException::withMessages(['movimento' => 'Il movimento è una metà di giroconto: scioglilo dal passo Giroconti prima di eliminarlo.']);
             }
             $prima = $movimento->istantanea();
             $movimento->forceFill(['eliminato_da' => $request->user()->id, 'motivazione_eliminazione' => $motivazione])->save();

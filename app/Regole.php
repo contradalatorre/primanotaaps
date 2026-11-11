@@ -12,6 +12,7 @@ use App\Models\Tag;
 use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -222,7 +223,10 @@ final class Regole
         $presi = collect();
         $lasciati = collect();
         $archivio = null; // si legge solo se serve a qualcuno
-        foreach (self::candidati()->get() as $movimento) {
+        foreach (self::candidati()->with('conto')->get() as $movimento) {
+            if (Giroconti::regolaDi($movimento) !== null) { // come in `assegna`: i giroconti precedono le regole
+                continue;
+            }
             $era = self::efficace($prima, $movimento);
             $sara = self::efficace($dopo, $movimento);
             $eraSuo = $vecchia && $era === $vecchia;
@@ -287,7 +291,12 @@ final class Regole
     {
         $cambiati = 0;
         $archivio = null; // letto solo per il primo movimento che nessuna regola prende, dopo i lock di chi chiama come le regole
+        (new EloquentCollection($movimenti->all()))->loadMissing('conto'); // un solo caricamento per tutti i movimenti (chi chiama può passare anche una collezione semplice)
         foreach ($movimenti as $movimento) {
+            // Prima i giroconti (cascata di #33): un movimento che una regola di giroconto riconosce lo decide l'operatore, né una regola né lo storico lo classificano.
+            if (Giroconti::regolaDi($movimento) !== null) {
+                continue;
+            }
             $regola = self::vincitrice($regole, $movimento);
             $imputazioni = $regola ? Classificazione::imputazioniDellaRegola($movimento, $regola) : null;
             $precedente = null;
