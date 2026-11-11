@@ -48,6 +48,11 @@ class Conto extends Model
         return $this->hasMany(ImportEstratto::class);
     }
 
+    public function conte(): HasMany
+    {
+        return $this->hasMany(ContaDiCassa::class);
+    }
+
     /** Il saldo dell'app: saldo di partenza più i movimenti non eliminati fino a quella data (compresa o no). */
     public function saldoAl(string $data, bool $compresa = true): int
     {
@@ -67,6 +72,10 @@ class Conto extends Model
      */
     public function riconciliatoFinoAl(): ?CarbonInterface
     {
+        if ($this->tipo === 'cassa') { // la cassa non ha estratti: vale l'ultima conta senza differenze (#50)
+            return $this->conte()->senzaDifferenze()->orderByDesc('data')->value('data');
+        }
+
         foreach ($this->importEstratti()->where('stato', 'confermato')->orderByDesc('periodo_al')->get() as $import) {
             if ($this->saldoAl($import->periodo_al->toDateString()) === $import->saldo_finale) {
                 return $import->periodo_al;
