@@ -102,7 +102,8 @@ class SatispayCsv implements FormatoImport
 
     private function importo(string $testo, string $cosa): int
     {
-        $centesimi = Euro::daTesto($testo);
+        // Il punto decimale si impone (#14): «1500» potrebbero essere centesimi (la ricerca #5 lo lascia aperto) e non si indovina.
+        $centesimi = preg_match('/^\d{1,10}\.\d{1,2}$/', $testo) ? Euro::daTesto($testo) : null;
         if ($centesimi === null) {
             throw new EstrattoNonValido("$cosa («{$testo}») non è un importo in euro.");
         }

@@ -145,7 +145,7 @@ final class Revisione
      * confrontati con quello che dice il file. I giroconti (#47) non sono né entrate né uscite: stanno in una riga a
      * parte, col saldo netto che portano al conto, così il saldo continua a tornare con la banca.
      *
-     * @return array{iniziale: int, entrate: int, uscite: int, giroconti: int, nGiroconti: int, finale: int, estratto: int, uguale: bool}
+     * @return array{iniziale: int, entrate: int, uscite: int, giroconti: int, nGiroconti: int, finale: int, estratto: ?int, uguale: bool}
      */
     public function catena(): array
     {

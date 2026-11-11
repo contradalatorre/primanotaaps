@@ -2,7 +2,7 @@
 
 namespace App\Import;
 
-/** Un estratto letto da un formato: le righe di movimento nell'ordine del file e i saldi dichiarati (nulli se il formato non ne ha, come Satispay). */
+/** Un estratto letto da un formato: le righe di movimento nell'ordine del file e i saldi che l'estratto dice (nulli se il formato non ne ha, come Satispay). */
 final readonly class Estratto
 {
     /** @param list<RigaEstratto> $righe */

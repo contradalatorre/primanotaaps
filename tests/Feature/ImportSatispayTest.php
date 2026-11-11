@@ -72,6 +72,14 @@ class ImportSatispayTest extends TestCase
         $this->assertSame(0, Movimento::count());
     }
 
+    public function test_la_revisione_di_un_import_senza_saldi_si_apre_senza_confronto_con_l_estratto(): void
+    {
+        $import = $this->importa($this->fixture());
+
+        $this->get("/import/{$import->id}/revisione")->assertOk()->assertSeeText('Saldo al 14/05/2026')
+            ->assertDontSeeText('Uguale all’estratto')->assertDontSeeText('Diverso dall’estratto');
+    }
+
     public function test_ogni_incasso_entra_al_netto_con_la_sua_commissione(): void
     {
         $this->importa($this->fixture());
@@ -135,6 +143,8 @@ class ImportSatispayTest extends TestCase
         $this->carica("transaction_id,transaction_date,total_amount\ntx-demo-0001,2026-05-03T10:15:22.123Z,15.00\n")->assertSessionHasErrors('estratto');
         $this->carica(str_replace('15.00,0.14', '15,0x,0.14', $this->fixture()))->assertSessionHasErrors('estratto');
         $this->carica(str_replace('tx-demo-0001', str_repeat('x', 41), $this->fixture()))->assertSessionHasErrors('estratto');
+        $this->carica(str_replace('15.00,0.14', '1500,14', $this->fixture()))->assertSessionHasErrors('estratto'); // centesimi o euro? non si indovina
+        $this->carica(str_replace('15.00,0.14', '1500,0.14', $this->fixture()))->assertSessionHasErrors('estratto');
         $this->assertSame(0, ImportEstratto::count());
     }
 

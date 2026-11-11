@@ -41,7 +41,9 @@
             <details class="catena" data-catena data-merlo="catena-saldo">
                 <summary>
                     <span>Saldo al {{ $import->periodo_al->format('d/m/Y') }} <strong class="importo">{{ $euro($catena['finale']) }}</strong></span>
-                    @if ($catena['uguale'])
+                    @if ($catena['estratto'] === null)
+                        {{-- Un formato senza saldi (Satispay, #49) non ha niente da confrontare. --}}
+                    @elseif ($catena['uguale'])
                         <span class="pill pill-confermato">@include('revisione.icona', ['nome' => 'ok'])Uguale all’estratto</span>
                     @else
                         <span class="pill pill-attenzione">@include('revisione.icona', ['nome' => 'attenzione'])Diverso dall’estratto: il file dice {{ $euro($catena['estratto']) }}</span>

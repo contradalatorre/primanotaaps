@@ -42,6 +42,10 @@ _Avoid_: doppione, duplicato
 L'accordo tra il saldo dell'app e quello dichiarato dall'estratto; il conto è riconciliato fino all'ultima data in cui i due saldi coincidono, e un buco tra due estratti lo fa arretrare.
 _Avoid_: quadratura
 
+**Saldo dichiarato**:
+Il saldo che l'operatore legge dal fornitore di un conto il cui estratto non ha saldi (Satispay) e scrive nell'app a una data; la differenza con il saldo dell'app si spiega, e il conto è riconciliato fino all'ultimo saldo dichiarato che coincide. Il riepilogo mensile di Satispay è invece un file di controllo, confrontato con i movimenti e mai salvato.
+_Avoid_: saldo inserito, saldo manuale
+
 **Controparte**:
 Chi paga o riceve il denaro di un movimento, come risulta dall'estratto o dichiarato da chi registra il movimento.
 _Avoid_: beneficiario, mittente, cliente, fornitore
