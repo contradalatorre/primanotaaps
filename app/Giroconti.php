@@ -166,12 +166,14 @@ final class Giroconti
         return DB::transaction(function () use ($utente, $movimentoId, $contoId) {
             [$movimento] = self::blocca($utente, [$movimentoId]);
             abort_unless($utente->puo(Permesso::InserireMovimentiCassa, $contoId), 403);
-            $regola = self::regolaDi($movimento);
+            // La proposta di adesso decide, non le sole controparti: una metà già presa da un altro prelievo non conta (#47).
+            $proposta = self::proposte()->first(fn (array $p) => $p['movimento']->id === $movimento->id);
+            $regola = $proposta['regola'] ?? null;
             $errore = match (true) {
-                $regola === null || ! isset($regola['meta']) || self::candidati()->whereKey($movimento->id)->doesntExist() => 'Questo movimento non ha più una metà da registrare: è già confermato o abbinato, oppure la regola non c’è più. Rileggi il passo Giroconti.',
-                self::controparti($movimento, $regola)->isNotEmpty() => 'La metà c’è già: abbinala invece di registrarne un’altra. Rileggi il passo Giroconti.',
+                $proposta === null || $proposta['tipo'] === 'attesa' => 'Questo movimento non ha più una metà da registrare: è già confermato o abbinato, oppure la regola non c’è più. Rileggi il passo Giroconti.',
+                $proposta['tipo'] === 'coppia' => 'La metà c’è già: abbinala invece di registrarne un’altra. Rileggi il passo Giroconti.',
                 self::confermatiSimili($movimento, $regola)->isNotEmpty() => 'Sul conto c’è già un movimento confermato che sembra la metà (stesso importo, verso opposto, date vicine): la cassa si raddoppierebbe. Eliminalo (se l’hai scritto a mano) e riprova.',
-                ! ($conto = self::contiPerLaMeta($movimento, $regola)->firstWhere('id', $contoId)) => 'Il conto scelto non va bene: dev’essere del tipo giusto e aperto alla data del movimento.',
+                ! ($conto = $proposta['conti']->firstWhere('id', $contoId)) => 'Il conto scelto non va bene: dev’essere del tipo giusto e aperto alla data del movimento.',
                 default => null,
             };
             if ($errore !== null) {

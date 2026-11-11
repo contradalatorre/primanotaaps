@@ -237,6 +237,21 @@ class GirocontiTest extends TestCase
         $this->registraMeta($prelievo)->assertSessionHasNoErrors();
     }
 
+    public function test_il_secondo_prelievo_con_una_sola_entrata_in_cassa_registra_la_sua_meta(): void
+    {
+        // L'entrata in cassa è la metà del primo prelievo: per il secondo la proposta è scrivere la metà, e deve riuscire.
+        $primo = $this->prelievo(10000, '2026-05-10');
+        $secondo = $this->prelievo(10000, '2026-05-11');
+        $entrata = $this->inCassa('Contanti ritirati', 10000, 'entrata', '2026-05-10');
+
+        $this->registraMeta($secondo)->assertSessionHasNoErrors();
+
+        $this->assertSame([$secondo->id], Giroconto::pluck('uscita_id')->all());
+        $this->assertSame('da_classificare', $primo->refresh()->stato);
+        $this->assertSame('da_classificare', $entrata->refresh()->stato);
+        $this->registraMeta($secondo)->assertSessionHasErrors('conferma'); // ora è abbinato
+    }
+
     public function test_la_meta_non_si_scrive_se_in_cassa_c_e_gia_un_movimento_confermato_che_le_somiglia(): void
     {
         $prelievo = $this->prelievo();
