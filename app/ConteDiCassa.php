@@ -78,7 +78,7 @@ final class ConteDiCassa
             $conto->movimenti()->senzaGiroconto()->where(fn ($m) => $m->where('data', '>', $conta->data->toDateString())
                 ->orWhere(fn ($oggi) => $oggi->where('data', $conta->data->toDateString())->where('id', '>', $conta->ultimo_movimento_id)))->exists() => 'Dopo la conta del '.$conta->data->format('d/m/Y').' ci sono movimenti che non sono giroconti. Un versamento in banca si abbina come giroconto (nel passo Giroconti, quando arriva l’estratto); una spesa o un incasso nuovi vogliono una nuova conta.',
             // Alla chiusura ogni movimento è confermato o metà di giroconto: i contanti rimasti escono solo come giroconto, un azzeramento non viene da una correzione né da un'uscita a mano mai classificata.
-            $conto->movimenti()->senzaGiroconto()->whereIn('stato', ['da_classificare', 'proposto'])->exists() => 'Nella cassa ci sono movimenti ancora da classificare o da confermare (una correzione o un versamento scritto a mano, per esempio): i contanti rimasti si versano con un giroconto, una perdita si registra come uscita classificata e confermata. Chiudi dopo.',
+            $conto->movimenti()->senzaGiroconto()->where('stato', '!=', 'confermato')->exists() => 'Nella cassa ci sono movimenti ancora da classificare o da confermare (una correzione o un versamento scritto a mano, per esempio): i contanti rimasti si versano con un giroconto, una perdita si registra come uscita classificata e confermata. Chiudi dopo.',
             ($saldo = $conto->saldoAl($chiusaIl)) !== 0 => 'Nella cassa restano '.Euro::formatta($saldo).' €: versali (il versamento è un giroconto, si abbina nel passo Giroconti) prima di chiuderla.',
             default => null,
         };
