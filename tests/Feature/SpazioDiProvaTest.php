@@ -4,10 +4,13 @@ namespace Tests\Feature;
 
 use App\Http\Middleware\ProvaMiddleware;
 use App\Models\Conto;
+use App\Models\Menzione;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
+use App\Models\Ruolo;
 use App\Models\SpazioProva;
 use App\Models\User;
+use App\Onboarding\Catalogo;
 use App\Onboarding\Prova;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\StrayRequestException;
@@ -209,5 +212,31 @@ class SpazioDiProvaTest extends TestCase
         $this->get(route('home'));
 
         $this->assertTrue((bool) SpazioProva::find($candidato->id)->con_assegnazione);
+    }
+
+    public function test_in_prova_le_menzioni_a_un_ruolo_valgono_per_i_ruoli_dello_spazio_non_per_quelli_veri(): void
+    {
+        $consigliere = $this->utenteCon('Consigliere'); // il ruolo vero; nello spazio di prova non ha assegnazioni
+        $this->prova()->prepara($consigliere, Catalogo::predefinito()->missione('import-e-revisione'));
+        $rivolte = $this->prova()->per($consigliere, null, function () use ($consigliere) {
+            $nota = DB::table('note')->insertGetId(['oggetto_tipo' => 'movimento', 'oggetto_id' => 1, 'user_id' => $consigliere->id, 'testo' => 'Prova', 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('menzioni')->insert(['nota_id' => $nota, 'ruolo_id' => Ruolo::where('nome', 'Consigliere')->value('id'), 'created_at' => now(), 'updated_at' => now()]);
+
+            return Menzione::rivolteA($consigliere)->count();
+        });
+
+        $this->assertSame(0, $rivolte);
+        $this->assertSame('mysql', $consigliere->getConnectionName(), 'uscendo dalla prova l’utente torna sulla connessione vera');
+    }
+
+    public function test_in_prova_le_preferenze_si_scrivono_nello_spazio_non_sulla_riga_vera(): void
+    {
+        $utente = $this->utenteCon('Tesoriere');
+        $this->actingAs($utente)->post(route('impara.avvia', 'import-e-revisione'));
+
+        $this->put(route('preferenze.salva'), ['email_menzioni' => 'nessuna'])->assertRedirect(route('preferenze'));
+
+        $this->assertSame('riepilogo', User::find($utente->id)->email_menzioni);
+        $this->assertSame('nessuna', $this->prova()->per($utente, null, fn () => User::find($utente->id)->email_menzioni));
     }
 }

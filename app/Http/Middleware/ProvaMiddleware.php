@@ -56,7 +56,7 @@ class ProvaMiddleware
 
             return $next($request);
         } finally {
-            $this->prova->esci($utente);
+            $this->prova->esci();
         }
     }
 }
