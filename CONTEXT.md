@@ -38,6 +38,10 @@ _Avoid_: doppione, duplicato
 L'accordo tra il saldo dell'app e quello dichiarato dall'estratto; il conto è riconciliato fino all'ultima data in cui i due saldi coincidono, e un buco tra due estratti lo fa arretrare.
 _Avoid_: quadratura
 
+**Conta di cassa**:
+I contanti contati dal Tesoriere a una data, confrontati con il saldo dell'app; la differenza si spiega con un movimento di correzione (e la cassa quadra) o con una nota (e non quadra). L'ultima conta che concorda ancora con il saldo è la data di riconciliazione della cassa. Può avere due nomi (conta congiunta, per il passaggio di consegne). Una cassa si chiude solo dopo una conta e vuota, con i contanti versati come giroconto.
+_Avoid_: inventario, quadratura
+
 **Controparte**:
 Chi paga o riceve il denaro di un movimento, come risulta dall'estratto o dichiarato da chi registra il movimento.
 _Avoid_: beneficiario, mittente, cliente, fornitore

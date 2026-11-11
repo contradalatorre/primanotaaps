@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -41,11 +40,7 @@ class ContaDiCassa extends Model
         return $this->belongsTo(Movimento::class, 'correzione_id')->withTrashed();
     }
 
-    public function scopeSenzaDifferenze(Builder $query): void
-    {
-        $query->where(fn (Builder $q) => $q->where('differenza', 0)->orWhereNotNull('correzione_id'));
-    }
-
+    /** Com'era alla registrazione; la riconciliazione della cassa rilegge il saldo (`Conto::riconciliatoFinoAl`). */
     public function senzaDifferenze(): bool
     {
         return $this->differenza === 0 || $this->correzione_id !== null;

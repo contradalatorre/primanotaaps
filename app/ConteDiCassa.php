@@ -60,6 +60,27 @@ final class ConteDiCassa
         });
     }
 
+    /**
+     * Una cassa si chiude dopo una conta e vuota, con il versamento come giroconto (#50). Non scrive niente: la metà in banca
+     * arriva dall'estratto, e «Registra e conferma» (#47) scrive quella sulla cassa finché è aperta. Da chiamare a conto bloccato.
+     *
+     * @throws ValidationException sotto `conto`
+     */
+    public static function controllaChiusura(Conto $conto, string $chiusaIl): void
+    {
+        $conta = $conto->riconciliatoFinoAl();
+        $errore = match (true) {
+            $conta === null => 'Prima di chiudere la cassa serve una conta di cassa senza differenze: fai la conta dei contanti (e correggi o riconta se c’è una differenza).',
+            $conto->movimenti()->senzaGiroconto()->where('data', '>', $conta->toDateString())->exists()
+                => 'Dopo la conta del '.$conta->format('d/m/Y').' ci sono movimenti che non sono versamenti in giroconto: rifai la conta.',
+            ($saldo = $conto->saldoAl($chiusaIl)) !== 0 => 'Nella cassa restano '.Euro::formatta($saldo).' €: versali (il versamento è un giroconto, si abbina nel passo Giroconti) prima di chiuderla.',
+            default => null,
+        };
+        if ($errore !== null) {
+            throw ValidationException::withMessages(['conto' => $errore]);
+        }
+    }
+
     /** Il movimento che porta il saldo dell'app ai contanti contati: da classificare, come ogni movimento scritto a mano. */
     private static function correggi(User $utente, Conto $conto, string $data, int $differenza, int $contato, int $saldo): Movimento
     {

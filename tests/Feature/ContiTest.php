@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ContaDiCassa;
 use App\Models\Conto;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
@@ -22,6 +23,15 @@ class ContiTest extends TestCase
             'tipo' => 'cassa', 'nome' => 'Cassa Festa', 'formato_import' => 'manuale',
             'riga_modello_d' => 'cassa', 'aperto_il' => '2026-05-01', 'saldo_iniziale' => '150,00',
         ];
+    }
+
+    /** Una cassa vuota e già contata: una cassa si chiude solo dopo una conta (#50). */
+    private function cassaContata(array $dati = []): Conto
+    {
+        $conto = Conto::factory()->create($dati);
+        ContaDiCassa::create(['conto_id' => $conto->id, 'data' => $conto->aperto_il, 'importo_contato' => 0, 'saldo_app' => 0, 'differenza' => 0, 'contata_da' => User::factory()->create()->id]);
+
+        return $conto;
     }
 
     public function test_il_tesoriere_crea_un_conto_con_tutti_i_suoi_dati(): void
@@ -93,7 +103,7 @@ class ContiTest extends TestCase
 
     public function test_un_tesoriere_limitato_a_un_conto_chiuso_non_gestisce_piu_i_conti(): void
     {
-        $festa = Conto::factory()->create();
+        $festa = $this->cassaContata();
         $limitato = $this->utenteCon('Tesoriere', ['conti' => [$festa->id]]);
         $this->actingAs($this->utenteCon('Tesoriere'))->post("/conti/{$festa->id}/chiusura", ['chiuso_il' => today()->toDateString()]);
 
@@ -144,7 +154,7 @@ class ContiTest extends TestCase
 
     public function test_alla_chiusura_le_assegnazioni_su_quel_conto_decadono_e_chi_resta_senza_conti_e_avvisato(): void
     {
-        $festa = Conto::factory()->create(['nome' => 'Cassa Festa']);
+        $festa = $this->cassaContata(['nome' => 'Cassa Festa']);
         $altra = Conto::factory()->create(['nome' => 'Cassa Carnevale']);
         $solo = $this->utenteCon('Consigliere', ['conti' => [$festa->id]], ['name' => 'Dario Gialli']);
         $due = $this->utenteCon('Consigliere', ['conti' => [$festa->id, $altra->id]], ['name' => 'Carla Neri']);
@@ -168,7 +178,7 @@ class ContiTest extends TestCase
 
     public function test_l_amministratore_continua_a_vedere_l_avviso_finche_la_persona_resta_senza_conti(): void
     {
-        $festa = Conto::factory()->create();
+        $festa = $this->cassaContata();
         $this->utenteCon('Consigliere', ['conti' => [$festa->id]], ['name' => 'Dario Gialli']);
         $admin = $this->utenteCon('Amministratore');
         $this->actingAs($this->utenteCon('Tesoriere'))->post("/conti/{$festa->id}/chiusura", ['chiuso_il' => today()->toDateString()]);
@@ -179,7 +189,7 @@ class ContiTest extends TestCase
 
     public function test_chi_ha_un_altra_assegnazione_su_tutti_i_conti_non_resta_senza_conti(): void
     {
-        $festa = Conto::factory()->create();
+        $festa = $this->cassaContata();
         $mario = $this->utenteCon('Consigliere', ['conti' => [$festa->id]], ['name' => 'Mario Rossi']);
         $this->assegna($mario, 'Consigliere');
         $admin = $this->utenteCon('Amministratore');
@@ -217,7 +227,7 @@ class ContiTest extends TestCase
 
     public function test_chiudere_il_conto_dell_unico_amministratore_e_rifiutato(): void
     {
-        $conto = Conto::factory()->create(['aperto_il' => '2026-01-01']);
+        $conto = $this->cassaContata(['aperto_il' => '2026-01-01']);
         $admin = $this->utenteCon('Amministratore', ['conti' => [$conto->id]]);
         $tesoriere = $this->utenteCon('Tesoriere');
 
@@ -231,7 +241,7 @@ class ContiTest extends TestCase
 
     public function test_si_chiude_il_conto_se_resta_un_altro_amministratore(): void
     {
-        $conto = Conto::factory()->create(['aperto_il' => '2026-01-01']);
+        $conto = $this->cassaContata(['aperto_il' => '2026-01-01']);
         $this->utenteCon('Amministratore', ['conti' => [$conto->id]]);
         $this->utenteCon('Amministratore');
 

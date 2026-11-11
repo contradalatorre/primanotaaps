@@ -72,8 +72,16 @@ class Conto extends Model
      */
     public function riconciliatoFinoAl(): ?CarbonInterface
     {
-        if ($this->tipo === 'cassa') { // la cassa non ha estratti: vale l'ultima conta senza differenze (#50)
-            return $this->conte()->senzaDifferenze()->orderByDesc('data')->value('data');
+        if ($this->tipo === 'cassa') { // la cassa non ha estratti: vale l'ultima conta che concorda ancora col saldo dell'app (#50)
+            // Dal vivo, come per gli estratti: una correzione eliminata o un movimento arrivato dopo con data antecedente la fanno arretrare.
+            // shortcut: una query di saldo per conta; le conte sono poche (una per festa o per mese), da ripensare se diventano migliaia.
+            foreach ($this->conte()->orderByDesc('data')->orderByDesc('id')->get() as $conta) {
+                if ($this->saldoAl($conta->data->toDateString()) === $conta->importo_contato) {
+                    return $conta->data;
+                }
+            }
+
+            return null;
         }
 
         foreach ($this->importEstratti()->where('stato', 'confermato')->orderByDesc('periodo_al')->get() as $import) {

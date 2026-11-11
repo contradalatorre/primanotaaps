@@ -45,7 +45,7 @@
                                 <input type="date" name="chiuso_il" value="{{ today()->toDateString() }}" min="{{ $conto->aperto_il->toDateString() }}" max="{{ today()->toDateString() }}" required>
                             </label>
                             <button type="submit" class="bottone">Chiudi il conto</button>
-                            <span class="nota">Le assegnazioni limitate a questo conto decadono.</span>
+                            <span class="nota">Le assegnazioni limitate a questo conto decadono.@if ($conto->tipo === 'cassa') Una cassa si chiude dopo una conta senza differenze e con i contanti versati (giroconto).@endif</span>
                         </form>
                     @endunless
                 @endcan

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\ConteDiCassa;
 use App\Euro;
 use App\Models\Conto;
 use App\Models\RegistroModifica;
@@ -83,6 +84,9 @@ class ContiController extends Controller
                 $request->validate([
                     'chiuso_il' => ['required', 'date', 'after_or_equal:'.max($conto->aperto_il->toDateString(), $ultimo ?? ''), 'before_or_equal:today'],
                 ], ['chiuso_il.after_or_equal' => 'Il conto non può chiudersi prima della sua apertura o dell’ultimo movimento'.($ultimo ? ' ('.date('d/m/Y', strtotime($ultimo)).')' : '').'.']);
+                if ($conto->tipo === 'cassa') {
+                    ConteDiCassa::controllaChiusura($conto, $request->date('chiuso_il')->toDateString());
+                }
 
                 $prima = $conto->istantanea();
                 $conto->update(['chiuso_il' => $request->date('chiuso_il')]);
