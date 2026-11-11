@@ -18,6 +18,10 @@ _Avoid_: operazione, transazione, riga
 L'elenco dei movimenti di un conto per un periodo, così come lo esporta il fornitore del conto.
 _Avoid_: export, lista movimenti
 
+**Commissione**:
+La somma che il fornitore del conto (PayPal, Satispay) trattiene su un incasso: il movimento è al netto, e classificandolo la commissione diventa un'imputazione in uscita in "Commissioni e oneri bancari" (area D, voce D1) accanto a quella dell'incasso per il suo importo lordo.
+_Avoid_: tariffa, fee, spesa
+
 **Causale**:
 L'etichetta breve con cui il fornitore del conto indica il tipo di operazione (es. "PAGAMENTO TRAMITE POS", "Pagamento preautorizzato utenza").
 _Avoid_: tipo operazione, codice
@@ -31,7 +35,7 @@ Un caricamento di un estratto conto: prima un'anteprima, poi la conferma, dopo l
 _Avoid_: caricamento, upload
 
 **Conflitto**:
-Una riga dell'estratto con la stessa chiave di un movimento già presente (data operazione, importo, descrizione, saldo parziale) ma con data valuta o causale diverse; non entra finché un operatore non decide se tenere il movimento presente o importare anche la riga, e non si sovrascrive mai nulla.
+Una riga dell'estratto con la stessa chiave di un movimento già presente (per la banca data operazione, importo, descrizione, saldo parziale; per PayPal il codice transazione) ma con altri dati diversi (data valuta o causale; per PayPal anche data, importo, commissione, descrizione o saldo); non entra finché un operatore non decide se tenere il movimento presente o importare anche la riga, e non si sovrascrive mai nulla.
 _Avoid_: doppione, duplicato
 
 **Riconciliazione**:

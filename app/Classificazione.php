@@ -82,7 +82,7 @@ final class Classificazione
     }
 
     /**
-     * Le imputazioni che la regola propone per il movimento (una sola, per tutto l'importo), o null se non si possono
+     * Le imputazioni che la regola propone per il movimento (una sola, per tutto l'importo, più la commissione se il movimento ne ha una), o null se non si possono
      * proporre: tipologia o iniziativa archiviata, combinazione fuori dalla tabella delle voci, area non ricavabile.
      * Non scrive nulla: la usano anche l'anteprima e il controllo di chi applica.
      *
@@ -225,7 +225,8 @@ final class Classificazione
         if ($imputazioni->isNotEmpty() && $imputazioni->sum('importo') !== $movimento->importo) {
             $problemi[] = 'La somma delle imputazioni non è più l’importo del movimento: rifai la classificazione.';
         }
-        if ($imputazioni->contains(fn (Imputazione $i) => $i->tipologia && $i->tipologia->verso !== $movimento->verso)) {
+        // La commissione è in uscita su un'entrata: il suo verso lo mette l'app, non si confronta con quello del movimento.
+        if ($imputazioni->contains(fn (Imputazione $i) => ! $i->commissione() && $i->tipologia && $i->tipologia->verso !== $movimento->verso)) {
             $problemi[] = 'Il verso del movimento non corrisponde più alla tipologia: rifai la classificazione.';
         }
         if ($imputazioni->contains(fn (Imputazione $i) => $i->tipologia_id !== null && $i->voce() === null)) {
@@ -281,7 +282,7 @@ final class Classificazione
             $chiave = fn (string $campo) => "imputazioni.$i.$campo";
             $importo = (string) ($riga['importo'] ?? '');
             if ($importo === '' && count($righe) === 1) {
-                $centesimi = $movimento->importo;
+                $centesimi = $movimento->lordo();
             } else {
                 $centesimi = Euro::daTesto($importo);
                 if ($centesimi === null || $centesimi <= 0) {
@@ -335,13 +336,34 @@ final class Classificazione
                 'tipologia_id' => $tipologiaId, 'tag' => $tag];
         }
 
-        if ($errori === [] && $risolte !== [] && array_sum(array_column($risolte, 'importo')) !== $movimento->importo) {
-            $errori['imputazioni'] = 'La somma delle imputazioni ('.Euro::formatta(array_sum(array_column($risolte, 'importo'))).' €) deve essere pari all’importo del movimento ('.Euro::formatta($movimento->importo).' €).';
+        if ($errori === [] && $risolte !== [] && array_sum(array_column($risolte, 'importo')) !== $movimento->lordo()) {
+            $errori['imputazioni'] = 'La somma delle imputazioni ('.Euro::formatta(array_sum(array_column($risolte, 'importo'))).' €) deve essere pari all’importo del movimento'.($movimento->commissione ? ' al lordo della commissione' : '').' ('.Euro::formatta($movimento->lordo()).' €).';
+        }
+        if ($errori === [] && $risolte !== [] && $movimento->commissione > 0) {
+            $risolte[] = self::commissione($movimento);
         }
         if ($errori !== []) {
             throw ValidationException::withMessages($errori);
         }
 
         return $risolte;
+    }
+
+    /**
+     * L'imputazione della commissione trattenuta su un incasso (PayPal, #48; spec #33, D1): area D, «Commissioni e oneri bancari», in
+     * uscita, quindi con l'importo negativo, così le imputazioni sommano al netto che entra nel conto.
+     *
+     * @return array<string,mixed> come le righe di `risolvi`
+     *
+     * @throws ValidationException se la tipologia non c'è o non ha la voce D1 per l'esercizio del movimento
+     */
+    private static function commissione(Movimento $movimento): array
+    {
+        $tipologiaId = Tipologia::where('nome', Tipologia::COMMISSIONI)->value('id');
+        if ($tipologiaId === null || ! DB::table('voci_modello_d')->where(['esercizio' => $movimento->data->year, 'area' => Area::D->value, 'tipologia_id' => $tipologiaId])->exists()) {
+            throw ValidationException::withMessages(['imputazioni' => 'Manca la tipologia «'.Tipologia::COMMISSIONI.'» con la voce D1 per il '.$movimento->data->year.': il movimento ha una commissione e non si può classificare senza.']);
+        }
+
+        return ['importo' => -$movimento->commissione, 'area' => Area::D->value, 'attivita_id' => null, 'iniziativa_id' => null, 'tipologia_id' => $tipologiaId, 'tag' => []];
     }
 }
