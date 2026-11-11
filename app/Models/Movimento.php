@@ -74,7 +74,8 @@ class Movimento extends Model
     /** Conteggio delle note visibili (`note_count`), dubbio aperto (`in_dubbio`) e giroconto confermato (`in_giroconto`, #47) già nella query dell'elenco, senza una query per riga. */
     public function scopeConNote(Builder $query): void
     {
-        $query->addSelect('movimenti.*')->selectRaw('(movimenti.id in (select uscita_id from giroconti) or movimenti.id in (select entrata_id from giroconti)) as in_giroconto')
+        // Con il builder e non in SQL grezzo: nello spazio di prova le tabelle hanno il prefisso (ADR 0003).
+        $query->addSelect('movimenti.*')->selectSub(Giroconto::selectRaw('1')->where(fn (Builder $g) => $g->whereColumn('uscita_id', 'movimenti.id')->orWhereColumn('entrata_id', 'movimenti.id'))->limit(1), 'in_giroconto')
             ->withCount(['note' => fn (Builder $n) => $n->whereNull('eliminata_il')])
             ->withExists(['note as in_dubbio' => fn (Builder $n) => $n->dubbioAperto()]);
     }
@@ -160,7 +161,7 @@ class Movimento extends Model
     public function classificabileDa(User $utente): bool
     {
         // Una metà di giroconto non si classifica: non è un'entrata né un'uscita. Prima si scioglie il giroconto.
-        if ($this->confermato() && ($this->attributes['in_giroconto'] ?? Giroconto::di($this) !== null)) { // una metà di giroconto è sempre confermata
+        if ($this->confermato() && (array_key_exists('in_giroconto', $this->attributes) ? (bool) $this->attributes['in_giroconto'] : Giroconto::di($this) !== null)) { // una metà di giroconto è sempre confermata
             return false;
         }
 
