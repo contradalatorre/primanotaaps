@@ -11,10 +11,15 @@
         <div><dt>Stato</dt><dd>{{ \App\Models\ImportEstratto::STATI[$import->stato] }}</dd></div>
         <div><dt>Periodo</dt><dd>dal {{ $import->periodo_dal->format('d/m/Y') }} al {{ $import->periodo_al->format('d/m/Y') }}</dd></div>
         <div><dt>Righe</dt><dd>{{ $import->righe }}</dd></div>
-        <div><dt>Saldo iniziale</dt><dd>{{ $euro($import->saldo_iniziale) }}</dd></div>
-        <div><dt>Saldo finale</dt><dd>{{ $euro($import->saldo_finale) }}</dd></div>
+        {{-- Un formato senza saldi (Satispay) non ne ha: niente da confrontare. --}}
+        @if ($import->saldo_iniziale !== null)
+            <div><dt>Saldo iniziale</dt><dd>{{ $euro($import->saldo_iniziale) }}</dd></div>
+            <div><dt>Saldo finale</dt><dd>{{ $euro($import->saldo_finale) }}</dd></div>
+        @endif
         @if ($import->stato === 'anteprima')
-            <div><dt>Saldo dell’app alla stessa data</dt><dd>{{ $euro($saldoApp) }}</dd></div>
+            @if ($import->saldo_iniziale !== null)
+                <div><dt>Saldo dell’app alla stessa data</dt><dd>{{ $euro($saldoApp) }}</dd></div>
+            @endif
             <div><dt>Nuovi</dt><dd>{{ count($classi['nuove']) }}</dd></div>
             <div><dt>Già presenti</dt><dd>{{ count($classi['presenti']) }}</dd></div>
             <div><dt>In conflitto</dt><dd>{{ count($classi['conflitti']) }}</dd></div>

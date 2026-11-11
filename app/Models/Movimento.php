@@ -32,7 +32,13 @@ class Movimento extends Model
 
     protected function casts(): array
     {
-        return ['data' => 'date', 'data_valuta' => 'date', 'importo' => 'integer', 'saldo_parziale' => 'integer', 'manuale' => 'boolean', 'confermato_il' => 'datetime'];
+        return ['data' => 'date', 'data_valuta' => 'date', 'importo' => 'integer', 'saldo_parziale' => 'integer', 'commissione' => 'integer', 'manuale' => 'boolean', 'confermato_il' => 'datetime'];
+    }
+
+    /** Quello che l'incasso valeva prima della commissione: è la somma delle imputazioni «vere», la commissione è la sua in uscita. */
+    public function lordo(): int
+    {
+        return $this->importo + ($this->commissione ?? 0);
     }
 
     public function conto(): BelongsTo

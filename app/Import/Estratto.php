@@ -2,11 +2,11 @@
 
 namespace App\Import;
 
-/** Un estratto letto da un formato: le righe di movimento nell'ordine del file e i saldi dichiarati. */
+/** Un estratto letto da un formato: le righe di movimento nell'ordine del file e i saldi dichiarati (nulli se il formato non ne ha, come Satispay). */
 final readonly class Estratto
 {
     /** @param list<RigaEstratto> $righe */
-    public function __construct(public array $righe, public int $saldoIniziale, public int $saldoFinale) {}
+    public function __construct(public array $righe, public ?int $saldoIniziale, public ?int $saldoFinale) {}
 
     public function dal(): string
     {

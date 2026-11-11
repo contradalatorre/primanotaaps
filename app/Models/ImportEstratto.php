@@ -6,6 +6,7 @@ use App\Import\CreditAgricoleCsv;
 use App\Import\Estratto;
 use App\Import\FormatoImport;
 use App\Import\RigaEstratto;
+use App\Import\SatispayCsv;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -23,8 +24,8 @@ class ImportEstratto extends Model
 
     public const STATI = ['anteprima' => 'In anteprima', 'confermato' => 'Confermato', 'annullato' => 'Annullato'];
 
-    /** Un modulo per formato (lettura, chiave contro i doppioni e regole dei giroconti): per ora solo la banca. Un formato nuovo si registra qui. */
-    public const LETTORI = ['credit_agricole_csv' => CreditAgricoleCsv::class];
+    /** Un modulo per formato (lettura, chiave contro i doppioni e regole dei giroconti): un formato nuovo si registra qui. */
+    public const LETTORI = ['credit_agricole_csv' => CreditAgricoleCsv::class, 'satispay_csv' => SatispayCsv::class];
 
     protected function casts(): array
     {
@@ -79,7 +80,7 @@ class ImportEstratto extends Model
             'conto_id' => $this->conto_id, 'data' => $riga->data, 'importo' => abs($riga->importo), 'verso' => $riga->verso(),
             'descrizione' => $riga->descrizione, 'stato' => 'da_classificare', 'manuale' => false, 'inserito_da' => $autoreId,
             'import_estratto_id' => $this->id, 'data_valuta' => $riga->dataValuta, 'causale' => $riga->causale,
-            'saldo_parziale' => $riga->saldoParziale, 'chiave' => $riga->chiave(),
+            'saldo_parziale' => $riga->saldoParziale, 'chiave' => $riga->chiave(), 'commissione' => $riga->commissione ?: null,
             'created_at' => now(), 'updated_at' => now(),
         ];
     }

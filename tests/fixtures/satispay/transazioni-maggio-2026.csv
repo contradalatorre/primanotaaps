@@ -1,0 +1,5 @@
+transaction_id,transaction_date,shop_name,cost_centre,total_amount,fee_amount,transaction_type,external_code,group_id
+tx-demo-0001,2026-05-03T10:15:22.123Z,Banchetto di prova,,15.00,0.14,TO_BUSINESS,,
+tx-demo-0002,2026-05-03T11:02:09.456Z,Banchetto di prova,,8.00,0.00,TO_BUSINESS,,
+tx-demo-0003,2026-05-10T14:30:00.000Z,Banchetto di prova,,20.00,0.19,TO_BUSINESS,,
+tx-demo-0004,2026-05-14T08:00:41.789Z,Banchetto di prova,,12.50,0.12,TO_BUSINESS,,
