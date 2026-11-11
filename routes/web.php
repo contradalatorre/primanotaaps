@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccessoController;
 use App\Http\Controllers\ClassificazioneController;
+use App\Http\Controllers\ConteDiCassaController;
 use App\Http\Controllers\ContiController;
 use App\Http\Controllers\CronController;
 use App\Http\Controllers\DatiDiClassificazioneController;
@@ -92,6 +93,9 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::get('/conti/{conto}/movimenti/nuovo', [MovimentiController::class, 'nuovo'])->name('movimenti.nuovo');
         Route::post('/conti/{conto}/movimenti', [MovimentiController::class, 'crea'])->name('movimenti.crea');
     });
+    // Conta di cassa (#50): la storia la vedono tutti, contare è del Tesoriere (il permesso si rifà a conto bloccato).
+    Route::get('/conti/{conto}/conte', [ConteDiCassaController::class, 'index'])->middleware('can:vedere')->name('conti.conte');
+    Route::post('/conti/{conto}/conte', [ConteDiCassaController::class, 'registra'])->middleware('can:importare_e_confermare')->name('conti.conte.registra');
     // Import degli estratti (#40). `importare_e_confermare` non ha ambito (#16): niente conto da passare.
     Route::middleware('can:importare_e_confermare')->group(function () {
         Route::get('/conti/{conto}/import', [ImportEstrattiController::class, 'index'])->name('import.indice');

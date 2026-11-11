@@ -1,0 +1,6 @@
+﻿"Data","Ora","Fuso orario","Descrizione","Valuta","Lordo","Tariffa","Netto","Saldo","Codice transazione","Indirizzo email mittente","Nome","Nome banca","Conto bancario","Importo per spedizione e imballaggio","IVA","N. fattura pro-forma","Codice transazione di riferimento"
+"3/3/2026","10:15:02","CET","Bonifico bancario sul conto PayPal","EUR","100,00","0,00","100,00","150,00","TEST00000000000A1","","","Banca di Prova","Conto 000111222","","","",""
+"12/3/2026","18:22:05","CET","Pagamento donazione","EUR","20,00","-0,85","19,15","169,15","TEST00000000000A2","donatrice.finta@example.invalid","Donatrice Finta","","","","","",""
+"15/3/2026","09:01:44","CET","Pagamento Express Checkout","EUR","25,00","-1,10","23,90","193,05","TEST00000000000A3","ditta.finta@example.invalid","Ditta Finta Srl","","","","","",""
+"20/3/2026","07:30:10","CET","Pagamento preautorizzato utenza","EUR","-30,00","0,00","-30,00","163,05","TEST00000000000A4","","Fornitore Finto SpA","","","","","",""
+"28/3/2026","16:45:59","CET","Trasferimento avviato dall'utente","EUR","-100,00","0,00","-100,00","63,05","TEST00000000000A5","","","Banca di Prova","Conto 000111222","","","",""

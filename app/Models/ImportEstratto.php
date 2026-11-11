@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Import\CreditAgricoleCsv;
 use App\Import\Estratto;
 use App\Import\FormatoImport;
+use App\Import\PayPalCsv;
 use App\Import\RigaEstratto;
 use App\Import\SatispayCsv;
 use Illuminate\Database\Eloquent\Model;
@@ -28,6 +29,7 @@ class ImportEstratto extends Model
     public const LETTORI = [
         'credit_agricole_csv' => CreditAgricoleCsv::class,
         'satispay_csv' => SatispayCsv::class,
+        'paypal_csv' => PayPalCsv::class,
     ];
 
     protected function casts(): array

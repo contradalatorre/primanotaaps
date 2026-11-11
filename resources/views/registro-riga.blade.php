@@ -6,8 +6,12 @@
         'spiegazione' => 'Spiegazione', 'codice' => 'Sezione', 'titolo' => 'Titolo', 'corpo' => 'Testo', 'proprieta' => 'Proprietà fiscali', 'archiviata_il' => 'Archiviata il', 'predefiniti' => 'Area e attività predefinite',
         'imputazioni' => 'Imputazioni', 'tipo_controparte' => 'La controparte è', 'giustificativi' => 'Giustificativi',
         'testo' => 'Testo della nota', 'dubbio' => 'Dubbio', 'saldo_finale' => 'Saldo finale', 'righe' => 'Righe',
+        'importo_contato' => 'Contanti contati', 'saldo_app' => 'Saldo dell’app', 'differenza' => 'Differenza', 'correzione_id' => 'Movimento di correzione n.', 'contata_con' => 'Contata insieme a',
         'periodo_dal' => 'Dal', 'periodo_al' => 'Al', 'nuovi' => 'Nuovi', 'gia_presenti' => 'Già presenti', 'in_conflitto' => 'In conflitto'];
-    $valore = fn ($chiave, $v) => $v === null ? '–' : (in_array($chiave, ['importo', 'saldo_iniziale', 'saldo_finale'], true) ? \App\Euro::formatta($v).' €' : $v);
+    $euro = ['importo', 'saldo_iniziale', 'saldo_finale', 'importo_contato', 'saldo_app'];
+    $valore = fn ($chiave, $v) => $v === null ? '–' : (in_array($chiave, $euro, true) ? \App\Euro::formatta($v).' €'
+        : ($chiave === 'differenza' ? ($v > 0 ? '+' : '').\App\Euro::formatta($v).' €'
+        : ($chiave === 'contata_con' ? (\App\Models\User::find($v)?->name ?? 'n. '.$v) : $v)));
     // Le righe di una modifica elencano solo ciò che è cambiato; creazione ed eliminazione elencano tutto.
     $chiavi = array_keys(($riga->prima ?? []) + ($riga->dopo ?? []));
     $mostra = collect($chiavi)->filter(fn ($k) => ! ($riga->prima && $riga->dopo) || ($riga->prima[$k] ?? null) !== ($riga->dopo[$k] ?? null));
@@ -15,7 +19,7 @@
         'archiviato' => 'ha archiviato', 'ripristinato' => 'ha ripristinato', 'classificato' => 'ha classificato', 'confermato' => 'ha confermato',
         'importato' => 'ha importato', 'annullato' => 'ha annullato', 'conflitto_deciso' => 'ha deciso un conflitto di',
         'scritta' => 'ha scritto', 'modificata' => 'ha modificato', 'eliminata' => 'ha eliminato', 'oscurata' => 'ha oscurato', 'dubbio_chiuso' => 'ha chiuso il dubbio di',
-        'creata' => 'ha creato', 'riordinata' => 'ha riordinato', 'giroconto_confermato' => 'ha confermato il giroconto di', 'giroconto_sciolto' => 'ha sciolto il giroconto di', 'saldo_dichiarato' => 'ha dichiarato il saldo di'];
+        'creata' => 'ha creato', 'riordinata' => 'ha riordinato', 'giroconto_confermato' => 'ha confermato il giroconto di', 'giroconto_sciolto' => 'ha sciolto il giroconto di', 'conta' => 'ha fatto una conta di cassa:', 'saldo_dichiarato' => 'ha dichiarato il saldo di'];
     $oggetti = ['conto' => 'il conto', 'movimento' => 'il movimento', 'tipologia' => 'la tipologia', 'attivita' => 'l’attività', 'iniziativa' => 'l’iniziativa', 'tag' => 'il tag', 'import' => 'l’import', 'manuale' => 'la sezione del manuale', 'nota' => 'la nota', 'regola' => 'la regola'];
 @endphp
 <li class="scheda">
