@@ -35,7 +35,7 @@ Una riga dell'estratto con la stessa chiave di un movimento già presente (data 
 _Avoid_: doppione, duplicato
 
 **Riconciliazione**:
-L'accordo tra il saldo dell'app e quello dichiarato dall'estratto; il conto è riconciliato fino all'ultima data in cui i due saldi coincidono, e un buco tra due estratti lo fa arretrare.
+L'accordo tra il saldo dell'app e quello dichiarato dall'estratto; il conto è riconciliato fino all'ultima data in cui i due saldi coincidono, e un buco tra due estratti lo fa arretrare. Per una cassa contanti vale l'ultima conta di cassa che concorda ancora con il saldo dell'app.
 _Avoid_: quadratura
 
 **Conta di cassa**:
