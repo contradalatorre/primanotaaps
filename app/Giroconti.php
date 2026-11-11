@@ -80,13 +80,10 @@ final class Giroconti
             ->whereHas('conto', fn (Builder $c) => $c->where('tipo', $regola['con']))->get();
     }
 
-    /** I conti su cui si può scrivere la metà che manca: del tipo giusto e aperti alla data del movimento. */
+    /** I conti su cui si può scrivere la metà che manca: del tipo giusto, già aperti alla data del movimento e non chiusi (su un conto chiuso non si scrive, come a mano). */
     public static function contiPerLaMeta(Movimento $movimento, array $regola): Collection
     {
-        $data = $movimento->data->toDateString();
-
-        return Conto::where('tipo', $regola['con'])->where('aperto_il', '<=', $data)
-            ->where(fn (Builder $q) => $q->whereNull('chiuso_il')->orWhere('chiuso_il', '>=', $data))->orderBy('nome')->get();
+        return Conto::where('tipo', $regola['con'])->where('aperto_il', '<=', $movimento->data->toDateString())->whereNull('chiuso_il')->orderBy('nome')->get();
     }
 
     /**
@@ -172,8 +169,8 @@ final class Giroconti
             $errore = match (true) {
                 $proposta === null || $proposta['tipo'] === 'attesa' => 'Questo movimento non ha più una metà da registrare: è già confermato o abbinato, oppure la regola non c’è più. Rileggi il passo Giroconti.',
                 $proposta['tipo'] === 'coppia' => 'La metà c’è già: abbinala invece di registrarne un’altra. Rileggi il passo Giroconti.',
-                self::confermatiSimili($movimento, $regola)->isNotEmpty() => 'Sul conto c’è già un movimento confermato che sembra la metà (stesso importo, verso opposto, date vicine): la cassa si raddoppierebbe. Eliminalo (se l’hai scritto a mano) e riprova.',
-                ! ($conto = $proposta['conti']->firstWhere('id', $contoId)) => 'Il conto scelto non va bene: dev’essere del tipo giusto e aperto alla data del movimento.',
+                self::confermatiSimili($movimento, $regola)->isNotEmpty() => 'Sul conto c’è già un movimento confermato che sembra la metà (stesso importo, verso opposto, date vicine): la cassa si raddoppierebbe. Se è proprio la metà che manca, eliminalo (se l’hai scritto a mano) e riprova; se è solo una somiglianza, scrivi tu la metà a mano nella cassa e poi abbinala qui.',
+                ! ($conto = $proposta['conti']->firstWhere('id', $contoId)) => 'Il conto scelto non va bene: dev’essere del tipo giusto, già aperto alla data del movimento e non chiuso.',
                 default => null,
             };
             if ($errore !== null) {

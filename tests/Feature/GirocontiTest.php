@@ -258,6 +258,7 @@ class GirocontiTest extends TestCase
         $this->inCassa('Contanti ritirati', 10000, 'entrata', '2026-05-12')->forceFill(['stato' => 'confermato'])->save();
 
         $this->registraMeta($prelievo)->assertSessionHasErrors('conferma');
+        $this->assertStringContainsString('scrivi tu la metà a mano nella cassa e poi abbinala qui', session('errors')->first('conferma')); // la via d'uscita se è solo una somiglianza
         $this->assertSame(1, Movimento::where('conto_id', $this->cassa->id)->count());
         $this->assertSame(0, Giroconto::count());
     }
@@ -317,7 +318,19 @@ class GirocontiTest extends TestCase
         $this->prelievo();
         $this->cassa->update(['chiuso_il' => '2026-05-05']);
 
-        $this->revisione('giroconti')->assertSeeText('Nessun conto di questo tipo era aperto il 10/05/2026')->assertDontSeeText('Registra e conferma');
+        $this->revisione('giroconti')->assertSeeText('Nessun conto di questo tipo è aperto')->assertDontSeeText('Registra e conferma');
+    }
+
+    public function test_la_meta_non_si_scrive_su_una_cassa_chiusa_dopo_la_data_del_movimento(): void
+    {
+        // Chiudere un conto vieta nuove scritture (come a mano): anche se era ancora aperto alla data del movimento.
+        $prelievo = $this->prelievo();
+        $this->cassa->update(['chiuso_il' => '2026-05-20']);
+
+        $this->revisione('giroconti')->assertSeeText('Nessun conto di questo tipo è aperto')->assertDontSeeText('Registra e conferma');
+        $this->registraMeta($prelievo)->assertSessionHasErrors('conferma');
+        $this->assertSame(0, Movimento::where('conto_id', $this->cassa->id)->count());
+        $this->assertSame(0, Giroconto::count());
     }
 
     public function test_un_abbinamento_che_nessuna_regola_propone_o_non_piu_libero_si_rifiuta(): void

@@ -28,7 +28,7 @@
             @elseif ($proposta['tipo'] === 'meta')
                 <p class="nota">Manca la metà sull’altro conto ({{ \App\Models\Conto::TIPI[$proposta['regola']['con']] }}): la registri qui, con «{{ str_replace('{conto}', $m->conto->nome, $proposta['regola']['meta']) }}».</p>
                 @if ($proposta['conti']->isEmpty())
-                    <p class="nota">Nessun conto di questo tipo era aperto il {{ $m->data->format('d/m/Y') }}.</p>
+                    <p class="nota">Nessun conto di questo tipo è aperto: non c’è dove scrivere la metà (serve un conto non chiuso e già attivo il {{ $m->data->format('d/m/Y') }}).</p>
                 @else
                     <form method="POST" action="{{ route('import.giroconti.meta', $import) }}" class="modulo-in-riga">
                         @csrf
