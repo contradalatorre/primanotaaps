@@ -53,7 +53,9 @@ final class CompitiPeriodici
             try {
                 Artisan::call($nome);
             } catch (Throwable $e) {
-                report($e); // shortcut: un compito fallito riparte alla prossima scadenza, non alla chiamata dopo
+                // shortcut: l'ora è già registrata, quindi un compito fallito riparte alla prossima scadenza, non alla chiamata dopo; lo stesso se il processo PHP
+                // muore a metà (tempo o memoria): chi non è stato servito perde l'email del giorno. Da riprendere se pesa, con un'ora scritta a compito finito.
+                report($e);
                 RegistroErrori::registra("compito:$nome", $e, grave: true);
             }
         }

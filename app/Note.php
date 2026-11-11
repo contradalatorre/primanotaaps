@@ -112,13 +112,18 @@ final class Note
         return $aperti->count();
     }
 
-    /** Il ? della revisione su un movimento già in dubbio: lo toglie, senza confermare. */
-    public static function togliDubbio(User $utente, Movimento $movimento): void
+    /**
+     * Il ? della revisione su un movimento già in dubbio: lo toglie, senza confermare. Chiude solo i dubbi che
+     * l'utente aveva davanti: uno nato dopo che ha aperto la pagina resta aperto.
+     *
+     * @param  list<int>  $dubbiVisti  id delle note dubbio mostrate
+     */
+    public static function togliDubbio(User $utente, Movimento $movimento, array $dubbiVisti): void
     {
-        DB::transaction(function () use ($utente, $movimento) {
+        DB::transaction(function () use ($utente, $movimento, $dubbiVisti) {
             Classificazione::blocca($movimento);
             self::controllaPermesso($utente, Permesso::ImportareEConfermare);
-            self::chiudiDubbi($utente, $movimento);
+            self::chiudiDubbi($utente, $movimento, $dubbiVisti);
         });
     }
 
@@ -166,6 +171,7 @@ final class Note
                 $esistente->delete();
             }
         }
+
         return collect($citati)->map(fn (string $chiave) => $nota->menzioni()->create([$chiave[0] === 'u' ? 'user_id' : 'ruolo_id' => (int) substr($chiave, 1)]));
     }
 

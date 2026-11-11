@@ -53,7 +53,8 @@ class NoteController extends Controller
 
     public function togliDubbio(Request $request, Movimento $movimento): RedirectResponse
     {
-        Note::togliDubbio($request->user(), $movimento);
+        $dati = $request->validate(['dubbi_visti' => ['required', 'array', 'min:1'], 'dubbi_visti.*' => ['integer']]);
+        Note::togliDubbio($request->user(), $movimento, array_map('intval', $dati['dubbi_visti']));
 
         return back()->with('ok', 'Dubbio tolto.');
     }

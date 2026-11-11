@@ -80,7 +80,7 @@ final class Scenario
         $proponente = User::where('email', collect($dati['utenti_finti'])->firstWhere('chiave', $dati['proponente'])['email'])->first();
         $daProporre = Movimento::where('stato', 'da_classificare')->whereNotNull('import_estratto_id')
             ->whereDoesntHave('imputazioni')->whereNotExists(fn ($q) => $q->from('registro_modifiche')->whereColumn('registro_modifiche.oggetto_id', 'movimenti.id')
-                ->where('oggetto_tipo', 'movimento')->where('azione', 'classificato'))->get();
+            ->where('oggetto_tipo', 'movimento')->where('azione', 'classificato'))->get();
         foreach ($daProporre as $movimento) {
             foreach ($dati['proposte'] as $p) {
                 if (str_contains(mb_strtoupper($movimento->descrizione), mb_strtoupper($p['contiene']))) {

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Avanzamento;
+use App\Models\Conto;
 use App\Models\ImportEstratto;
 use App\Models\User;
 use App\Onboarding\Catalogo;
@@ -15,7 +16,7 @@ use Tests\TestCase;
 /** Avanzamento nelle missioni (#71): ripresa, «Torniamo lì?», salto, timbri e sigilli, invito, permessi, vista dell'Amministratore. */
 class ProgressoMissioniTest extends TestCase
 {
-    use RefreshDatabase, ConSpazioDiProva;
+    use ConSpazioDiProva, RefreshDatabase;
 
     private function stato(User $utente, string $missione): ?Avanzamento
     {
@@ -35,7 +36,7 @@ class ProgressoMissioniTest extends TestCase
         $utente = $this->utenteCon('Tesoriere');
         $this->actingAs($utente)->post(route('impara.avvia', 'import-e-revisione'));
         $this->post(route('prova.avanti')); // passo 1 → 2
-        $this->post(route('prova.estratto', $this->prova()->per($utente, null, fn () => \App\Models\Conto::value('id'))));
+        $this->post(route('prova.estratto', $this->prova()->per($utente, null, fn () => Conto::value('id'))));
         $this->get(route('home')); // il passo pratico si verifica da solo: passo 3 (indice 2)
         $this->assertSame(2, $this->stato($utente, 'import-e-revisione')->passo);
 
@@ -71,7 +72,7 @@ class ProgressoMissioniTest extends TestCase
         $utente = $this->utenteCon('Tesoriere');
         $this->actingAs($utente)->post(route('impara.avvia', 'import-e-revisione'));
         $this->post(route('prova.avanti'));
-        $contoId = $this->prova()->per($utente, null, fn () => \App\Models\Conto::where('tipo', 'banca')->value('id'));
+        $contoId = $this->prova()->per($utente, null, fn () => Conto::where('tipo', 'banca')->value('id'));
         $this->post(route('prova.estratto', $contoId));
         $this->get(route('home')); // passo 3 (anteprima)
         $this->prova()->per($utente, null, fn () => ImportEstratto::query()->delete()); // «Scarta»
@@ -138,10 +139,10 @@ class ProgressoMissioniTest extends TestCase
 
         // Il Consigliere può farla lo stesso, in prova: lì ha i permessi della missione.
         $this->post(route('impara.avvia', 'import-e-revisione'))->assertRedirect(route('conti'));
-        $this->get(route('import.indice', $this->prova()->per($consigliere, null, fn () => \App\Models\Conto::value('id'))))->assertOk();
+        $this->get(route('import.indice', $this->prova()->per($consigliere, null, fn () => Conto::value('id'))))->assertOk();
         $this->post(route('prova.esci'));
         $this->get(route('conti'))->assertOk(); // fuori dalla prova: i permessi veri
-        $contoVero = \App\Models\Conto::create(['tipo' => 'cassa', 'nome' => 'Cassa vera', 'formato_import' => 'manuale', 'riga_modello_d' => 'cassa', 'aperto_il' => '2026-01-01', 'saldo_iniziale' => 0]);
+        $contoVero = Conto::create(['tipo' => 'cassa', 'nome' => 'Cassa vera', 'formato_import' => 'manuale', 'riga_modello_d' => 'cassa', 'aperto_il' => '2026-01-01', 'saldo_iniziale' => 0]);
         $this->get(route('import.indice', $contoVero))->assertForbidden();
     }
 

@@ -2,19 +2,24 @@
 
 namespace Tests\Feature;
 
+use App\EmailMenzioni;
 use App\Mail\MenzioniDaVedere;
 use App\Models\Menzione;
 use App\Models\Movimento;
 use App\Models\Nota;
 use App\Models\User;
+use App\Onboarding\Catalogo;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
+use Tests\ConSpazioDiProva;
 use Tests\TestCase;
 
 /** Riepilogo delle 8 ed email immediata delle menzioni (#46). Posta simulata, dati inventati. */
 class EmailMenzioniTest extends TestCase
 {
-    use RefreshDatabase;
+    use ConSpazioDiProva, RefreshDatabase;
 
     private const SEGRETO = 'testo-segreto-della-nota-3141';
 
@@ -39,7 +44,7 @@ class EmailMenzioniTest extends TestCase
         return $this->actingAs($autore)->post('/movimenti/'.($movimento ?? $this->movimento)->id.'/note', ['testo' => $testo]);
     }
 
-    private function inviate(): \Illuminate\Support\Collection
+    private function inviate(): Collection
     {
         return Mail::sent(MenzioniDaVedere::class);
     }
@@ -152,6 +157,18 @@ class EmailMenzioniTest extends TestCase
 
         $this->assertSame(1, Nota::count());
         $this->assertSame(1, Menzione::count());
+    }
+
+    public function test_in_prova_l_email_immediata_non_parte_nemmeno_in_uno_spazio_nato_prima_della_preferenza(): void
+    {
+        $this->prova()->prepara($this->tina, Catalogo::predefinito()->missione('benvenuto'));
+
+        $this->prova()->per($this->tina, null, function () {
+            Schema::dropColumns('users', 'email_menzioni'); // uno spazio creato prima di #46 non ha la colonna: la guardia non deve nemmeno leggerla
+            EmailMenzioni::immediate(collect([Menzione::make()->forceFill(['id' => 1])]));
+        });
+
+        Mail::assertNothingSent();
     }
 
     public function test_ognuno_sceglie_la_propria_preferenza(): void

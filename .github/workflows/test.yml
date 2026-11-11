@@ -19,6 +19,9 @@ jobs:
       - name: Dipendenze e stili
         run: docker compose run --rm tools sh -c "composer install --no-interaction --prefer-dist && npm ci && npm run build"
 
+      - name: Stile (pint)
+        run: docker compose run --rm tools vendor/bin/pint --test
+
       - name: Test
         run: docker compose run --rm tools composer test
 
