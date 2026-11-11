@@ -18,7 +18,7 @@
                             {{ $movimento->verso === 'uscita' ? '−' : '+' }}{{ \App\Euro::formatta($movimento->importo) }} € · {{ $movimento->conto->nome }} · del {{ $movimento->data->format('d/m/Y') }}, da {{ $proposta['giorni'] }} giorni senza l’altra metà
                         </p>
                         <div class="azioni">
-                            <a href="{{ $movimento->import_estratto_id ? route('import.revisione', [$movimento->import_estratto_id, 'passo' => 'giroconti']) : route('movimenti', ['conto' => $movimento->conto_id]) }}" class="bottone-piccolo">Abbinalo</a>
+                            <a href="{{ \App\Giroconti::urlPerAbbinare($movimento) }}" class="bottone-piccolo">Abbinalo</a>
                         </div>
                     </li>
                 @endforeach

@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Mail\GirocontiOrfani;
 use App\Models\Conto;
 use App\Models\Giroconto;
 use App\Models\ImportEstratto;
@@ -11,7 +12,9 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * I giroconti (#47; glossario: Giroconto): le regole del modulo di ogni formato (`regoleGiroconti`) riconoscono i movimenti che sono metà
@@ -132,6 +135,39 @@ final class Giroconti
     public static function orfane(): Collection
     {
         return self::proposte()->where('orfana', true)->values();
+    }
+
+    /**
+     * Segnala le metà orfane per email a chi può confermare i giroconti (`importare_e_confermare`, senza ambito), ogni
+     * giorno finché ce ne sono. La posta giù non ferma niente: l'errore va nel log e gli altri destinatari restano.
+     *
+     * @return int quante email ha mandato
+     */
+    public static function segnalaOrfane(): int
+    {
+        $orfane = self::orfane();
+        if ($orfane->isEmpty()) {
+            return 0;
+        }
+        $inviate = 0;
+        foreach (User::where('emergenza', false)->get()->filter(fn (User $u) => $u->puo(Permesso::ImportareEConfermare)) as $utente) {
+            try {
+                Mail::to($utente->email)->send(new GirocontiOrfani($orfane));
+                $inviate++;
+            } catch (Throwable $e) {
+                report($e);
+            }
+        }
+
+        return $inviate;
+    }
+
+    /** Dove si abbina una metà: il passo Giroconti del suo import, o i movimenti del suo conto se l'ha scritta qualcuno a mano. */
+    public static function urlPerAbbinare(Movimento $movimento): string
+    {
+        return $movimento->import_estratto_id
+            ? route('import.revisione', [$movimento->import_estratto_id, 'passo' => 'giroconti'])
+            : route('movimenti', ['conto' => $movimento->conto_id]);
     }
 
     /**

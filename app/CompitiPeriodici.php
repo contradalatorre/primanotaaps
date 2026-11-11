@@ -19,6 +19,7 @@ final class CompitiPeriodici
     public const ELENCO = [
         'prova:cancella' => '0 0 * * *',
         'menzioni:riepilogo' => '0 8 * * *',
+        'giroconti:orfane' => '0 8 * * *',
         'backup:esegui' => '0 3 1 * *',
     ];
 

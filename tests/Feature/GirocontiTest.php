@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\CompitiPeriodici;
 use App\Giroconti;
 use App\Import\CreditAgricoleCsv;
+use App\Mail\GirocontiOrfani;
 use App\Models\Assegnazione;
 use App\Models\Conto;
 use App\Models\Giroconto;
@@ -19,6 +21,7 @@ use App\Permesso;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
@@ -322,6 +325,49 @@ class GirocontiTest extends TestCase
         $this->registraMeta($vecchio)->assertSessionHasNoErrors();
         $this->actingAs($this->tesoriere)->get('/')->assertDontSeeText('Giroconti senza corrispondenza'); // abbinato: non è più orfano
         $this->assertNotNull($recente);
+    }
+
+    public function test_le_meta_orfane_si_segnalano_per_email_a_chi_puo_confermare_con_soli_importo_data_conto_e_link(): void
+    {
+        Mail::fake();
+        $vecchio = $this->prelievo(12345, '2026-05-10'); // ventidue giorni
+        $this->prelievo(5000, '2026-05-30'); // due giorni: non ancora da segnalare
+        $consigliere = $this->utenteCon('Consigliere');
+
+        $this->artisan('giroconti:orfane')->assertSuccessful();
+
+        Mail::assertSent(GirocontiOrfani::class, 1);
+        $mail = Mail::sent(GirocontiOrfani::class)->sole();
+        $this->assertTrue($mail->hasTo($this->tesoriere->email));
+        $this->assertFalse($mail->hasTo($consigliere->email));
+        $mail->assertSeeInText('123,45');
+        $mail->assertSeeInText('10/05/2026');
+        $mail->assertSeeInText('Conto corrente');
+        $mail->assertSeeInText(route('import.revisione', [$this->import, 'passo' => 'giroconti']));
+        $mail->assertDontSeeInText('50,00');
+        $mail->assertDontSeeInText('PRELIEVO BANCOMAT SPORTELLO ESEMPIO'); // né descrizione né causale
+        $mail->assertDontSeeInText('PRELIEVI');
+        $this->assertStringNotContainsString('PRELIEV', $mail->envelope()->subject);
+
+        Mail::fake();
+        $this->registraMeta($vecchio)->assertSessionHasNoErrors(); // abbinato: non è più orfano
+        $this->artisan('giroconti:orfane')->assertSuccessful();
+        Mail::assertNothingSent();
+    }
+
+    public function test_senza_meta_orfane_non_parte_nessuna_email(): void
+    {
+        Mail::fake();
+        $this->prelievo(5000, '2026-05-30');
+
+        $this->artisan('giroconti:orfane')->assertSuccessful();
+
+        Mail::assertNothingSent();
+    }
+
+    public function test_la_segnalazione_delle_meta_orfane_e_tra_i_compiti_periodici(): void
+    {
+        $this->assertArrayHasKey('giroconti:orfane', CompitiPeriodici::ELENCO);
     }
 
     public function test_una_metà_senza_regola_di_meta_aspetta_l_altro_conto_e_viene_segnalata(): void

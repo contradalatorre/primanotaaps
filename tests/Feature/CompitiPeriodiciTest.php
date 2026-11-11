@@ -49,13 +49,13 @@ class CompitiPeriodiciTest extends TestCase
         $this->travelTo('2026-06-01 07:55');
         $this->get(self::URL)->assertOk(); // la prima volta registra e basta: niente parte "per recupero"
         $this->travelTo('2026-06-01 08:07'); // il cron non cade mai sul minuto esatto
-        $this->get(self::URL)->assertOk()->assertJsonPath('avviati', ['menzioni:riepilogo']);
+        $this->get(self::URL)->assertOk()->assertJsonPath('avviati', ['menzioni:riepilogo', 'giroconti:orfane']);
         Mail::assertSentCount(1);
 
         $this->travelTo('2026-06-01 08:17');
         $this->get(self::URL)->assertOk()->assertJsonPath('avviati', []);
         $this->travelTo('2026-06-02 08:03'); // a mezzanotte è scaduto anche il compito giornaliero
-        $this->get(self::URL)->assertOk()->assertJsonPath('avviati', ['prova:cancella', 'menzioni:riepilogo']);
+        $this->get(self::URL)->assertOk()->assertJsonPath('avviati', ['prova:cancella', 'menzioni:riepilogo', 'giroconti:orfane']);
         Mail::assertSentCount(2);
     }
 
@@ -65,7 +65,7 @@ class CompitiPeriodiciTest extends TestCase
         $this->get(self::URL);
         $this->travelTo('2026-06-04 09:30'); // tre 8 mancati
 
-        $this->get(self::URL)->assertJsonPath('avviati', ['prova:cancella', 'menzioni:riepilogo']);
+        $this->get(self::URL)->assertJsonPath('avviati', ['prova:cancella', 'menzioni:riepilogo', 'giroconti:orfane']);
         Mail::assertSentCount(1);
     }
 
