@@ -113,7 +113,7 @@ class ImportPayPalTest extends TestCase
     public function test_si_leggono_le_forme_del_file_vero_migliaia_e_windows_1252(): void
     {
         $contenuto = $this->estratto([$this->donazione('1/4/2026', '1.234,56', '-0,56', '1.234,00', '1.284,00', 'TEST00000000000B1', 'Società Finta')]);
-        $this->carica(mb_convert_encoding($contenuto, 'Windows-1252', 'UTF-8'))->assertSessionHasNoErrors();
+        $this->carica(mb_convert_encoding(substr($contenuto, 3), 'Windows-1252', 'UTF-8'))->assertSessionHasNoErrors();
 
         $import = ImportEstratto::firstOrFail();
         $this->assertSame([5000, 128400], [$import->saldo_iniziale, $import->saldo_finale]);
@@ -162,7 +162,7 @@ class ImportPayPalTest extends TestCase
     {
         $banca = Conto::factory()->create(['tipo' => 'banca', 'formato_import' => 'credit_agricole_csv', 'aperto_il' => '2026-01-01']);
 
-        $this->rifiutato($this->fixture(), 'Il file non è un estratto di Crédit Agricole (Nowbanking): nella prima riga mancano le colonne Data Op., Data Val., Causale, Importo, Saldo Parziale.', $banca);
+        $this->rifiutato($this->fixture(), 'Il file non è un estratto di Crédit Agricole (Nowbanking): nella prima riga mancano le colonne Data Op., Data Val., Causale, Descrizione, Importo, Saldo Parziale.', $banca);
         $this->rifiutato(file_get_contents(base_path('tests/fixtures/credit-agricole/aprile-2026.csv')), 'Il file non è un estratto di PayPal (CSV con le intestazioni in italiano): nella prima riga mancano le colonne Data, Descrizione, Valuta, Lordo, Tariffa, Netto, Saldo, Codice transazione, Nome.');
     }
 
@@ -195,7 +195,7 @@ class ImportPayPalTest extends TestCase
     public function test_la_regola_propone_il_lordo_e_la_commissione_in_d1_e_si_conferma(): void
     {
         $this->actingAs($this->tesoriere)->post('/regole', [
-            'nome' => 'Donazioni PayPal', 'testo' => 'Donatrice', 'tipologia_id' => $this->tipologia('Erogazioni liberali'),
+            'nome' => 'Donazioni PayPal', 'testo' => 'Donatrice', 'tipologia_id' => $this->tipologia('Erogazioni liberali'), 'area' => 'A',
         ])->assertSessionHasNoErrors();
         $this->importa($this->fixture());
 
@@ -236,7 +236,7 @@ class ImportPayPalTest extends TestCase
 
     public function test_la_revisione_imposta_l_iniziativa_senza_perdere_la_commissione(): void
     {
-        $this->actingAs($this->tesoriere)->post('/regole', ['nome' => 'Donazioni PayPal', 'testo' => 'Donatrice', 'tipologia_id' => $this->tipologia('Erogazioni liberali')]);
+        $this->actingAs($this->tesoriere)->post('/regole', ['nome' => 'Donazioni PayPal', 'testo' => 'Donatrice', 'tipologia_id' => $this->tipologia('Erogazioni liberali'), 'area' => 'A']);
         $import = $this->importa($this->fixture());
         $movimento = $this->movimento('TEST00000000000A2');
         $iniziativa = \App\Models\Iniziativa::where('nome', 'Carnevale')->firstOrFail();

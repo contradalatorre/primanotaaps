@@ -59,13 +59,13 @@ class PayPalCsv implements FormatoImport
             }
             // shortcut: la tariffa è solo quella trattenuta su un incasso; su un'uscita o restituita in un rimborso non si sa ancora dove imputarla (serve un estratto vero).
             if ($tariffa > 0 || ($tariffa < 0 && $lordo <= 0)) {
-                throw new EstrattoNonValido("Riga $n: una tariffa su un pagamento in uscita o restituita non è prevista. Scrivi al gruppo che cura l'app, con un esempio inventato della riga.");
+                throw new EstrattoNonValido("Riga $n: una tariffa su un pagamento in uscita o restituita non è prevista. Scrivi al gruppo che cura l’app, con un esempio inventato della riga.");
             }
             if ($netto === 0) {
                 throw new EstrattoNonValido("Riga $n: un movimento di importo zero non è previsto."); // shortcut: non si sa se esistano righe così nei file veri
             }
             if ($cella($riga, 'Valuta') !== 'EUR') {
-                throw new EstrattoNonValido("Riga $n: la valuta («{$cella($riga, 'Valuta')}») non è l'euro: le conversioni di valuta non sono ancora previste."); // shortcut: solo euro (#33)
+                throw new EstrattoNonValido("Riga $n: la valuta («{$cella($riga, 'Valuta')}») non è l’euro: le conversioni di valuta non sono ancora previste."); // shortcut: solo euro (#33)
             }
             $codice = $cella($riga, 'Codice transazione');
             if ($codice === '' || strlen($codice) > 40) {
