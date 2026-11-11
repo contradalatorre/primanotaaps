@@ -237,6 +237,16 @@ class GirocontiTest extends TestCase
         $this->registraMeta($prelievo)->assertSessionHasNoErrors();
     }
 
+    public function test_la_meta_non_si_scrive_se_in_cassa_c_e_gia_un_movimento_confermato_che_le_somiglia(): void
+    {
+        $prelievo = $this->prelievo();
+        $this->inCassa('Contanti ritirati', 10000, 'entrata', '2026-05-12')->forceFill(['stato' => 'confermato'])->save();
+
+        $this->registraMeta($prelievo)->assertSessionHasErrors('conferma');
+        $this->assertSame(1, Movimento::where('conto_id', $this->cassa->id)->count());
+        $this->assertSame(0, Giroconto::count());
+    }
+
     public function test_una_meta_senza_corrispondenza_dopo_alcuni_giorni_viene_segnalata(): void
     {
         $recente = $this->prelievo(5000, '2026-05-30'); // due giorni

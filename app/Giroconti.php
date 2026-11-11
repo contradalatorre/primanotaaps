@@ -66,6 +66,20 @@ final class Giroconti
             ->get()->sortBy(fn (Movimento $m) => [abs((int) $m->data->diffInDays($movimento->data)), $m->id])->values();
     }
 
+    /**
+     * Le metà già confermate come entrata o uscita che somigliano a quella che manca: non si abbinano (un confermato non si
+     * riconverte) ma scriverne un'altra raddoppierebbe il conto.
+     *
+     * @return Collection<int, Movimento>
+     */
+    private static function confermatiSimili(Movimento $movimento, array $regola): Collection
+    {
+        return Movimento::senzaGiroconto()->where('stato', 'confermato')
+            ->where('conto_id', '!=', $movimento->conto_id)->where('verso', $movimento->verso === 'uscita' ? 'entrata' : 'uscita')->where('importo', $movimento->importo)
+            ->whereBetween('data', [$movimento->data->copy()->subDays($regola['giorni'])->toDateString(), $movimento->data->copy()->addDays($regola['giorni'])->toDateString()])
+            ->whereHas('conto', fn (Builder $c) => $c->where('tipo', $regola['con']))->get();
+    }
+
     /** I conti su cui si può scrivere la metà che manca: del tipo giusto e aperti alla data del movimento. */
     public static function contiPerLaMeta(Movimento $movimento, array $regola): Collection
     {
@@ -156,6 +170,7 @@ final class Giroconti
             $errore = match (true) {
                 $regola === null || ! isset($regola['meta']) || self::candidati()->whereKey($movimento->id)->doesntExist() => 'Questo movimento non ha più una metà da registrare: è già confermato o abbinato, oppure la regola non c’è più. Rileggi il passo Giroconti.',
                 self::controparti($movimento, $regola)->isNotEmpty() => 'La metà c’è già: abbinala invece di registrarne un’altra. Rileggi il passo Giroconti.',
+                self::confermatiSimili($movimento, $regola)->isNotEmpty() => 'Sul conto c’è già un movimento confermato che sembra la metà (stesso importo, verso opposto, date vicine): la cassa si raddoppierebbe. Eliminalo (se l’hai scritto a mano) e riprova.',
                 ! ($conto = self::contiPerLaMeta($movimento, $regola)->firstWhere('id', $contoId)) => 'Il conto scelto non va bene: dev’essere del tipo giusto e aperto alla data del movimento.',
                 default => null,
             };

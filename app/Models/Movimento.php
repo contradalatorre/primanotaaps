@@ -71,10 +71,11 @@ class Movimento extends Model
         $query->where(fn (Builder $q) => $q->whereIn('movimenti.id', Giroconto::select('uscita_id'))->orWhereIn('movimenti.id', Giroconto::select('entrata_id')));
     }
 
-    /** Conteggio delle note visibili (`note_count`) e dubbio aperto (`in_dubbio`) già nella query dell'elenco, senza una query per riga. */
+    /** Conteggio delle note visibili (`note_count`), dubbio aperto (`in_dubbio`) e giroconto confermato (`in_giroconto`, #47) già nella query dell'elenco, senza una query per riga. */
     public function scopeConNote(Builder $query): void
     {
-        $query->withCount(['note' => fn (Builder $n) => $n->whereNull('eliminata_il')])
+        $query->addSelect('movimenti.*')->selectRaw('(movimenti.id in (select uscita_id from giroconti) or movimenti.id in (select entrata_id from giroconti)) as in_giroconto')
+            ->withCount(['note' => fn (Builder $n) => $n->whereNull('eliminata_il')])
             ->withExists(['note as in_dubbio' => fn (Builder $n) => $n->dubbioAperto()]);
     }
 
@@ -159,7 +160,7 @@ class Movimento extends Model
     public function classificabileDa(User $utente): bool
     {
         // Una metà di giroconto non si classifica: non è un'entrata né un'uscita. Prima si scioglie il giroconto.
-        if ($this->confermato() && Giroconto::di($this) !== null) { // una metà di giroconto è sempre confermata
+        if ($this->confermato() && ($this->attributes['in_giroconto'] ?? Giroconto::di($this) !== null)) { // una metà di giroconto è sempre confermata
             return false;
         }
 
