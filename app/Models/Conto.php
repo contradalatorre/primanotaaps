@@ -48,14 +48,41 @@ class Conto extends Model
         return $this->hasMany(ImportEstratto::class);
     }
 
+    public function conte(): HasMany
+    {
+        return $this->hasMany(ContaDiCassa::class);
+    }
+
     /** Il saldo dell'app: saldo di partenza più i movimenti non eliminati fino a quella data (compresa o no). */
     public function saldoAl(string $data, bool $compresa = true): int
     {
-        $somma = $this->movimenti()->where('data', $compresa ? '<=' : '<', $data)
+        return $this->saldoDi($this->movimenti()->where('data', $compresa ? '<=' : '<', $data));
+    }
+
+    /** Il saldo che una conta di cassa deve ancora spiegare: quel che c'era quando si è contato, cioè senza i movimenti della sua data scritti dopo (id oltre `ultimo_movimento_id`). */
+    public function saldoDellaConta(ContaDiCassa $conta): int
+    {
+        $data = $conta->data->toDateString();
+
+        return $this->saldoDi($this->movimenti()->where(fn (Builder $m) => $m->where('data', '<', $data)
+            ->orWhere(fn (Builder $oggi) => $oggi->where('data', $data)->where('id', '<=', $conta->ultimo_movimento_id))));
+    }
+
+    private function saldoDi(HasMany $movimenti): int
+    {
+        $somma = $movimenti
             ->selectRaw("coalesce(sum(case when verso = 'entrata' then cast(importo as signed) else -cast(importo as signed) end), 0) as somma")
             ->value('somma');
 
         return $this->saldo_iniziale + (int) $somma;
+    }
+
+    /** L'ultima conta di cassa che concorda ancora col saldo dell'app: la cassa è riconciliata fino alla sua data (#50). */
+    public function contaRiconciliata(): ?ContaDiCassa
+    {
+        // Dal vivo, come per gli estratti: una correzione eliminata o un movimento arrivato dopo con data antecedente la fanno arretrare.
+        // shortcut: una query di saldo per conta; le conte sono poche (una per festa o per mese), da ripensare se diventano migliaia.
+        return $this->conte()->orderByDesc('data')->orderByDesc('id')->get()->first(fn (ContaDiCassa $conta) => $conta->setRelation('conto', $this)->quadra());
     }
 
     /**
@@ -67,6 +94,10 @@ class Conto extends Model
      */
     public function riconciliatoFinoAl(): ?CarbonInterface
     {
+        if ($this->tipo === 'cassa') { // la cassa non ha estratti: vale l'ultima conta che concorda ancora col saldo dell'app (#50)
+            return $this->contaRiconciliata()?->data;
+        }
+
         foreach ($this->importEstratti()->where('stato', 'confermato')->orderByDesc('periodo_al')->get() as $import) {
             if ($this->saldoAl($import->periodo_al->toDateString()) === $import->saldo_finale) {
                 return $import->periodo_al;
