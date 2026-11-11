@@ -7,6 +7,7 @@ use App\Models\Conto;
 use App\Models\Giroconto;
 use App\Models\ImportConflitto;
 use App\Models\ImportEstratto;
+use App\Models\Iniziativa;
 use App\Models\Movimento;
 use App\Models\Tipologia;
 use App\Models\User;
@@ -239,13 +240,26 @@ class ImportPayPalTest extends TestCase
         $this->actingAs($this->tesoriere)->post('/regole', ['nome' => 'Donazioni PayPal', 'testo' => 'Donatrice', 'tipologia_id' => $this->tipologia('Erogazioni liberali'), 'area' => 'A']);
         $import = $this->importa($this->fixture());
         $movimento = $this->movimento('TEST00000000000A2');
-        $iniziativa = \App\Models\Iniziativa::where('nome', 'Carnevale')->firstOrFail();
+        $iniziativa = Iniziativa::where('nome', 'Carnevale')->firstOrFail();
 
         $this->post("/import/{$import->id}/iniziativa", ['iniziativa_id' => $iniziativa->id, 'movimenti' => [$movimento->id => Classificazione::versione($movimento)]])->assertSessionHasNoErrors();
 
         $imputazioni = $movimento->imputazioni()->orderBy('id')->get();
         $this->assertSame([2000, -85], $imputazioni->pluck('importo')->all());
         $this->assertSame([$iniziativa->id, null], $imputazioni->pluck('iniziativa_id')->all());
+    }
+
+    public function test_la_tipologia_delle_commissioni_non_si_rinomina_ne_si_elimina(): void
+    {
+        $id = $this->tipologia(Tipologia::COMMISSIONI);
+        $this->actingAs($this->tesoriere);
+
+        $this->put("/classificazione/tipologie/$id", ['nome' => 'Spese bancarie', 'spiegazione' => 'Altro nome.'])->assertSessionHasErrors('nome');
+        $this->delete("/classificazione/tipologie/$id")->assertSessionHasErrors('elimina');
+        $this->assertSame($id, Tipologia::where('nome', Tipologia::COMMISSIONI)->value('id'));
+
+        // A nome invariato la spiegazione si può ancora cambiare.
+        $this->put("/classificazione/tipologie/$id", ['nome' => Tipologia::COMMISSIONI, 'spiegazione' => 'Nuova spiegazione.'])->assertSessionHasNoErrors();
     }
 
     public function test_un_movimento_senza_commissione_ha_una_sola_imputazione(): void

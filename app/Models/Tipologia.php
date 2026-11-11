@@ -16,7 +16,7 @@ class Tipologia extends Model
 
     public const VERSI = ['entrata' => 'Entrata', 'uscita' => 'Uscita'];
 
-    /** Dove vanno le commissioni di PayPal e Satispay sugli incassi (area D, voce D1): la imputa l'app, per nome. */
+    /** Dove vanno le commissioni di PayPal e Satispay sugli incassi (area D, voce D1): la imputa l'app, per nome: per questo la pagina Classificazione non la lascia rinominare né cancellare. */
     public const COMMISSIONI = 'Commissioni e oneri bancari';
 
     /** Le proprietà fiscali che il calcolo dell'esercizio leggerà (test CTS): per ora si caricano e si mostrano. */

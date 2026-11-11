@@ -60,6 +60,9 @@ class DatiDiClassificazioneController extends Controller
     {
         $elemento = $this->trova($tipo, $id);
         $dati = $request->validate($this->regole($tipo, $elemento));
+        if ($tipo === 'tipologie' && $elemento->nome === Tipologia::COMMISSIONI && $dati['nome'] !== $elemento->nome) {
+            throw ValidationException::withMessages(['nome' => 'Il nome di «'.$elemento->nome.'» non si cambia: l’app ci mette da sola le commissioni di PayPal e Satispay.']);
+        }
         // Le proprietà fiscali riclassificano all'indietro: una tipologia già usata le cambia solo con la riclassificazione in blocco (#62).
         if ($tipo === 'tipologie' && $elemento->usata() && $this->insieme($dati['proprieta'] ?? []) !== $this->insieme($elemento->proprieta)) {
             throw ValidationException::withMessages(['proprieta' => '«'.$elemento->nome.'» è già stata usata: le sue proprietà fiscali non si cambiano da qui, ma con la riclassificazione in blocco.']);
@@ -109,6 +112,9 @@ class DatiDiClassificazioneController extends Controller
     public function elimina(Request $request, string $tipo, int $id): RedirectResponse
     {
         $elemento = $this->trova($tipo, $id);
+        if ($elemento instanceof Tipologia && $elemento->nome === Tipologia::COMMISSIONI) {
+            throw ValidationException::withMessages(['elimina' => '«'.$elemento->nome.'» non si cancella: l’app ci mette da sola le commissioni di PayPal e Satispay.']);
+        }
         if ($elemento->usata()) {
             throw ValidationException::withMessages(['elimina' => '«'.$elemento->nome.'» è già stato usato: non si cancella, si archivia.']);
         }
