@@ -55,16 +55,17 @@
         </form>
     @else
         <h2>Conflitti</h2>
-        <p class="nota">Righe con la stessa chiave (data, importo, descrizione, saldo parziale) di un movimento già presente ma con data valuta o causale diverse. Nulla viene sovrascritto.</p>
+        <p class="nota">Righe con la stessa chiave di un movimento già presente (per la banca data, importo, descrizione e saldo parziale; per PayPal e Satispay il codice della transazione) ma con altri dati diversi, qui sotto. Nulla viene sovrascritto.</p>
         <ul class="schede">
             @forelse ($conflitti as $conflitto)
                 @php($riga = $conflitto->rigaEstratto())
                 <li class="scheda">
                     <p><strong>{{ $euro($riga->importo) }}</strong> · {{ date('d/m/Y', strtotime($riga->data)) }} · {{ $riga->descrizione }}</p>
-                    <p class="nota">
-                        Nel file: valuta {{ $riga->dataValuta ? date('d/m/Y', strtotime($riga->dataValuta)) : '–' }}, causale {{ $riga->causale ?? '–' }}.
-                        Già presente: valuta {{ $conflitto->movimento->data_valuta?->format('d/m/Y') ?? '–' }}, causale {{ $conflitto->movimento->causale ?? '–' }}.
-                    </p>
+                    <ul class="nota">
+                        @foreach ($import->conto->differenze($conflitto->movimento, $riga) as $campo => $valori)
+                            <li>{{ $campo }}: nel file {{ $valori['file'] }}, già presente {{ $valori['presente'] }}</li>
+                        @endforeach
+                    </ul>
                     @if ($conflitto->decisione)
                         <p><span class="etichetta">{{ \App\Models\ImportConflitto::DECISIONI[$conflitto->decisione] }}</span></p>
                     @elseif ($import->stato === 'confermato')

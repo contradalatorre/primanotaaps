@@ -5,12 +5,14 @@ namespace Tests\Feature;
 use App\Giroconti;
 use App\Models\Conto;
 use App\Models\Giroconto;
+use App\Models\ImportConflitto;
 use App\Models\ImportEstratto;
 use App\Models\Movimento;
 use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -268,5 +270,38 @@ class ImportSatispayTest extends TestCase
         $this->actingAs($consigliere)->post("/conti/{$this->satispay->id}/riepilogo", ['riepilogo' => $this->riepilogo()])->assertForbidden();
         $this->actingAs($consigliere)->post("/conti/{$this->satispay->id}/saldi-dichiarati", ['data' => '2026-05-31', 'importo' => '10,00'])->assertForbidden();
         $this->actingAs($this->tesoriere)->post("/conti/{$this->banca()->id}/saldi-dichiarati", ['data' => '2026-05-31', 'importo' => '10,00'])->assertNotFound();
+    }
+
+    public function test_un_conflitto_mostra_cosa_e_cambiato_non_i_campi_della_banca(): void
+    {
+        $this->importa($this->fixture());
+
+        $diverso = str_replace('tx-demo-0001,2026-05-03T10:15:22.123Z,Banchetto di prova,,15.00,0.14', 'tx-demo-0001,2026-05-03T10:15:22.123Z,Banchetto di prova,,16.00,0.20', $this->fixture());
+        $this->importa($diverso);
+
+        $this->assertSame(1, ImportConflitto::count());
+        $this->get('/import/'.ImportEstratto::latest('id')->first()->id)
+            ->assertSeeText('Importo: nel file 15,80 €, già presente 14,86 €')
+            ->assertSeeText('Commissione: nel file 0,20 €, già presente 0,14 €')
+            ->assertDontSeeText('valuta')
+            ->assertDontSeeText('causale');
+    }
+
+    public function test_il_saldo_dichiarato_si_scrive_con_il_registro_nella_stessa_transazione_dopo_il_lock_del_conto(): void
+    {
+        $passi = [];
+        DB::listen(function ($q) use (&$passi) {
+            if (str_contains($q->sql, 'from `conti`') && str_contains($q->sql, 'for update')) {
+                $passi[] = ['lock', DB::transactionLevel()];
+            } elseif (str_contains($q->sql, 'into `saldi_dichiarati`') || str_contains($q->sql, 'update `saldi_dichiarati`')) {
+                $passi[] = ['saldo', DB::transactionLevel()];
+            } elseif (str_contains($q->sql, 'into `registro_modifiche`')) {
+                $passi[] = ['registro', DB::transactionLevel()];
+            }
+        });
+        $base = DB::transactionLevel();
+        $this->actingAs($this->tesoriere)->post("/conti/{$this->satispay->id}/saldi-dichiarati", ['data' => '2026-05-31', 'importo' => '10,00'])->assertSessionHasNoErrors();
+
+        $this->assertSame([['lock', $base + 1], ['saldo', $base + 1], ['registro', $base + 1]], $passi);
     }
 }

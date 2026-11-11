@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Euro;
 use App\Import\Estratto;
 use App\Import\RigaEstratto;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Database\Factories\ContoFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -148,13 +150,35 @@ class Conto extends Model
 
     /**
      * Il movimento è già quella riga: tutto ciò che il file dice coincide. Con la chiave fatta di data, importo, descrizione e saldo
-     * (Crédit Agricole) restano da guardare data valuta e causale; con una chiave che è solo un codice (PayPal, #48) anche il resto.
+     * (Crédit Agricole) restano da guardare data valuta e causale; con una chiave che è solo un codice (PayPal, Satispay) anche il resto.
      */
     public function stessaRiga(Movimento $movimento, RigaEstratto $riga): bool
     {
-        return $movimento->data->toDateString() === $riga->data && $movimento->importo === abs($riga->importo) && $movimento->verso === $riga->verso()
-            && $movimento->descrizione === $riga->descrizione && $movimento->saldo_parziale === $riga->saldoParziale && $movimento->commissione === $riga->commissione
-            && $movimento->data_valuta?->toDateString() === $riga->dataValuta && $movimento->causale === $riga->causale;
+        return $this->differenze($movimento, $riga) === [];
+    }
+
+    /**
+     * Cosa cambia tra la riga del file e il movimento già presente, già scritto per la pagina dei conflitti.
+     *
+     * @return array<string, array{file: string, presente: string}> campo => i due valori
+     */
+    public function differenze(Movimento $movimento, RigaEstratto $riga): array
+    {
+        $euro = fn (?int $c) => $c === null ? '–' : Euro::formatta($c).' €';
+        $data = fn (?string $d) => $d === null ? '–' : Carbon::parse($d)->format('d/m/Y');
+        $presente = $movimento->verso === 'uscita' ? -$movimento->importo : $movimento->importo;
+
+        $campi = [
+            'Data' => [$data($riga->data), $data($movimento->data->toDateString())],
+            'Importo' => [$euro($riga->importo), $euro($presente)],
+            'Descrizione' => [$riga->descrizione, $movimento->descrizione],
+            'Saldo parziale' => [$euro($riga->saldoParziale), $euro($movimento->saldo_parziale)],
+            'Commissione' => [$euro($riga->commissione), $euro($movimento->commissione)],
+            'Data valuta' => [$data($riga->dataValuta), $data($movimento->data_valuta?->toDateString())],
+            'Causale' => [$riga->causale ?? '–', $movimento->causale ?? '–'],
+        ];
+
+        return collect($campi)->reject(fn (array $v) => $v[0] === $v[1])->map(fn (array $v) => ['file' => $v[0], 'presente' => $v[1]])->all();
     }
 
     public function scopeAperti(Builder $query): void

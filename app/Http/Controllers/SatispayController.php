@@ -11,6 +11,7 @@ use App\Models\SaldoDichiarato;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -24,6 +25,10 @@ class SatispayController extends Controller
     public function riepilogo(Request $request, Conto $conto): RedirectResponse
     {
         $this->soloSatispay($conto);
+        // Il controllo sul contenuto vuole l'estensione fileinfo (come in ImportEstrattiController::carica): senza, un messaggio al posto dell'errore 500.
+        if (! extension_loaded('fileinfo')) {
+            throw ValidationException::withMessages(['riepilogo' => 'Sul server manca l’estensione PHP «fileinfo», che serve a controllare il file: va attivata dal pannello dell’hosting (docs/pubblicazione.md).']);
+        }
         $messaggio = 'Carica il file CSV del riepilogo mensile (testo, al massimo 2 MB).';
         $request->validate(
             ['riepilogo' => ['required', 'file', 'max:2048', 'mimetypes:text/*,application/csv']],
@@ -66,10 +71,14 @@ class SatispayController extends Controller
             throw ValidationException::withMessages(['data' => 'Il conto è stato aperto il '.$conto->aperto_il->format('d/m/Y').': non ha un saldo prima.']);
         }
 
-        $saldo = SaldoDichiarato::firstOrNew(['conto_id' => $conto->id, 'data' => $dati['data']]);
-        $prima = $saldo->exists ? ['importo' => $saldo->importo, 'spiegazione' => $saldo->spiegazione] : null;
-        $saldo->fill(['user_id' => $request->user()->id, 'importo' => $importo, 'spiegazione' => trim($dati['spiegazione'] ?? '') ?: null])->save();
-        RegistroModifica::registra($request->user(), $conto, 'saldo_dichiarato', $prima, ['data' => $dati['data'], 'importo' => $importo, 'spiegazione' => $saldo->spiegazione]);
+        // A conto bloccato: due invii insieme (doppio clic) non si pestano sulla stessa data e il registro tiene ogni passaggio.
+        DB::transaction(function () use ($request, $conto, $dati, $importo) {
+            Conto::lockForUpdate()->findOrFail($conto->id);
+            $saldo = SaldoDichiarato::firstOrNew(['conto_id' => $conto->id, 'data' => $dati['data']]);
+            $prima = $saldo->exists ? ['importo' => $saldo->importo, 'spiegazione' => $saldo->spiegazione] : null;
+            $saldo->fill(['user_id' => $request->user()->id, 'importo' => $importo, 'spiegazione' => trim($dati['spiegazione'] ?? '') ?: null])->save();
+            RegistroModifica::registra($request->user(), $conto, 'saldo_dichiarato', $prima, ['data' => $dati['data'], 'importo' => $importo, 'spiegazione' => $saldo->spiegazione]);
+        });
 
         return redirect()->route('import.indice', $conto)->with('ok', 'Saldo dichiarato registrato.');
     }
