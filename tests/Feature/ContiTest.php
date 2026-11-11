@@ -9,6 +9,7 @@ use App\Models\Ruolo;
 use App\Models\User;
 use App\Permesso;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ContiTest extends TestCase
@@ -198,6 +199,18 @@ class ContiTest extends TestCase
         Movimento::factory()->create(['conto_id' => $conto->id, 'data' => '2026-03-05']);
 
         $this->actingAs($this->utenteCon('Tesoriere'))->post("/conti/{$conto->id}/chiusura", ['chiuso_il' => '2026-03-01'])
+            ->assertSessionHasErrors('chiuso_il');
+        $this->assertNull($conto->fresh()->chiuso_il);
+    }
+
+    public function test_un_movimento_arrivato_nel_frattempo_conta_per_la_data_di_chiusura(): void
+    {
+        $conto = Conto::factory()->create(['aperto_il' => '2026-01-01']);
+        Movimento::factory()->create(['conto_id' => $conto->id, 'data' => '2026-03-05']);
+        // L'ultimo movimento si legge dopo il blocco del conto, non prima: uno scritto tra il click e la chiusura non resta dopo di lei.
+        DB::beforeStartingTransaction(fn () => Movimento::factory()->create(['conto_id' => $conto->id, 'data' => '2026-04-20']));
+
+        $this->actingAs($this->utenteCon('Tesoriere'))->post("/conti/{$conto->id}/chiusura", ['chiuso_il' => '2026-04-01'])
             ->assertSessionHasErrors('chiuso_il');
         $this->assertNull($conto->fresh()->chiuso_il);
     }

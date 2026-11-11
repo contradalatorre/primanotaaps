@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Models\Menzione;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -10,7 +11,7 @@ use Illuminate\Support\Collection;
 /** Le menzioni da vedere (#46): autore, data, importo, descrizione breve e link; mai il testo della nota. */
 class MenzioniDaVedere extends Mailable
 {
-    /** @param  Collection<int, \App\Models\Menzione>  $menzioni  con `nota.autore` e `nota.oggetto` già caricati */
+    /** @param  Collection<int, Menzione>  $menzioni  con `nota.autore` e `nota.oggetto` già caricati */
     public function __construct(public Collection $menzioni, public bool $immediata = false) {}
 
     public function envelope(): Envelope

@@ -56,10 +56,16 @@ final class RegistroErrori
 
         return Errore::query()->getConnection()->transaction(function () use ($origine, $messaggio, $grave, $adesso, $impronta) {
             // Prima inserisce (senza lock su righe che non ci sono: su MySQL due prime chiamate si bloccherebbero a vicenda), poi blocca e legge.
-            $nuovo = Errore::insertOrIgnore([
-                'origine' => $origine, 'grave' => $grave, 'messaggio' => $messaggio, 'impronta' => $impronta, 'primo_il' => $adesso, 'ultimo_il' => $adesso,
-            ]) === 1;
-            $riga = Errore::where('impronta', $impronta)->lockForUpdate()->first();
+            // Se un Amministratore lo risolve proprio in mezzo (`risolvi` libera l'impronta) la riga non si trova: l'impronta è libera, si rifà una volta.
+            foreach ([1, 2] as $tentativo) {
+                $nuovo = Errore::insertOrIgnore([
+                    'origine' => $origine, 'grave' => $grave, 'messaggio' => $messaggio, 'impronta' => $impronta, 'primo_il' => $adesso, 'ultimo_il' => $adesso,
+                ]) === 1;
+                $riga = Errore::where('impronta', $impronta)->lockForUpdate()->first();
+                if ($riga !== null) {
+                    break;
+                }
+            }
             if (! $nuovo) {
                 $riga->volte++;
                 $riga->ultimo_il = $adesso;

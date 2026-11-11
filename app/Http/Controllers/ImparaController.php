@@ -69,7 +69,9 @@ class ImparaController extends Controller
             return $p + ['missioni' => $missioni, 'sigillo' => $missioni->isNotEmpty() && $missioni->every(fn (Missione $m) => $fatte->has($m->id))];
         });
 
-        return view('impara.timbri', ['percorsi' => $percorsi, 'fatte' => $fatte, 'nuovo' => $request->query('nuovo')]);
+        $nuovo = $request->query('nuovo'); // `?nuovo[]=x` non è una missione
+
+        return view('impara.timbri', ['percorsi' => $percorsi, 'fatte' => $fatte, 'nuovo' => is_string($nuovo) ? $nuovo : null]);
     }
 
     /** Per l'Amministratore: solo quali missioni ha completato ciascuno, non errori, tempi o tentativi (#21). */

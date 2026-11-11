@@ -82,7 +82,7 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::get('/regole', [RegoleController::class, 'index'])->name('regole');
         Route::get('/regole/nuova', [RegoleController::class, 'nuova'])->name('regole.nuova');
         Route::post('/regole', [RegoleController::class, 'crea'])->name('regole.crea');
-        Route::match(['post', 'put'], '/regole/anteprima',[RegoleController::class, 'anteprima'])->name('regole.anteprima');
+        Route::match(['post', 'put'], '/regole/anteprima', [RegoleController::class, 'anteprima'])->name('regole.anteprima');
         Route::post('/regole/ordine', [RegoleController::class, 'ordina'])->name('regole.ordine');
         Route::get('/regole/{regola}/modifica', [RegoleController::class, 'modifica'])->name('regole.modifica');
         Route::put('/regole/{regola}', [RegoleController::class, 'salva'])->name('regole.salva');

@@ -13,7 +13,7 @@
     {{-- Un dubbio su un movimento già confermato non è nella revisione: qui chi può confermare lo chiude (#45). --}}
     @if ($movimento->inDubbio())
         @can('importare_e_confermare')
-            <form method="POST" action="{{ route('movimenti.dubbio.chiudi', $movimento) }}">@csrf <button type="submit" class="bottone-piccolo">Chiudi il dubbio</button></form>
+            <form method="POST" action="{{ route('movimenti.dubbio.chiudi', $movimento) }}">@csrf @foreach ($movimento->note()->dubbioAperto()->orderBy('id')->pluck('id') as $id)<input type="hidden" name="dubbi_visti[]" value="{{ $id }}">@endforeach <button type="submit" class="bottone-piccolo">Chiudi il dubbio</button></form>
         @endcan
     @endif
 

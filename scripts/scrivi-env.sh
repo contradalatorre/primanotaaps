@@ -21,7 +21,9 @@ done
 
 # Il drive condiviso (backup, #68) è facoltativo, come ogni integrazione esterna: senza, l'app va avanti e lo stato del
 # sistema dice che il backup non parte. Se ci sono, le credenziali sono il JSON del service account in base64.
-facoltative="DRIVE_CREDENZIALI DRIVE_CARTELLA_BACKUP"
+# Anche il database dello spazio di prova (#71, ADR 0003) lo è, ma su Aruba serve quasi sempre: il nome predefinito
+# `<DB_DATABASE>_prova` non si può creare da codice, il database si crea a mano dal pannello.
+facoltative="DRIVE_CREDENZIALI DRIVE_CARTELLA_BACKUP DB_PROVA_DATABASE"
 for chiave in $facoltative; do
     eval "valore=\${$chiave:-}"
     case "$valore" in

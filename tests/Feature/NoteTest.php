@@ -4,10 +4,13 @@ namespace Tests\Feature;
 
 use App\Classificazione;
 use App\Models\Conto;
+use App\Models\Iniziativa;
+use App\Models\Menzione;
 use App\Models\Movimento;
 use App\Models\Nota;
 use App\Models\RegistroModifica;
 use App\Models\Ruolo;
+use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -195,7 +198,7 @@ class NoteTest extends TestCase
     public function test_la_conferma_chiude_il_dubbio_e_la_nota_resta(): void
     {
         $tina = $this->utenteCon('Tesoriere', [], ['name' => 'Tina Verdi']);
-        Classificazione::salva($tina, $this->movimento, null, [['tipologia_id' => \App\Models\Tipologia::where('nome', 'Materiali e beni di consumo')->value('id'), 'iniziativa_id' => \App\Models\Iniziativa::where('nome', 'Carnevale')->value('id')]]);
+        Classificazione::salva($tina, $this->movimento, null, [['tipologia_id' => Tipologia::where('nome', 'Materiali e beni di consumo')->value('id'), 'iniziativa_id' => Iniziativa::where('nome', 'Carnevale')->value('id')]]);
         $this->scrivi($tina, 'La tipologia è giusta?', ['dubbio' => '1']);
         $this->assertTrue($this->movimento->refresh()->inDubbio());
 
@@ -208,13 +211,32 @@ class NoteTest extends TestCase
         $this->actingAs($tina)->get("/movimenti/{$this->movimento->id}/note")->assertSee('La tipologia è giusta?')->assertSee('Dubbio chiuso');
     }
 
+    /** Quello che il modulo manda: gli id dei dubbi aperti che la pagina mostrava. */
+    private function dubbiVisti(?Movimento $movimento = null): array
+    {
+        return ['dubbi_visti' => ($movimento ?? $this->movimento)->note()->dubbioAperto()->pluck('id')->all()];
+    }
+
+    public function test_togliere_il_dubbio_chiude_solo_quelli_che_l_utente_ha_visto(): void
+    {
+        $this->scrivi($this->utenteCon('Consigliere'), 'Il primo dubbio', ['dubbio' => '1']);
+        $visti = $this->dubbiVisti();
+        $this->scrivi($this->utenteCon('Consigliere'), 'Nato dopo che la pagina era aperta', ['dubbio' => '1']);
+
+        $this->actingAs($this->utenteCon('Tesoriere'))->post("/movimenti/{$this->movimento->id}/dubbio/chiusura", $visti)->assertRedirect();
+
+        $this->assertTrue($this->movimento->refresh()->inDubbio());
+        $this->assertSame(['Nato dopo che la pagina era aperta'], $this->movimento->note()->dubbioAperto()->pluck('testo')->all());
+        $this->actingAs($this->utenteCon('Tesoriere'))->post("/movimenti/{$this->movimento->id}/dubbio/chiusura")->assertSessionHasErrors('dubbi_visti');
+    }
+
     public function test_togliere_il_dubbio_e_di_chi_conferma_e_cancellare_la_nota_lo_toglie(): void
     {
         $maria = $this->utenteCon('Consigliere');
         $this->scrivi($maria, 'Boh', ['dubbio' => '1']);
 
-        $this->actingAs($maria)->post("/movimenti/{$this->movimento->id}/dubbio/chiusura")->assertForbidden();
-        $this->actingAs($this->utenteCon('Tesoriere'))->post("/movimenti/{$this->movimento->id}/dubbio/chiusura")->assertRedirect();
+        $this->actingAs($maria)->post("/movimenti/{$this->movimento->id}/dubbio/chiusura", $this->dubbiVisti())->assertForbidden();
+        $this->actingAs($this->utenteCon('Tesoriere'))->post("/movimenti/{$this->movimento->id}/dubbio/chiusura", $this->dubbiVisti())->assertRedirect();
         $this->assertFalse($this->movimento->refresh()->inDubbio());
 
         $this->scrivi($maria, 'Di nuovo', ['dubbio' => '1']);
@@ -233,7 +255,7 @@ class NoteTest extends TestCase
     public function test_un_dubbio_aperto_cambia_la_versione_e_la_conferma_sulla_versione_di_prima_non_lo_chiude(): void
     {
         $tina = $this->utenteCon('Tesoriere');
-        Classificazione::salva($tina, $this->movimento, null, [['tipologia_id' => \App\Models\Tipologia::where('nome', 'Materiali e beni di consumo')->value('id'), 'iniziativa_id' => \App\Models\Iniziativa::where('nome', 'Carnevale')->value('id')]]);
+        Classificazione::salva($tina, $this->movimento, null, [['tipologia_id' => Tipologia::where('nome', 'Materiali e beni di consumo')->value('id'), 'iniziativa_id' => Iniziativa::where('nome', 'Carnevale')->value('id')]]);
         $vista = Classificazione::versione($this->movimento->refresh());
         $this->scrivi($this->utenteCon('Consigliere'), 'Aspetta, non torna.', ['dubbio' => '1']);
 
@@ -255,7 +277,7 @@ class NoteTest extends TestCase
         $this->actingAs($this->utenteCon('Consigliere'))->get("/movimenti/{$this->movimento->id}/note")->assertOk()->assertDontSee($url);
         $tina = $this->utenteCon('Tesoriere');
         $this->actingAs($tina)->get("/movimenti/{$this->movimento->id}/note")->assertOk()->assertSee($url);
-        $this->actingAs($tina)->post($url)->assertRedirect();
+        $this->actingAs($tina)->post($url, $this->dubbiVisti())->assertRedirect();
         $this->assertFalse($this->movimento->refresh()->inDubbio());
         $this->actingAs($tina)->get("/movimenti/{$this->movimento->id}/note")->assertDontSee($url);
     }
@@ -264,7 +286,7 @@ class NoteTest extends TestCase
     {
         $tina = $this->utenteCon('Tesoriere', [], ['name' => 'Tina Verdi']);
         $this->scrivi($tina, '@Tesoriere ricordo a tutti lo scontrino');
-        $menzione = \App\Models\Menzione::sole();
+        $menzione = Menzione::sole();
 
         $this->actingAs($tina)->post("/menzioni/{$menzione->id}/fatto")->assertForbidden();
         $this->assertNull($menzione->refresh()->vista_il);
@@ -274,12 +296,12 @@ class NoteTest extends TestCase
     {
         $this->utenteCon(Ruolo::create(['nome' => 'Solo note', 'permessi' => ['note']]));
         $this->scrivi($this->utenteCon('Tesoriere'), '@Solo note ci sei?');
-        $this->assertSame(0, \App\Models\Menzione::count());
+        $this->assertSame(0, Menzione::count());
 
         $maria = $this->utenteCon('Consigliere', [], ['name' => 'Maria Rossi']);
         $this->scrivi($this->utenteCon('Tesoriere'), '@Maria Rossi guarda');
         $solo = $this->utenteCon(Ruolo::create(['nome' => 'Solo note 2', 'permessi' => ['note']]));
-        \App\Models\Menzione::sole()->update(['user_id' => $solo->id]); // menzione rimasta a chi ha perso `vedere`
+        Menzione::sole()->update(['user_id' => $solo->id]); // menzione rimasta a chi ha perso `vedere`
         $this->actingAs($solo)->get('/')->assertOk()->assertDontSee('Da vedere');
         $this->actingAs($maria)->get('/')->assertOk();
     }
@@ -301,7 +323,7 @@ class NoteTest extends TestCase
         $this->actingAs($gino)->get('/')->assertDontSee('Da vedere');
         // Chi si menziona da solo non si trova la propria nota nel riquadro.
         $this->scrivi($maria, 'Mi ricordo @Maria Rossi');
-        $this->assertSame(1, \App\Models\Menzione::count());
+        $this->assertSame(1, Menzione::count());
         $this->actingAs($maria)->get('/')->assertDontSee('Da vedere');
     }
 
@@ -311,7 +333,7 @@ class NoteTest extends TestCase
         $tina = $this->utenteCon('Tesoriere', [], ['name' => 'Tina Verdi']);
         $tommaso = $this->utenteCon('Tesoriere', [], ['name' => 'Tommaso Gialli']);
         $this->scrivi($maria, '@Tesoriere puoi guardare lo scontrino?');
-        $menzione = \App\Models\Menzione::sole();
+        $menzione = Menzione::sole();
 
         $this->actingAs($tommaso)->get('/')->assertSee('Da vedere');
         $this->actingAs($tina)->get('/')->assertSee('Da vedere');
@@ -333,10 +355,10 @@ class NoteTest extends TestCase
         $altroMovimento = Movimento::factory()->create(['conto_id' => $this->festa->id]);
 
         $this->scrivi($tina, 'Su un altro movimento', [], $altroMovimento);
-        $this->assertNull(\App\Models\Menzione::sole()->vista_il);
+        $this->assertNull(Menzione::sole()->vista_il);
         $this->scrivi($tina, 'Fatto, tutto a posto.');
 
-        $this->assertSame($tina->id, \App\Models\Menzione::sole()->vista_da);
+        $this->assertSame($tina->id, Menzione::sole()->vista_da);
         $this->actingAs($tina)->get('/')->assertDontSee('Da vedere');
     }
 
@@ -347,7 +369,7 @@ class NoteTest extends TestCase
         $this->scrivi($tina, '@Tesoriere chiedere lo scontrino');
         $this->scrivi($tina, 'Aggiungo un dettaglio.');
 
-        $this->assertNull(\App\Models\Menzione::sole()->vista_il);
+        $this->assertNull(Menzione::sole()->vista_il);
         $this->actingAs($tommaso)->get('/')->assertSee('Da vedere')->assertSee('chiedere lo scontrino');
     }
 
@@ -356,14 +378,14 @@ class NoteTest extends TestCase
         $this->utenteCon(Ruolo::create(['nome' => 'Solo vista', 'permessi' => ['vedere']]));
         $this->scrivi($this->utenteCon('Tesoriere'), '@Solo vista ci sei?');
 
-        $this->assertSame(0, \App\Models\Menzione::count());
+        $this->assertSame(0, Menzione::count());
     }
 
     public function test_riclassificare_un_confermato_chiude_il_dubbio(): void
     {
         $tina = $this->utenteCon('Tesoriere');
-        $carnevale = \App\Models\Iniziativa::where('nome', 'Carnevale')->value('id');
-        $tipologia = fn (string $nome) => \App\Models\Tipologia::where('nome', $nome)->value('id');
+        $carnevale = Iniziativa::where('nome', 'Carnevale')->value('id');
+        $tipologia = fn (string $nome) => Tipologia::where('nome', $nome)->value('id');
         Classificazione::salva($tina, $this->movimento, null, [['tipologia_id' => $tipologia('Materiali e beni di consumo'), 'iniziativa_id' => $carnevale]]);
         Classificazione::conferma($tina, $this->movimento, Classificazione::versione($this->movimento->refresh()));
         $this->scrivi($tina, 'Forse era un affitto', ['dubbio' => '1']);
@@ -396,11 +418,11 @@ class NoteTest extends TestCase
         $maria = $this->utenteCon('Consigliere');
         $tina = $this->utenteCon('Tesoriere', [], ['name' => 'Tina Verdi']);
         $this->scrivi($maria, '@Tina Verdi guarda');
-        $this->actingAs($tina)->post('/menzioni/'.\App\Models\Menzione::sole()->id.'/fatto');
+        $this->actingAs($tina)->post('/menzioni/'.Menzione::sole()->id.'/fatto');
 
         $this->actingAs($maria)->put('/note/'.Nota::sole()->id, ['testo' => '@Tina Verdi guarda bene'])->assertRedirect();
 
-        $this->assertNotNull(\App\Models\Menzione::sole()->vista_il);
+        $this->assertNotNull(Menzione::sole()->vista_il);
     }
 
     public function test_il_testo_delle_note_e_dei_riquadri_e_sempre_escapato(): void
@@ -420,7 +442,7 @@ class NoteTest extends TestCase
         $tina = $this->utenteCon('Tesoriere', [], ['name' => 'Tina Verdi']);
         $this->scrivi($maria, '@Tina Verdi ciao');
         $nota = Nota::sole();
-        $menzione = \App\Models\Menzione::sole();
+        $menzione = Menzione::sole();
         $admin = $this->utenteCon('Amministratore');
 
         $azioni = [

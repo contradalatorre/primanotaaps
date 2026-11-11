@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Backup\Esecuzione;
 use App\Backup\Esportazione;
 use App\Mail\ErroreGrave;
 use App\Models\Backup;
@@ -165,6 +166,22 @@ class BackupTest extends TestCase
         Http::assertNotSent(fn (Request $r) => $r->method() === 'DELETE' && str_contains($r->url(), '/files/vecchio-2?'));
     }
 
+    public function test_un_errore_del_database_nella_rotazione_non_fa_fallire_un_backup_gia_caricato(): void
+    {
+        foreach (range(1, 12) as $mese) {
+            $quando = now()->startOfMonth()->subMonths(12 - $mese + 1);
+            Backup::create(['tipo' => 'su_richiesta', 'esito' => 'riuscito', 'avviato_il' => $quando, 'concluso_il' => $quando, 'drive_id' => "vecchio-$mese", 'file' => "v$mese.zip"]);
+        }
+        Backup::updating(fn (Backup $b) => $b->isDirty('eliminato_il') ? throw new \RuntimeException('Il database non risponde') : null);
+
+        $this->eseguiSuRichiesta()->assertSessionHasNoErrors();
+
+        $this->assertSame('riuscito', Backup::latest('id')->first()->esito); // il file è sul drive: non è un backup fallito
+        $errore = Errore::sole();
+        $this->assertSame('backup.rotazione', $errore->origine);
+        $this->assertFalse($errore->grave);
+    }
+
     public function test_un_backup_su_richiesta_non_toglie_il_mensile_dello_stesso_mese(): void
     {
         Backup::create(['tipo' => 'mensile', 'esito' => 'riuscito', 'avviato_il' => '2026-06-01 03:00', 'concluso_il' => '2026-06-01 03:00', 'drive_id' => 'mensile-giugno', 'file' => 'm.zip']);
@@ -242,6 +259,33 @@ class BackupTest extends TestCase
         $this->assertSame(0, Backup::count());
         Http::assertNothingSent();
         $lucchetto->release();
+    }
+
+    public function test_se_il_lucchetto_e_occupato_il_backup_mensile_lascia_un_errore_grave(): void
+    {
+        $lucchetto = Cache::lock('backup', 60);
+        $this->assertTrue($lucchetto->get());
+
+        $this->artisan('backup:esegui')->assertSuccessful();
+
+        $errore = Errore::sole();
+        $this->assertSame('backup', $errore->origine);
+        $this->assertTrue($errore->grave);
+        Mail::assertSent(ErroreGrave::class, 1);
+        $lucchetto->release();
+    }
+
+    public function test_i_file_temporanei_di_un_backup_interrotto_si_tolgono_quelli_di_uno_in_corso_no(): void
+    {
+        Storage::disk('local')->put('backup-tmp/zipVecchio', 'dati personali di un backup interrotto');
+        touch(Storage::disk('local')->path('backup-tmp/zipVecchio'), now()->subHours(2)->getTimestamp());
+        Storage::disk('local')->put('backup-tmp/zipInCorso', 'di un backup che sta girando adesso');
+        touch(Storage::disk('local')->path('backup-tmp/zipInCorso'), now()->addMinute()->getTimestamp());
+
+        Esecuzione::chiudiInterrotti();
+
+        $this->assertSame(['backup-tmp/zipInCorso'], Storage::disk('local')->allFiles('backup-tmp'));
+        Storage::disk('local')->delete('backup-tmp/zipInCorso');
     }
 
     public function test_chi_non_ha_il_permesso_non_lo_avvia(): void

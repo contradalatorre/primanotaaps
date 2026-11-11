@@ -28,7 +28,7 @@ class ProvaMiddleware
         if ($request->routeIs('esci')) {
             return $next($request);
         }
-        $missione =($id = $request->session()->get('prova.missione')) ? Catalogo::predefinito()->missione($id) : null;
+        $missione = ($id = $request->session()->get('prova.missione')) ? Catalogo::predefinito()->missione($id) : null;
         $avanzamento = $missione ? $this->svolgimento->avanzamento($utente, $missione) : null;
         if (! $missione || $avanzamento?->stato !== 'in_corso') {
             $request->session()->forget('prova.missione');
@@ -56,7 +56,7 @@ class ProvaMiddleware
 
             return $next($request);
         } finally {
-            $this->prova->esci($utente);
+            $this->prova->esci();
         }
     }
 }
