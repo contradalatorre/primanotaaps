@@ -9,10 +9,28 @@ use App\Euro;
  * delle colonne, poi una riga di saldo iniziale, i movimenti dal più vecchio e una riga di saldo finale. Le due
  * righe di saldo si riconoscono dall'importo vuoto. Il formato è descritto in #11 e #14.
  */
-final class CreditAgricoleCsv
+class CreditAgricoleCsv
 {
     /** Le uniche colonne che si leggono: ogni altra si scarta (#27). */
     private const COLONNE = ['Data Op.', 'Data Val.', 'Causale', 'Descrizione', 'Importo', 'Saldo Parziale'];
+
+    /**
+     * Le regole dei giroconti di questo formato (#47, #33 storia 37), per chiave: aggiungerne una è una voce qui, ritirarla è toglierla.
+     * Una regola guarda un movimento del conto (verso; testo di causale e descrizione, senza maiuscole e minuscole) e cerca la sua
+     * metà su un altro conto del tipo `con`: stesso importo, verso opposto, data entro `giorni` giorni. Con `meta` (un testo, dove
+     * {conto} è il conto del movimento) l'app propone anche di scrivere la metà che manca sul conto `con`.
+     *
+     * shortcut: le parole di causale e descrizione di prelievi e versamenti sono quelle dell'elenco breve di #11, da verificare su estratti veri.
+     *
+     * @return array<string, array{nome: string, verso: string, contiene: list<string>, con: string, giorni: int, meta?: string}>
+     */
+    public function regoleGiroconti(): array
+    {
+        return [
+            'prelievo' => ['nome' => 'Prelievo di contanti', 'verso' => 'uscita', 'contiene' => ['PRELIEV'], 'con' => 'cassa', 'giorni' => 3, 'meta' => 'Prelievo da {conto}'],
+            'versamento' => ['nome' => 'Versamento di contanti', 'verso' => 'entrata', 'contiene' => ['VERSAMENT'], 'con' => 'cassa', 'giorni' => 3, 'meta' => 'Versamento su {conto}'],
+        ];
+    }
 
     /** @throws EstrattoNonValido */
     public function leggi(string $contenuto): Estratto

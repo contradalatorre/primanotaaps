@@ -14,7 +14,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('uscita_id')->unique()->constrained('movimenti');
             $table->foreignId('entrata_id')->unique()->constrained('movimenti');
-            $table->string('regola', 80); // la chiave della regola di config/giroconti.php che l'ha proposto
+            $table->string('regola', 80); // la chiave della regola (nel modulo del formato) che l'ha proposto
             $table->foreignId('confermato_da')->constrained('users');
             $table->dateTime('confermato_il');
             $table->timestamps();

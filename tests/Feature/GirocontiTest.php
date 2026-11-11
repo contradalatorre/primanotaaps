@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Giroconti;
+use App\Import\CreditAgricoleCsv;
 use App\Models\Assegnazione;
 use App\Models\Conto;
 use App\Models\Giroconto;
@@ -86,6 +87,12 @@ class GirocontiTest extends TestCase
     private function registraMeta(Movimento $movimento, ?Conto $conto = null, ?User $utente = null, array $dubbiVisti = [])
     {
         return $this->actingAs($utente ?? $this->tesoriere)->post("/import/{$this->import->id}/giroconti/meta", ['movimento' => $movimento->id, 'conto_id' => ($conto ?? $this->cassa)->id, 'dubbi_visti' => $dubbiVisti]);
+    }
+
+    /** Le regole stanno nel modulo del formato (#33, storia 37): per provarne altre si sostituisce il modulo. */
+    private function regoleDelFormato(array $regole): void
+    {
+        $this->partialMock(CreditAgricoleCsv::class, fn ($modulo) => $modulo->shouldReceive('regoleGiroconti')->andReturn($regole));
     }
 
     private function dubbio(Movimento $movimento): Nota
@@ -319,7 +326,7 @@ class GirocontiTest extends TestCase
 
     public function test_una_metà_senza_regola_di_meta_aspetta_l_altro_conto_e_viene_segnalata(): void
     {
-        config(['giroconti.regole.credit_agricole_csv.prelievo' => ['nome' => 'Prelievo', 'verso' => 'uscita', 'contiene' => ['PRELIEV'], 'con' => 'cassa', 'giorni' => 3]]);
+        $this->regoleDelFormato(['prelievo' => ['nome' => 'Prelievo', 'verso' => 'uscita', 'contiene' => ['PRELIEV'], 'con' => 'cassa', 'giorni' => 3]]);
         $this->prelievo();
 
         $this->revisione('giroconti')->assertSeeText('Aspetta la metà dall’altro conto')->assertDontSeeText('Registra e conferma')->assertSeeText('Senza corrispondenza da 22 giorni');
@@ -329,13 +336,13 @@ class GirocontiTest extends TestCase
     {
         $this->dellaBanca('BONIFICO ESTERO', 'BONIFICO ESTERO VERSO CASSA FESTA', 7000, 'uscita');
         $this->inCassa('Dalla banca', 7000, 'entrata', '2026-05-10');
-        $regole = config('giroconti.regole.credit_agricole_csv');
+        $regole = (new CreditAgricoleCsv)->regoleGiroconti();
         $this->revisione()->assertSee('data-passo="giroconti" data-conteggio="0"', false); // nessuna regola lo riconosce
 
-        config(['giroconti.regole.credit_agricole_csv' => $regole + ['estero' => ['nome' => 'Bonifico alla cassa', 'verso' => 'uscita', 'contiene' => ['verso cassa'], 'con' => 'cassa', 'giorni' => 3]]]); // senza maiuscole
+        $this->regoleDelFormato($regole + ['estero' => ['nome' => 'Bonifico alla cassa', 'verso' => 'uscita', 'contiene' => ['verso cassa'], 'con' => 'cassa', 'giorni' => 3]]); // senza maiuscole
         $this->revisione()->assertSee('data-passo="giroconti" data-conteggio="1"', false)->assertSeeText('Bonifico alla cassa');
 
-        config(['giroconti.regole.credit_agricole_csv' => $regole]); // ritirata
+        $this->regoleDelFormato($regole); // ritirata
         $this->revisione()->assertSee('data-passo="giroconti" data-conteggio="0"', false);
     }
 

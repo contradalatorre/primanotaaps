@@ -22,8 +22,8 @@ class ImportEstratto extends Model
 
     public const STATI = ['anteprima' => 'In anteprima', 'confermato' => 'Confermato', 'annullato' => 'Annullato'];
 
-    /** Un modulo per formato (lettura e chiave contro i doppioni): per ora solo la banca. */
-    private const LETTORI = ['credit_agricole_csv' => CreditAgricoleCsv::class];
+    /** Un modulo per formato (lettura, chiave contro i doppioni e regole dei giroconti): per ora solo la banca. Un formato nuovo si registra qui. */
+    public const LETTORI = ['credit_agricole_csv' => CreditAgricoleCsv::class];
 
     protected function casts(): array
     {
@@ -37,7 +37,7 @@ class ImportEstratto extends Model
     {
         $classe = self::LETTORI[$conto->formato_import] ?? null;
 
-        return $classe ? new $classe : null;
+        return $classe ? app($classe) : null; // dal contenitore: i test sostituiscono il modulo
     }
 
     public function conto(): BelongsTo

@@ -4,6 +4,7 @@ namespace App;
 
 use App\Models\Conto;
 use App\Models\Giroconto;
+use App\Models\ImportEstratto;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
 use App\Models\User;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * I giroconti (#47; glossario: Giroconto): le regole di `config/giroconti.php` riconoscono i movimenti che sono metà
+ * I giroconti (#47; glossario: Giroconto): le regole del modulo di ogni formato (`regoleGiroconti`) riconoscono i movimenti che sono metà
  * di un trasferimento tra due conti dell'associazione, e l'app ne propone l'abbinamento (o la metà che manca); lo
  * conferma l'operatore nel passo Giroconti della revisione. Le proposte non si salvano: si ricalcolano ogni volta
  * dalle regole e dai movimenti, così una regola ritirata o un conto chiuso le fa sparire senza altro da fare.
@@ -41,7 +42,7 @@ final class Giroconti
         if ($conto->chiuso()) {
             return null;
         }
-        foreach (config('giroconti.regole')[$conto->formato_import] ?? [] as $chiave => $regola) {
+        foreach (ImportEstratto::lettorePer($conto)?->regoleGiroconti() ?? [] as $chiave => $regola) {
             if ($regola['verso'] === $verso && collect($regola['contiene'])->contains(fn (string $parola) => mb_stripos($testo, $parola) !== false)) {
                 return $regola + ['chiave' => $chiave];
             }
@@ -98,7 +99,7 @@ final class Giroconti
      */
     public static function proposte(): Collection
     {
-        $formati = array_keys(array_filter(config('giroconti.regole')));
+        $formati = array_keys(array_filter(ImportEstratto::LETTORI, fn (string $modulo) => app($modulo)->regoleGiroconti() !== []));
         $proposte = collect();
         $presi = [];
         $limite = today()->subDays(config('giroconti.giorni_per_orfana'));
