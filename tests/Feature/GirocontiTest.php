@@ -9,6 +9,7 @@ use App\Models\Giroconto;
 use App\Models\ImportEstratto;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
+use App\Models\Nota;
 use App\Models\Regola;
 use App\Models\Ruolo;
 use App\Models\Tipologia;
@@ -77,14 +78,19 @@ class GirocontiTest extends TestCase
         return $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione".($passo ? "?passo=$passo" : ''));
     }
 
-    private function conferma(Movimento $a, Movimento $b, ?User $utente = null)
+    private function conferma(Movimento $a, Movimento $b, ?User $utente = null, array $dubbiVisti = [])
     {
-        return $this->actingAs($utente ?? $this->tesoriere)->post("/import/{$this->import->id}/giroconti", ['movimento_a' => $a->id, 'movimento_b' => $b->id]);
+        return $this->actingAs($utente ?? $this->tesoriere)->post("/import/{$this->import->id}/giroconti", ['movimento_a' => $a->id, 'movimento_b' => $b->id, 'dubbi_visti' => $dubbiVisti]);
     }
 
-    private function registraMeta(Movimento $movimento, ?Conto $conto = null, ?User $utente = null)
+    private function registraMeta(Movimento $movimento, ?Conto $conto = null, ?User $utente = null, array $dubbiVisti = [])
     {
-        return $this->actingAs($utente ?? $this->tesoriere)->post("/import/{$this->import->id}/giroconti/meta", ['movimento' => $movimento->id, 'conto_id' => ($conto ?? $this->cassa)->id]);
+        return $this->actingAs($utente ?? $this->tesoriere)->post("/import/{$this->import->id}/giroconti/meta", ['movimento' => $movimento->id, 'conto_id' => ($conto ?? $this->cassa)->id, 'dubbi_visti' => $dubbiVisti]);
+    }
+
+    private function dubbio(Movimento $movimento): Nota
+    {
+        return $movimento->note()->create(['user_id' => $this->tesoriere->id, 'testo' => 'Sarà davvero un prelievo?', 'dubbio' => true]);
     }
 
     public function test_un_prelievo_con_la_sua_entrata_in_cassa_si_propone_come_giroconto(): void
@@ -235,6 +241,37 @@ class GirocontiTest extends TestCase
         $this->registraMeta($prelievo, $this->banca)->assertSessionHasErrors('conferma'); // non è una cassa
         $this->assertSame(0, Giroconto::count());
         $this->registraMeta($prelievo)->assertSessionHasNoErrors();
+    }
+
+    public function test_la_scheda_mostra_i_dubbi_e_la_conferma_chiude_solo_quelli_visti(): void
+    {
+        $prelievo = $this->prelievo();
+        $entrata = $this->inCassa('Contanti ritirati', 10000, 'entrata', '2026-05-11');
+        $visto = $this->dubbio($prelievo);
+
+        $this->revisione('giroconti')
+            ->assertSeeText('In dubbio')
+            ->assertSeeText('Confermando, il dubbio si chiude')
+            ->assertSee('name="dubbi_visti[]" value="'.$visto->id.'"', false);
+
+        $natoDopo = $this->dubbio($entrata); // nato dopo che la pagina era aperta: nessuno l'ha visto
+        $this->conferma($prelievo, $entrata, null, [$visto->id])->assertSessionHasNoErrors();
+
+        $this->assertNotNull($visto->refresh()->chiuso_il);
+        $this->assertNull($natoDopo->refresh()->chiuso_il);
+        $this->assertDatabaseHas('registro_modifiche', ['oggetto_tipo' => 'nota', 'oggetto_id' => $visto->id, 'azione' => 'dubbio_chiuso']);
+    }
+
+    public function test_registra_e_conferma_chiude_solo_i_dubbi_visti_del_movimento(): void
+    {
+        $prelievo = $this->prelievo();
+        $visto = $this->dubbio($prelievo);
+        $natoDopo = $this->dubbio($prelievo);
+
+        $this->registraMeta($prelievo, null, null, [$visto->id])->assertSessionHasNoErrors();
+
+        $this->assertNotNull($visto->refresh()->chiuso_il);
+        $this->assertNull($natoDopo->refresh()->chiuso_il);
     }
 
     public function test_il_secondo_prelievo_con_una_sola_entrata_in_cassa_registra_la_sua_meta(): void
@@ -399,7 +436,7 @@ class GirocontiTest extends TestCase
         Assegnazione::where('user_id', $utente->id)->delete(); // revocato tra il controllo della rotta e il blocco
 
         try {
-            Giroconti::conferma($utente, $prelievo->id, $entrata->id);
+            Giroconti::conferma($utente, $prelievo->id, $entrata->id, []);
             $this->fail('Doveva rifiutare.');
         } catch (HttpException $e) {
             $this->assertSame(403, $e->getStatusCode());

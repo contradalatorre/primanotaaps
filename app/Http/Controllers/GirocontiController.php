@@ -16,16 +16,16 @@ class GirocontiController extends Controller
 {
     public function conferma(Request $request, ImportEstratto $import): RedirectResponse
     {
-        $dati = $request->validate(['movimento_a' => ['required', 'integer'], 'movimento_b' => ['required', 'integer', 'different:movimento_a']]);
-        Giroconti::conferma($request->user(), $dati['movimento_a'], $dati['movimento_b']);
+        $dati = $request->validate(['movimento_a' => ['required', 'integer'], 'movimento_b' => ['required', 'integer', 'different:movimento_a'], 'dubbi_visti' => ['nullable', 'array'], 'dubbi_visti.*' => ['integer']]);
+        Giroconti::conferma($request->user(), $dati['movimento_a'], $dati['movimento_b'], array_map('intval', $dati['dubbi_visti'] ?? []));
 
         return $this->torna($import, 'giroconti', 'Giroconto confermato: le due metà non sono né entrate né uscite.');
     }
 
     public function meta(Request $request, ImportEstratto $import): RedirectResponse
     {
-        $dati = $request->validate(['movimento' => ['required', 'integer'], 'conto_id' => ['required', 'integer']]);
-        Giroconti::registraMeta($request->user(), $dati['movimento'], $dati['conto_id']);
+        $dati = $request->validate(['movimento' => ['required', 'integer'], 'conto_id' => ['required', 'integer'], 'dubbi_visti' => ['nullable', 'array'], 'dubbi_visti.*' => ['integer']]);
+        Giroconti::registraMeta($request->user(), $dati['movimento'], $dati['conto_id'], array_map('intval', $dati['dubbi_visti'] ?? []));
 
         return $this->torna($import, 'giroconti', 'Metà registrata e giroconto confermato.');
     }

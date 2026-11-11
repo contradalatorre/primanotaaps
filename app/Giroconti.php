@@ -135,32 +135,38 @@ final class Giroconti
 
     /**
      * Conferma l'abbinamento di due movimenti: lo accetta solo se una regola lo propone ancora (rifatto a riga bloccata,
-     * non quello che la pagina mostrava). Le due metà diventano confermate e perdono ogni classificazione.
+     * non quello che la pagina mostrava). Le due metà diventano confermate e perdono ogni classificazione. Chiude i dubbi
+     * aperti che la scheda mostrava (`$dubbiVisti`, id delle note): uno nato dopo non lo ha visto nessuno e resta aperto.
+     *
+     * @param  list<int>  $dubbiVisti
      *
      * @throws ValidationException sotto `conferma`
      */
-    public static function conferma(User $utente, int $idA, int $idB): Giroconto
+    public static function conferma(User $utente, int $idA, int $idB, array $dubbiVisti): Giroconto
     {
-        return DB::transaction(function () use ($utente, $idA, $idB) {
+        return DB::transaction(function () use ($utente, $idA, $idB, $dubbiVisti) {
             [$a, $b] = self::blocca($utente, [$idA, $idB]);
             $regola = self::regolaDellaCoppia($a, $b);
             if ($regola === null) {
                 throw ValidationException::withMessages(['conferma' => 'Questi due movimenti non si abbinano più: uno è già confermato o abbinato, oppure non c’è più una regola che li propone. Rileggi il passo Giroconti.']);
             }
 
-            return self::abbina($utente, $a, $b, $regola);
+            return self::abbina($utente, $a, $b, $regola, $dubbiVisti);
         });
     }
 
     /**
      * «Registra e conferma»: scrive sul conto scelto la metà che manca, a mano come la scriverebbe l'operatore, e
-     * conferma il giroconto. Vale l'ambito di chi scrive sulla cassa. Se la metà esiste già si abbina quella: la cassa non si raddoppia.
+     * conferma il giroconto. Vale l'ambito di chi scrive sulla cassa. Se la metà esiste già non si scrive un'altra: la cassa non si raddoppia.
+     * Per i dubbi vale come `conferma`.
+     *
+     * @param  list<int>  $dubbiVisti
      *
      * @throws ValidationException sotto `conferma`
      */
-    public static function registraMeta(User $utente, int $movimentoId, int $contoId): Giroconto
+    public static function registraMeta(User $utente, int $movimentoId, int $contoId, array $dubbiVisti): Giroconto
     {
-        return DB::transaction(function () use ($utente, $movimentoId, $contoId) {
+        return DB::transaction(function () use ($utente, $movimentoId, $contoId, $dubbiVisti) {
             [$movimento] = self::blocca($utente, [$movimentoId]);
             abort_unless($utente->puo(Permesso::InserireMovimentiCassa, $contoId), 403);
             // La proposta di adesso decide, non le sole controparti: una metà già presa da un altro prelievo non conta (#47).
@@ -185,7 +191,7 @@ final class Giroconti
             $meta->setRelation('conto', $conto);
             RegistroModifica::registra($utente, $meta, 'inserito', null, $meta->istantanea(), 'Metà del giroconto con «'.$movimento->conto->nome.'», movimento n. '.$movimento->id);
 
-            return self::abbina($utente, $movimento, $meta, $regola);
+            return self::abbina($utente, $movimento, $meta, $regola, $dubbiVisti);
         });
     }
 
@@ -251,7 +257,8 @@ final class Giroconti
         return null;
     }
 
-    private static function abbina(User $utente, Movimento $a, Movimento $b, array $regola): Giroconto
+    /** @param  list<int>  $dubbiVisti */
+    private static function abbina(User $utente, Movimento $a, Movimento $b, array $regola, array $dubbiVisti): Giroconto
     {
         [$uscita, $entrata] = $a->verso === 'uscita' ? [$a, $b] : [$b, $a];
         $giroconto = Giroconto::create(['uscita_id' => $uscita->id, 'entrata_id' => $entrata->id, 'regola' => $regola['chiave'], 'confermato_da' => $utente->id, 'confermato_il' => now()]);
@@ -264,7 +271,7 @@ final class Giroconti
                 'proposto_da' => null, 'regola_id' => null, 'storico_movimento_id' => null, 'storico_esempio_id' => null,
             ])->save();
             RegistroModifica::registra($utente, $movimento, 'giroconto_confermato', $prima, $movimento->istantanea(), 'Giroconto n. '.$giroconto->id.' con «'.$altro->conto->nome.'», movimento n. '.$altro->id);
-            Note::chiudiDubbi($utente, $movimento); // confermare scioglie il dubbio (#16)
+            Note::chiudiDubbi($utente, $movimento, $dubbiVisti); // confermare scioglie il dubbio (#16), ma solo quello che la scheda mostrava
         }
 
         return $giroconto;
