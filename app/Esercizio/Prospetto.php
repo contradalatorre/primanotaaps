@@ -32,7 +32,7 @@ final class Prospetto
      *
      * @return Collection<int, array{imputazione: Imputazione, lato: string, voce: ?string, chiave: string}>
      */
-    public static function righe(int $anno, bool $proposte = false): Collection
+    public static function imputazioni(int $anno, bool $proposte = false): Collection
     {
         $voci = DB::table('voci_modello_d')->where('esercizio', $anno)->get()->mapWithKeys(fn ($v) => [$v->area.'|'.$v->tipologia_id => $v->voce]);
 
@@ -51,7 +51,7 @@ final class Prospetto
     /** Il Modello D dell'esercizio, calcolato dal vivo. */
     public static function modelloD(int $anno, bool $proposte = false): array
     {
-        $imputate = self::righe($anno, $proposte)->map(fn (array $r) => new Imputata($r['lato'], $r['voce'], abs($r['imputazione']->importo)))->all();
+        $imputate = self::imputazioni($anno, $proposte)->map(fn (array $r) => new Imputata($r['lato'], $r['voce'], abs($r['imputazione']->importo)))->all();
         $impostazioni = ImpostazioniAssociazione::per($anno);
 
         return Calcolo::modelloD($imputate, self::saldi($anno), self::figurativi($anno), $impostazioni?->only(['denominazione', 'codice_fiscale', 'numero_runts', 'affiliazione_rete']) ?? []);
@@ -61,14 +61,14 @@ final class Prospetto
      * Le imputazioni dietro una cifra: quelle delle sue chiavi, con i totali per lato.
      *
      * @param  list<string>  $chiavi
-     * @return array{righe: Collection<int, array{imputazione: Imputazione, lato: string, voce: ?string, chiave: string}>, entrate: int, uscite: int}
+     * @return array{imputazioni: Collection<int, array{imputazione: Imputazione, lato: string, voce: ?string, chiave: string}>, entrate: int, uscite: int}
      */
     public static function elenco(int $anno, bool $proposte, array $chiavi): array
     {
-        $righe = self::righe($anno, $proposte)->filter(fn (array $r) => in_array($r['chiave'], $chiavi, true))->values();
-        $totale = fn (string $lato) => $righe->where('lato', $lato)->sum(fn (array $r) => abs($r['imputazione']->importo));
+        $imputazioni = self::imputazioni($anno, $proposte)->filter(fn (array $r) => in_array($r['chiave'], $chiavi, true))->values();
+        $totale = fn (string $lato) => $imputazioni->where('lato', $lato)->sum(fn (array $r) => abs($r['imputazione']->importo));
 
-        return ['righe' => $righe, 'entrate' => $totale('entrate'), 'uscite' => $totale('uscite')];
+        return ['imputazioni' => $imputazioni, 'entrate' => $totale('entrate'), 'uscite' => $totale('uscite')];
     }
 
     /** @return list<Saldo> i conti attivi nell'esercizio: saldo al 1/1 e al 31/12, tutti i movimenti (il denaro c'è comunque, confermato o no) */
@@ -90,7 +90,7 @@ final class Prospetto
     }
 
     /**
-     * Cosa impedisce di chiudere l'esercizio, in parole: movimenti da classificare o da confermare, conti non riconciliati, dubbi aperti, giroconti senza la seconda metà.
+     * Cosa impedisce di approvare l'esercizio, in parole: movimenti da classificare o da confermare, conti non riconciliati, dubbi aperti, giroconti senza la seconda metà.
      * Un conto è non riconciliato se non lo è fino all'ultimo movimento dell'esercizio (per l'anno in corso non aspetta il 31/12).
      *
      * @return list<array{testo: string, link: ?string}>

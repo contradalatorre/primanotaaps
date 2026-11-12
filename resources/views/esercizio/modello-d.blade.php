@@ -40,7 +40,7 @@
     @endif
 
     <section data-merlo="modello-d-impedimenti">
-        <h2>Cosa manca per chiudere</h2>
+        <h2>Impedimenti</h2>
         @forelse ($impedimenti as $impedimento)
             @if ($loop->first) <ul class="elenco"> @endif
             <li>{{ $impedimento['testo'] }}@if ($impedimento['link']) · <a href="{{ $impedimento['link'] }}" class="link">vedi</a>@endif</li>

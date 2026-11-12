@@ -11,7 +11,7 @@
     </p>
 
     <ul class="schede" data-merlo="imputazioni-elenco">
-        @forelse ($elenco['righe'] as $riga)
+        @forelse ($elenco['imputazioni'] as $riga)
             @php($i = $riga['imputazione'])
             @php($movimento = $i->movimento)
             <li class="scheda">
