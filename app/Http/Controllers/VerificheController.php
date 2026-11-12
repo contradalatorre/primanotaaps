@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Esercizio\Secondarieta;
 use App\Esercizio\Verifiche;
 use App\Models\DatiEsercizio;
 use App\Models\RegistroModifica;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
@@ -29,6 +29,7 @@ class VerificheController extends Controller
             'anno' => $anno,
             'proposte' => $proposte,
             's' => Verifiche::secondarieta($anno, $proposte),
+            'inAttesa' => Verifiche::inAttesa($anno),
             'aggiornatoAl' => now(),
         ]);
     }
@@ -37,8 +38,7 @@ class VerificheController extends Controller
     {
         $criterio = $request->validate(['criterio' => ['required', Rule::in(['a', 'b'])]])['criterio'];
 
-        DB::transaction(function () use ($request, $anno, $criterio) {
-            $dati = DatiEsercizio::bloccata($request->user(), $anno);
+        DatiEsercizio::sottoBlocco($request->user(), $anno, function (DatiEsercizio $dati) use ($request, $criterio) {
             $prima = $dati->istantanea();
             $dati->update(['criterio_secondarieta' => $criterio]);
             if ($dati->istantanea() !== $prima) {
@@ -46,6 +46,6 @@ class VerificheController extends Controller
             }
         });
 
-        return redirect()->route('test-esercizio', $anno)->with('ok', 'Criterio di secondarietà confermato: il '.($criterio === 'a' ? '30' : '66').'% (criterio '.$criterio.').');
+        return redirect()->route('test-esercizio', $anno)->with('ok', 'Criterio di secondarietà confermato: il '.Secondarieta::SOGLIE[$criterio].'% (criterio '.$criterio.').');
     }
 }

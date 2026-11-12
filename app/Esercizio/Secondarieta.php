@@ -19,7 +19,7 @@ namespace App\Esercizio;
  */
 final class Secondarieta
 {
-    private const SOGLIE = ['a' => 30, 'b' => 66];
+    public const SOGLIE = ['a' => 30, 'b' => 66];
 
     /**
      * @param  array<string, mixed>  $modelloD  il risultato di `Calcolo::modelloD`
@@ -46,8 +46,9 @@ final class Secondarieta
             ], $sogliaVicino),
         ];
 
-        // Il più largo: più margine in euro, a parità il 30%. Hanno lo stesso numeratore, quindi l'ordine è quello della quota di soglia usata.
-        $proposto = $criteri['b']['margine'] > $criteri['a']['margine'] ? 'b' : 'a';
+        // Il più largo: quello che regge più entrate B in più (il margine spendibile, che la pagina mostra), a parità il 30%. Il margine
+        // in euro non basta: nel 30% le entrate B in più fanno crescere anche il totale, quindi a pari margine lo spendibile è maggiore.
+        $proposto = $criteri['b']['spendibile'] > $criteri['a']['spendibile'] ? 'b' : 'a';
 
         return [
             'criteri' => $criteri,
@@ -59,6 +60,8 @@ final class Secondarieta
             'sogliaVicino' => $sogliaVicino,
         ];
     }
+
+    public const ETICHETTE = ['rispettato' => 'Rispettato', 'vicino' => 'Vicino alla soglia', 'non_rispettato' => 'Non rispettato'];
 
     private const GRAVITA = ['rispettato' => 0, 'vicino' => 1, 'non_rispettato' => 2];
 

@@ -52,6 +52,13 @@ class SecondarietaTest extends TestCase
                 [],
                 ['a.esito' => 'non_rispettato', 'b.esito' => 'non_rispettato', 'esito' => 'non_rispettato', 'proposto' => 'b', 'a.margine' => -550000, 'b.margine' => -340000],
             ],
+            // Il più largo è quello che regge più entrate B in più (lo spendibile), non quello con più margine: 30% → 7.142,85 contro 66% → 6.000,38,
+            // anche se il margine in euro del 66% (6.000,38) supera quello del 30% (5.000,00).
+            'il criterio proposto è quello con più margine spendibile' => [
+                [self::e('B3', 1000000), self::e('A1', 4000000), self::u('A2', 2424300)],
+                [],
+                ['a.margine' => 500000, 'a.spendibile' => 714285, 'b.margine' => 600038, 'b.spendibile' => 600038, 'proposto' => 'a'],
+            ],
             // La soglia «vicino» è oltre l'80% del limite: al 24% esatto (80% di 30) è ancora rispettato, un centesimo oltre è vicino.
             'esattamente all\'80% del limite è rispettato' => [
                 [self::e('B3', 2400), self::e('A1', 7600), self::u('A2', 100000)],

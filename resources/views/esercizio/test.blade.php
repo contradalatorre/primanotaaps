@@ -15,8 +15,8 @@
         <noscript><button type="submit" class="bottone">Aggiorna</button></noscript>
     </form>
     <p class="nota" data-merlo="test-in-attesa">
-        In attesa di conferma: {{ $s['inAttesa']['entrate']['numero'] }} {{ $s['inAttesa']['entrate']['numero'] === 1 ? 'entrata' : 'entrate' }} per {{ $euro($s['inAttesa']['entrate']['importo']) }} €
-        e {{ $s['inAttesa']['uscite']['numero'] }} {{ $s['inAttesa']['uscite']['numero'] === 1 ? 'uscita' : 'uscite' }} per {{ $euro($s['inAttesa']['uscite']['importo']) }} €.
+        In attesa di conferma: {{ $inAttesa['entrate']['numero'] }} {{ $inAttesa['entrate']['numero'] === 1 ? 'entrata' : 'entrate' }} per {{ $euro($inAttesa['entrate']['importo']) }} €
+        e {{ $inAttesa['uscite']['numero'] }} {{ $inAttesa['uscite']['numero'] === 1 ? 'uscita' : 'uscite' }} per {{ $euro($inAttesa['uscite']['importo']) }} €.
         <a href="{{ route('movimenti') }}" class="link">Movimenti</a>
     </p>
     <p class="nota">

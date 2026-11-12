@@ -21,18 +21,19 @@ final class Verifiche
         $vicino = ImpostazioniAssociazione::per($anno)?->soglia_vicino ?? self::SOGLIA_VICINO_DI_PARTENZA;
 
         return Secondarieta::calcola(Prospetto::modelloD($anno, $proposte), $dati->figurativi_dichiarati, $vicino, $dati->criterio_secondarieta)
-            + ['dati' => $dati, 'inAttesa' => self::inAttesa($anno)];
+            + ['dati' => $dati];
     }
 
     /**
-     * Le entrate e le uscite che attendono conferma (movimenti proposti): quante imputazioni e per quanti centesimi.
+     * Le entrate e le uscite che attendono conferma (movimenti proposti): quanti movimenti e per quanti centesimi. Lo chiede
+     * solo la pagina dei test, non la home.
      *
      * @return array{entrate: array{numero: int, importo: int}, uscite: array{numero: int, importo: int}}
      */
     public static function inAttesa(int $anno): array
     {
         $attese = Prospetto::imputazioni($anno, true)->filter(fn (array $r) => $r['imputazione']->movimento->stato === 'proposto');
-        $per = fn (string $lato) => ['numero' => $attese->where('lato', $lato)->count(), 'importo' => $attese->where('lato', $lato)->sum(fn (array $r) => abs($r['imputazione']->importo))];
+        $per = fn (string $lato) => ['numero' => $attese->where('lato', $lato)->pluck('imputazione.movimento_id')->unique()->count(), 'importo' => $attese->where('lato', $lato)->sum(fn (array $r) => abs($r['imputazione']->importo))];
 
         return ['entrate' => $per('entrate'), 'uscite' => $per('uscite')];
     }

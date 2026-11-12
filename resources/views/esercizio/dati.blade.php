@@ -63,8 +63,13 @@
                 @endforeach
             </select>
         </label>
-        <label>Descrizione (gruppo e ore rilevate, senza nomi) <input type="text" name="descrizione" maxlength="255" value="{{ old('descrizione') }}" required></label>
-        <label>Importo (€) <input type="text" name="importo" inputmode="decimal" maxlength="30" value="{{ old('importo') }}" required></label>
+        <label>Gruppo o prestazione (senza nomi di persone) <input type="text" name="descrizione" maxlength="200" value="{{ old('descrizione') }}" required></label>
+        <fieldset>
+            <legend>Costo: ore rilevate × retribuzione oraria (l’importo lo calcola l’app)</legend>
+            <label>Ore rilevate <input type="text" name="ore" inputmode="decimal" maxlength="12" value="{{ old('ore') }}"></label>
+            <label>Retribuzione oraria del CCNL (€/h) <input type="text" name="tariffa" inputmode="decimal" maxlength="12" value="{{ old('tariffa') }}"></label>
+        </fieldset>
+        <label>Provento: valore normale documentato (€) <input type="text" name="importo" inputmode="decimal" maxlength="30" value="{{ old('importo') }}"></label>
         <button type="submit" class="bottone">Aggiungi la riga</button>
     </form>
 @endsection

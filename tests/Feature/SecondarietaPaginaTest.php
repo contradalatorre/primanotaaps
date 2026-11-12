@@ -91,7 +91,7 @@ class SecondarietaPaginaTest extends TestCase
     public function test_un_criterio_confermato_peggiore_del_proposto_si_segnala(): void
     {
         $this->esercizioConB();
-        DatiEsercizio::bloccata($this->tesoriere, 2026)->update(['criterio_secondarieta' => 'a']);
+        DatiEsercizio::updateOrCreate(['esercizio' => 2026], ['criterio_secondarieta' => 'a']);
 
         $this->actingAs($this->tesoriere)->get('/esercizi/2026/test')
             ->assertSeeText('Il criterio confermato (a) è «Non rispettato», mentre il b è «Rispettato»');
@@ -113,7 +113,7 @@ class SecondarietaPaginaTest extends TestCase
             ->assertSee('href="'.route('dati-esercizio', 2026).'"', false);
         $this->actingAs($this->lettore())->get('/esercizi/2026/test')->assertSeeText('Dato mancante')->assertDontSee(route('dati-esercizio', 2026), false);
 
-        DatiEsercizio::bloccata($this->tesoriere, 2026)->update(['figurativi_dichiarati' => true]);
+        DatiEsercizio::updateOrCreate(['esercizio' => 2026], ['figurativi_dichiarati' => true]);
 
         $this->actingAs($this->tesoriere)->get('/esercizi/2026/test')->assertDontSeeText('Dato mancante');
     }
@@ -121,7 +121,7 @@ class SecondarietaPaginaTest extends TestCase
     public function test_i_figurativi_inseriti_entrano_nel_66_e_la_pagina_non_ne_mostra_la_descrizione(): void
     {
         $this->esercizioConB();
-        $this->actingAs($this->tesoriere)->post('/esercizi/2026/dati/figurativi', ['tipo' => 'costo', 'area' => 'A', 'descrizione' => 'Gruppo cucina, 100 ore di Mario Rossi', 'importo' => '1.000,00'])->assertSessionHasNoErrors();
+        $this->actingAs($this->tesoriere)->post('/esercizi/2026/dati/figurativi', ['tipo' => 'costo', 'area' => 'A', 'descrizione' => 'Gruppo cucina di Mario Rossi', 'ore' => '100', 'tariffa' => '10,00'])->assertSessionHasNoErrors();
 
         $this->assertSame(100000, Verifiche::secondarieta(2026)['criteri']['b']['denominatore']['parti'][1]['importo']);
         $this->actingAs($this->tesoriere)->get('/esercizi/2026/test')->assertOk()->assertDontSeeText('Mario Rossi');
@@ -204,7 +204,7 @@ class SecondarietaPaginaTest extends TestCase
 
     public function test_le_righe_figurative_si_aggiungono_e_si_eliminano_e_il_registro_non_ha_le_descrizioni(): void
     {
-        $this->actingAs($this->tesoriere)->post('/esercizi/2026/dati/figurativi', ['tipo' => 'costo', 'area' => 'B', 'descrizione' => 'Squadra montaggio, 40 ore di Mario Rossi', 'importo' => '600,00'])->assertSessionHasNoErrors();
+        $this->actingAs($this->tesoriere)->post('/esercizi/2026/dati/figurativi', ['tipo' => 'costo', 'area' => 'B', 'descrizione' => 'Squadra montaggio di Mario Rossi', 'ore' => '40', 'tariffa' => '15'])->assertSessionHasNoErrors();
 
         $riga = RigaFigurativa::sole();
         $this->assertSame([2026, 'costo', 'B', 60000], [$riga->esercizio, $riga->tipo, $riga->area, $riga->importo]);
@@ -221,12 +221,42 @@ class SecondarietaPaginaTest extends TestCase
 
     public function test_una_riga_figurativa_non_valida_si_rifiuta(): void
     {
-        foreach ([['tipo' => 'stima', 'area' => 'A', 'importo' => '10'], ['tipo' => 'costo', 'area' => 'E', 'importo' => '10'], ['tipo' => 'costo', 'area' => 'A', 'importo' => '0'], ['tipo' => 'costo', 'area' => 'A', 'importo' => '-5'], ['tipo' => 'costo', 'area' => 'A', 'importo' => 'molto']] as $caso) {
+        foreach ([
+            ['tipo' => 'stima', 'area' => 'A', 'importo' => '10'],
+            ['tipo' => 'provento', 'area' => 'E', 'importo' => '10'],
+            ['tipo' => 'costo', 'area' => 'A', 'importo' => '500'], // un costo a forfait, senza ore: mai stime
+            ['tipo' => 'costo', 'area' => 'A', 'ore' => '0', 'tariffa' => '10'],
+            ['tipo' => 'costo', 'area' => 'A', 'ore' => '5', 'tariffa' => '-1'],
+            ['tipo' => 'costo', 'area' => 'A', 'ore' => 'molte', 'tariffa' => '10'],
+            ['tipo' => 'provento', 'area' => 'A', 'importo' => '0'],
+            ['tipo' => 'provento', 'area' => 'A', 'importo' => '-5'],
+            ['tipo' => 'provento', 'area' => 'A', 'importo' => 'molto'],
+        ] as $caso) {
             $this->actingAs($this->tesoriere)->post('/esercizi/2026/dati/figurativi', $caso + ['descrizione' => 'Gruppo'])->assertSessionHasErrors();
         }
-        $this->actingAs($this->tesoriere)->post('/esercizi/2026/dati/figurativi', ['tipo' => 'costo', 'area' => 'A', 'importo' => '10'])->assertSessionHasErrors('descrizione');
+        $this->actingAs($this->tesoriere)->post('/esercizi/2026/dati/figurativi', ['tipo' => 'provento', 'area' => 'A', 'importo' => '10'])->assertSessionHasErrors('descrizione');
         $this->assertSame(0, RigaFigurativa::count());
-        $this->actingAs($this->lettore())->post('/esercizi/2026/dati/figurativi', ['tipo' => 'costo', 'area' => 'A', 'descrizione' => 'x', 'importo' => '10'])->assertForbidden();
+        $this->actingAs($this->lettore())->post('/esercizi/2026/dati/figurativi', ['tipo' => 'provento', 'area' => 'A', 'descrizione' => 'x', 'importo' => '10'])->assertForbidden();
+    }
+
+    public function test_un_provento_figurativo_e_un_importo_documentato_e_non_entra_nel_30(): void
+    {
+        $this->esercizioConB();
+
+        $this->actingAs($this->tesoriere)->post('/esercizi/2026/dati/figurativi', ['tipo' => 'provento', 'area' => 'A', 'descrizione' => 'Prestazione gratuita di un tecnico', 'importo' => '800,00'])->assertSessionHasNoErrors();
+
+        $this->assertSame(['provento', 80000], [RigaFigurativa::sole()->tipo, RigaFigurativa::sole()->importo]);
+        $this->assertSame(25000, Verifiche::secondarieta(2026)['criteri']['a']['denominatore']['importo']);
+    }
+
+    public function test_in_attesa_si_contano_i_movimenti_non_le_imputazioni(): void
+    {
+        $movimento = Movimento::factory()->create(['conto_id' => $this->cassa->id, 'verso' => 'entrata', 'importo' => 6000, 'data' => '2026-03-01', 'inserito_da' => $this->tesoriere->id, 'stato' => 'proposto']);
+        foreach ([4000, 2000] as $importo) {
+            Imputazione::create(['movimento_id' => $movimento->id, 'importo' => $importo, 'area' => 'A', 'tipologia_id' => Tipologia::where('nome', 'Quote associative')->firstOrFail()->id]);
+        }
+
+        $this->assertSame(['numero' => 1, 'importo' => 6000], Verifiche::inAttesa(2026)['entrate']);
     }
 
     public function test_la_pagina_dei_test_e_il_suo_indirizzo_corto_e_gli_anni_impossibili(): void

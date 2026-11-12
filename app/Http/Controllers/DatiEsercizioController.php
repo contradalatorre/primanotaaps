@@ -9,14 +9,13 @@ use App\Models\RegistroModifica;
 use App\Models\RigaFigurativa;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
  * I dati dell'esercizio (#53, storia 113): dipendenti, attivo, criterio di riparto dei costi promiscui, e i costi e proventi
  * figurativi. Li scrive e li legge chi ha `gestire_esercizio`: le descrizioni dei figurativi possono nominare persone e non
- * compaiono nel Modello D (storia 143), solo qui. Ogni scrittura si fa a riga dei dati bloccata (`DatiEsercizio::bloccata`).
+ * compaiono nel Modello D (storia 143), solo qui. Ogni scrittura si fa a riga dei dati bloccata (`DatiEsercizio::sottoBlocco`).
  */
 class DatiEsercizioController extends Controller
 {
@@ -42,8 +41,7 @@ class DatiEsercizioController extends Controller
             throw ValidationException::withMessages(['attivo' => 'Scrivi il totale dell’attivo in euro, per esempio 12.345,67.']);
         }
 
-        DB::transaction(function () use ($request, $anno, $campi, $attivo) {
-            $dati = DatiEsercizio::bloccata($request->user(), $anno);
+        DatiEsercizio::sottoBlocco($request->user(), $anno, function (DatiEsercizio $dati) use ($request, $campi, $attivo) {
             $prima = $dati->istantanea();
             $dati->fill([
                 'dipendenti_medi' => $campi['dipendenti_medi'] ?? null, 'attivo' => $attivo, 'criterio_riparto' => $campi['criterio_riparto'],
@@ -57,22 +55,37 @@ class DatiEsercizioController extends Controller
         return redirect()->route('dati-esercizio', $anno)->with('ok', 'Dati dell’esercizio '.$anno.' salvati.');
     }
 
+    /**
+     * Un costo figurativo è solo «ore rilevate × retribuzione oraria del CCNL» (#17: nessuna stima forfettaria): l'importo lo calcola
+     * l'app e ore e tariffa restano scritte nella descrizione. Un provento è il valore normale documentato di una prestazione gratuita.
+     */
     public function aggiungiFigurativo(Request $request, int $anno): RedirectResponse
     {
+        $costo = $request->input('tipo') === 'costo';
         $campi = $request->validate([
             'tipo' => ['required', Rule::in(['costo', 'provento'])],
             'area' => ['required', Rule::in(array_keys(SchemaModelloD::figurativi()))],
-            'descrizione' => ['required', 'string', 'max:255'],
-            'importo' => ['required', 'string', 'max:30'],
+            'descrizione' => ['required', 'string', 'max:200'],
+            'ore' => [$costo ? 'required' : 'nullable', 'string', 'max:12'],
+            'tariffa' => [$costo ? 'required' : 'nullable', 'string', 'max:12'],
+            'importo' => [$costo ? 'nullable' : 'required', 'string', 'max:30'],
         ]);
-        $importo = Euro::daTesto($campi['importo']);
-        if ($importo === null || $importo <= 0) {
-            throw ValidationException::withMessages(['importo' => 'Scrivi un importo in euro maggiore di zero, per esempio 1.234,56.']);
+        $ore = $costo ? Euro::daTesto($campi['ore']) : null; // centesimi di ora: stesso formato di un importo, due decimali
+        $tariffa = $costo ? Euro::daTesto($campi['tariffa']) : null;
+        if ($costo && ($ore === null || $ore <= 0)) {
+            throw ValidationException::withMessages(['ore' => 'Scrivi le ore rilevate, per esempio 40 o 12,5.']);
         }
+        if ($costo && ($tariffa === null || $tariffa <= 0)) {
+            throw ValidationException::withMessages(['tariffa' => 'Scrivi la retribuzione oraria del CCNL in euro, per esempio 12,50.']);
+        }
+        $importo = $costo ? intdiv($ore * $tariffa + 50, 100) : Euro::daTesto($campi['importo']);
+        if ($importo === null || $importo <= 0) {
+            throw ValidationException::withMessages([$costo ? 'ore' : 'importo' => 'Scrivi un importo in euro maggiore di zero, per esempio 1.234,56.']);
+        }
+        $descrizione = trim($campi['descrizione']).($costo ? ' — '.Euro::formatta($ore).' ore × '.Euro::formatta($tariffa).' €/h' : '');
 
-        DB::transaction(function () use ($request, $anno, $campi, $importo) {
-            DatiEsercizio::bloccata($request->user(), $anno);
-            $riga = RigaFigurativa::create(['esercizio' => $anno, 'tipo' => $campi['tipo'], 'area' => $campi['area'], 'descrizione' => trim($campi['descrizione']), 'importo' => $importo]);
+        DatiEsercizio::sottoBlocco($request->user(), $anno, function () use ($request, $anno, $campi, $importo, $descrizione) {
+            $riga = RigaFigurativa::create(['esercizio' => $anno, 'tipo' => $campi['tipo'], 'area' => $campi['area'], 'descrizione' => $descrizione, 'importo' => $importo]);
             RegistroModifica::registra($request->user(), $riga, 'creata', null, $riga->istantanea());
         });
 
@@ -81,8 +94,7 @@ class DatiEsercizioController extends Controller
 
     public function eliminaFigurativo(Request $request, int $anno, int $riga): RedirectResponse
     {
-        DB::transaction(function () use ($request, $anno, $riga) {
-            DatiEsercizio::bloccata($request->user(), $anno);
+        DatiEsercizio::sottoBlocco($request->user(), $anno, function () use ($request, $anno, $riga) {
             // Letta a blocco preso: una riga già eliminata da un'altra richiesta è un 404, non un secondo registro.
             $riga = RigaFigurativa::where('esercizio', $anno)->findOrFail($riga);
             $prima = $riga->istantanea();

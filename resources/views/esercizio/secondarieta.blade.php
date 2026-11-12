@@ -3,7 +3,8 @@
     $euro = fn (int $c) => \App\Euro::formatta($c);
     $pct = fn (?float $p) => $p === null ? 'non calcolabile' : number_format($p, 2, ',', '.').'%';
     $vai = fn (array $chiavi, string $titolo) => route('esercizio.imputazioni', ['anno' => $anno, 'chiavi' => implode(',', $chiavi), 'titolo' => $titolo] + ($proposte ? ['proposte' => 1] : []));
-    $etichette = ['rispettato' => 'Rispettato', 'vicino' => 'Vicino alla soglia', 'non_rispettato' => 'Non rispettato'];
+    $etichette = \App\Esercizio\Secondarieta::ETICHETTE;
+    $punti = fn (?float $p) => $p === null ? 'non calcolabile' : number_format($p, 2, ',', '.').' punti';
     $criteri = $s['criteri'];
     $nomi = ['a' => 'a) entrate B ÷ entrate della gestione', 'b' => 'b) entrate B ÷ (uscite della gestione + costi figurativi)'];
     $di = ['a' => 'delle entrate della gestione', 'b' => 'dei costi complessivi (uscite della gestione e costi figurativi)'];
@@ -22,7 +23,7 @@
         — con il criterio {{ $p }} ({{ $c['soglia'] }}%):
         le entrate delle attività diverse (area B) sono {{ $euro($c['numeratore']['importo']) }} €, il {{ $pct($c['rapporto']) }} {{ $di[$p] }}.
         @if ($s['esito'] === 'non_rispettato')
-            Il limite è {{ $c['soglia'] }}%: è superato di {{ $euro(-$c['margine']) }} € ({{ $pct($c['marginePunti'] === null ? null : -$c['marginePunti']) }} punti). Per rientrare {{ $spendibile($p) }}.
+            Il limite è {{ $c['soglia'] }}%: è superato di {{ $euro(-$c['margine']) }} € ({{ $punti($c['marginePunti'] === null ? null : -$c['marginePunti']) }}). Per rientrare {{ $spendibile($p) }}.
         @else
             {{ $s['esito'] === 'vicino' ? 'Si è oltre il '.$s['sogliaVicino'].'% del limite.' : '' }}
             Ancora {{ $euro($c['margine']) }} € sotto il limite: {{ $spendibile($p) }}.
@@ -32,7 +33,7 @@
     @if ($s['datoMancante'])
         <p class="avviso" role="status" data-merlo="test-dato-mancante">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l10 18H2zM12 10v5M12 18h.01"/></svg>
-            <span>Dato mancante: i costi figurativi non sono stati dichiarati e il criterio del 66% li conta come zero. L’esito potrebbe essere migliore.
+            <span>Dato mancante: i costi figurativi non sono stati dichiarati completi e il criterio del 66% conta solo quelli inseriti (nessuno, se non ce ne sono). L’esito potrebbe essere migliore.
                 @can('gestire_esercizio')
                     <a href="{{ route('dati-esercizio', $anno) }}" class="link">Inserisci i dati dell’esercizio</a>
                 @else
@@ -53,7 +54,7 @@
                         <td class="text-right">{{ $pct($cr['rapporto']) }}</td>
                         <td class="text-right">{{ $cr['soglia'] }}%</td>
                         <td>@include('esercizio.stato-esito', ['esito' => $cr['esito']])</td>
-                        <td class="text-right">{{ $euro($cr['margine']) }} € ({{ $cr['marginePunti'] === null ? 'non calcolabile' : number_format($cr['marginePunti'], 2, ',', '.').' punti' }})</td>
+                        <td class="text-right">{{ $euro($cr['margine']) }} € ({{ $punti($cr['marginePunti']) }})</td>
                         <td>{{ ucfirst($spendibile($k)) }}.</td>
                     </tr>
                 @endforeach
@@ -78,8 +79,9 @@
         @can('gestire_esercizio')
             <form method="POST" action="{{ route('test-esercizio.criterio', $anno) }}" class="modulo-in-riga">
                 @csrf
-                <button type="submit" name="criterio" value="a" class="bottone-piccolo">Conferma il criterio a (30%)</button>
-                <button type="submit" name="criterio" value="b" class="bottone-piccolo">Conferma il criterio b (66%)</button>
+                @foreach (\App\Esercizio\Secondarieta::SOGLIE as $k => $soglia)
+                    <button type="submit" name="criterio" value="{{ $k }}" class="bottone-piccolo">Conferma il criterio {{ $k }} ({{ $soglia }}%)</button>
+                @endforeach
             </form>
         @endcan
     </div>
