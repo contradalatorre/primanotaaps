@@ -7,9 +7,11 @@ use App\Http\Controllers\ContiController;
 use App\Http\Controllers\CronController;
 use App\Http\Controllers\DatiDiClassificazioneController;
 use App\Http\Controllers\EmergenzaController;
+use App\Http\Controllers\EsercizioController;
 use App\Http\Controllers\GirocontiController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ImportEstrattiController;
+use App\Http\Controllers\ImpostazioniController;
 use App\Http\Controllers\ManualeController;
 use App\Http\Controllers\MigrazioniController;
 use App\Http\Controllers\MovimentiController;
@@ -57,7 +59,13 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::get('/classificazione', [DatiDiClassificazioneController::class, 'index'])->name('classificazione');
         Route::get('/manuale', [ManualeController::class, 'index'])->name('manuale');
         Route::get('/manuale/esporta', [ManualeController::class, 'esporta'])->name('manuale.esporta');
+        // Il Modello D a schermo (#51), sempre provvisorio; ogni cifra porta all'elenco delle sue imputazioni.
+        Route::get('/modello-d', [EsercizioController::class, 'indice'])->name('modello-d.indice');
+        Route::get('/esercizi/{anno}/modello-d', [EsercizioController::class, 'modelloD'])->where('anno', '[0-9]{4}')->name('modello-d');
+        Route::get('/esercizi/{anno}/imputazioni', [EsercizioController::class, 'imputazioni'])->where('anno', '[0-9]{4}')->name('esercizio.imputazioni');
     });
+    // Aprire un esercizio nuovo copia voci e predefiniti: è «modificare la tabella delle voci» (#16).
+    Route::post('/esercizi/{anno}/apertura', [EsercizioController::class, 'apri'])->where('anno', '[0-9]{4}')->middleware('can:riclassificare_in_blocco')->name('esercizio.apri');
     // I dati di base (conti) sono di chi ha `gestire_regole`: #16 non ha un permesso a parte.
     Route::middleware('can:gestire_regole')->group(function () {
         Route::get('/conti/nuovo', [ContiController::class, 'nuovo'])->name('conti.nuovo');
@@ -153,6 +161,9 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::get('/sistema', [StatoSistemaController::class, 'index'])->name('sistema');
         Route::post('/sistema/backup', [StatoSistemaController::class, 'backup'])->name('sistema.backup');
         Route::post('/sistema/errori/{errore}/risoluzione', [StatoSistemaController::class, 'risolvi'])->name('sistema.errori.risolvi');
+        // Impostazioni dell'associazione con validità per esercizio (#51).
+        Route::get('/impostazioni', [ImpostazioniController::class, 'index'])->name('impostazioni');
+        Route::put('/impostazioni', [ImpostazioniController::class, 'salva'])->name('impostazioni.salva');
     });
 
     // Gestione di utenti, ruoli e assegnazioni (#35). Le scritture sono azioni delicate (#36): `password.confirm`

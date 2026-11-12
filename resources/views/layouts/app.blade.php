@@ -28,6 +28,10 @@
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12l9-9h9v9l-9 9zM16 8h.01"/></svg>
                     <span class="voce-testo">Classificazione</span>
                 </a>
+                <a href="{{ route('modello-d.indice') }}" class="voce" @if (request()->routeIs('modello-d*', 'esercizio*')) aria-current="page" @endif>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 3h14v18H5zM9 8h6M9 12h6M9 16h3"/></svg>
+                    <span class="voce-testo">Modello D</span>
+                </a>
                 <a href="{{ route('manuale') }}" class="voce" @if (request()->routeIs('manuale*')) aria-current="page" @endif>
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h7a3 3 0 013 3v13a2 2 0 00-2-2H4zM20 4h-6M20 4v14h-6"/></svg>
                     <span class="voce-testo">Manuale</span>
@@ -50,6 +54,10 @@
                 </a>
             @endcan
             @can('gestire_impostazioni')
+                <a href="{{ route('impostazioni') }}" class="voce" @if (request()->routeIs('impostazioni*')) aria-current="page" @endif>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 5v4M8 15v4"/></svg>
+                    <span class="voce-testo">Impostazioni</span>
+                </a>
                 <a href="{{ route('sistema') }}" class="voce" @if (request()->routeIs('sistema*')) aria-current="page" @endif>
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
                     <span class="voce-testo">Sistema</span>
