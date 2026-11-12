@@ -30,6 +30,10 @@ class CreditAgricoleCsv implements FormatoImport
             // Prima di «versamento»: vince la prima che corrisponde. Il versamento di Satispay in banca (#49) lo dice l'ordinante, nella descrizione.
             // shortcut: la parola «SATISPAY» è un'ipotesi (#33: descrizione del versamento da verificare su un estratto vero, fuori dal repo).
             'satispay' => ['nome' => 'Versamento da Satispay', 'verso' => 'entrata', 'contiene' => ['SATISPAY'], 'con' => 'satispay', 'giorni' => 3, 'meta' => 'Versamento su {conto}'],
+            // Senza `meta`: la metà sta sull'estratto PayPal, che la porta (il trasferimento di PayPal e la sua ricarica hanno la loro regola in `PayPalCsv`).
+            // shortcut: la parola «PAYPAL» è un'ipotesi, come «SATISPAY» (descrizione dell'ordinante o del beneficiario da verificare su un estratto vero).
+            'paypal_accredito' => ['nome' => 'Trasferimento da PayPal', 'verso' => 'entrata', 'contiene' => ['PAYPAL'], 'con' => 'paypal', 'giorni' => 5],
+            'paypal_ricarica' => ['nome' => 'Bonifico a PayPal', 'verso' => 'uscita', 'contiene' => ['PAYPAL'], 'con' => 'paypal', 'giorni' => 5],
             'prelievo' => ['nome' => 'Prelievo di contanti', 'verso' => 'uscita', 'contiene' => ['PRELIEV'], 'con' => 'cassa', 'giorni' => 3, 'meta' => 'Prelievo da {conto}'],
             'versamento' => ['nome' => 'Versamento di contanti', 'verso' => 'entrata', 'contiene' => ['VERSAMENT'], 'con' => 'cassa', 'giorni' => 3, 'meta' => 'Versamento su {conto}'],
         ];

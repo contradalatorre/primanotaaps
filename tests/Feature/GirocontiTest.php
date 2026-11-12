@@ -379,6 +379,30 @@ class GirocontiTest extends TestCase
         $this->revisione('giroconti')->assertSeeText('Aspetta la metà dall’altro conto')->assertDontSeeText('Registra e conferma')->assertSeeText('Senza corrispondenza da 22 giorni');
     }
 
+    public function test_un_accredito_o_un_bonifico_paypal_in_banca_aspetta_l_estratto_paypal_e_poi_si_abbina(): void
+    {
+        $paypal = Conto::factory()->create(['tipo' => 'paypal', 'nome' => 'PayPal', 'formato_import' => 'paypal_csv', 'riga_modello_d' => 'depositi', 'aperto_il' => '2026-01-01']);
+        // L'estratto della banca arriva per primo: la metà PayPal non c'è ancora.
+        $accredito = $this->dellaBanca('BONIFICO A VOSTRO FAVORE', 'ORD. PAYPAL (EUROPE) S.A.R.L. TRASFERIMENTO', 5000, 'entrata', '2026-05-12');
+        $ricarica = $this->dellaBanca('BONIFICO', 'BONIFICO A FAVORE DI PAYPAL (EUROPE) RICARICA', 3000, 'uscita', '2026-05-14');
+
+        $proposte = Giroconti::proposte()->keyBy(fn (array $p) => $p['movimento']->id);
+        $this->assertSame(['attesa', 'attesa'], [$proposte[$accredito->id]['tipo'], $proposte[$ricarica->id]['tipo']]);
+        $this->revisione()->assertSee('data-passo="giroconti" data-conteggio="2"', false)->assertSee('data-passo="decidere" data-conteggio="0"', false);
+
+        // Poi l'estratto PayPal: le due metà si abbinano.
+        $trasferimento = Movimento::factory()->create(['conto_id' => $paypal->id, 'manuale' => false, 'inserito_da' => $this->tesoriere->id, 'causale' => 'Trasferimento avviato dall’utente',
+            'descrizione' => 'Trasferimento avviato dall’utente', 'importo' => 5000, 'verso' => 'uscita', 'data' => '2026-05-11']);
+        $accreditoPaypal = Movimento::factory()->create(['conto_id' => $paypal->id, 'manuale' => false, 'inserito_da' => $this->tesoriere->id, 'causale' => 'Bonifico bancario sul conto PayPal',
+            'descrizione' => 'Bonifico bancario sul conto PayPal', 'importo' => 3000, 'verso' => 'entrata', 'data' => '2026-05-15']);
+
+        $coppie = Giroconti::proposte()->where('tipo', 'coppia');
+        $this->assertSame(2, $coppie->count());
+        $this->assertEqualsCanonicalizing([$accredito->id, $trasferimento->id, $ricarica->id, $accreditoPaypal->id], $coppie->flatMap(fn (array $p) => [$p['movimento']->id, $p['controparte']->id])->all());
+        $this->conferma($accredito, $trasferimento)->assertSessionHasNoErrors();
+        $this->assertSame(1, Giroconto::count());
+    }
+
     public function test_le_regole_si_aggiungono_e_si_ritirano_per_formato(): void
     {
         $this->dellaBanca('BONIFICO ESTERO', 'BONIFICO ESTERO VERSO CASSA FESTA', 7000, 'uscita');
