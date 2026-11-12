@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Schema;
  */
 return new class extends Migration
 {
+    private const TIPOLOGIE_DI_SOMMINISTRAZIONE = ['Somministrazione', 'Somministrazione ai soci'];
+
     public function up(): void
     {
         Schema::table('imputazioni', function (Blueprint $table) {
@@ -25,20 +27,23 @@ return new class extends Migration
             $table->json('forzatura_ingressi')->nullable();
         });
 
-        foreach (['Somministrazione', 'Somministrazione ai soci'] as $nome) {
-            $tipologia = DB::table('tipologie')->where('nome', $nome)->first();
-            if ($tipologia) {
-                $proprieta = array_values(array_unique([...json_decode($tipologia->proprieta, true), 'somministrazione']));
-                DB::table('tipologie')->where('id', $tipologia->id)->update(['proprieta' => json_encode($proprieta)]);
-            }
-        }
+        $this->proprietaDelleTipologie(fn (array $proprieta) => [...$proprieta, 'somministrazione']);
     }
 
     public function down(): void
     {
+        $this->proprietaDelleTipologie(fn (array $proprieta) => array_diff($proprieta, ['somministrazione']));
         Schema::table('imputazioni', function (Blueprint $table) {
             $table->dropConstrainedForeignId('forzatura_da');
             $table->dropColumn(['natura_forzata', 'forzatura_motivazione', 'forzatura_il', 'forzatura_ingressi']);
         });
+    }
+
+    /** @param callable(list<string>): array<string> $cambia */
+    private function proprietaDelleTipologie(callable $cambia): void
+    {
+        foreach (DB::table('tipologie')->whereIn('nome', self::TIPOLOGIE_DI_SOMMINISTRAZIONE)->get() as $tipologia) {
+            DB::table('tipologie')->where('id', $tipologia->id)->update(['proprieta' => json_encode(array_values(array_unique($cambia(json_decode($tipologia->proprieta, true)))))]);
+        }
     }
 };

@@ -88,11 +88,12 @@ class Imputazione extends Model
      * diversi, la forzatura va rivista. Con l'esito del test 2-bis (#54) entrerà anche quello.
      * shortcut: voce, tipologia e impostazioni si leggono a ogni chiamata (una query per imputazione, come `voce()`), senza cache.
      *
-     * @return array{lato: string, area: string, voce: ?string, tipologia_id: ?int, proprieta: list<string>, tipo_controparte: ?string, affiliazione_rete: bool}
+     * @return array{importo: int, lato: string, area: string, voce: ?string, tipologia_id: ?int, proprieta: list<string>, tipo_controparte: ?string, affiliazione_rete: bool}
      */
     public function ingressiNatura(): array
     {
         return [
+            'importo' => $this->importo, // non entra nel calcolo: serve a riconoscere la riga forzata quando si riclassifica
             'lato' => ($this->tipologia?->verso ?? $this->movimento->verso) === 'entrata' ? 'entrate' : 'uscite',
             'area' => $this->area->value,
             'voce' => $this->voce(),

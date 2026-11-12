@@ -20,7 +20,7 @@ final readonly class Natura
     private const VOCI_DEGLI_ASSOCIATI = ['A2', 'A3'];
 
     private const ETICHETTE = [
-        'lato' => 'verso', 'area' => 'area', 'voce' => 'voce', 'tipologia_id' => 'tipologia', 'proprieta' => 'proprietà fiscali della tipologia',
+        'importo' => 'importo', 'lato' => 'verso', 'area' => 'area', 'voce' => 'voce', 'tipologia_id' => 'tipologia', 'proprieta' => 'proprietà fiscali della tipologia',
         'tipo_controparte' => 'socio o terzo', 'affiliazione_rete' => 'affiliazione a una rete nazionale',
     ];
 

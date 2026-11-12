@@ -244,6 +244,50 @@ class NaturaCommercialeTest extends TestCase
         $this->get("/movimenti/{$nuova->movimento_id}/classificazione")->assertSee('Da rivedere')->assertSee('socio o terzo');
     }
 
+    /** Il movimento di 100 euro in due righe (60 e 40) della stessa tipologia B; forza la riga di `$forzata` euro. */
+    private function movimentoInDueRighe(int $forzata): Movimento
+    {
+        $m = $this->entrata('Sponsorizzazioni e pubblicità', 'B')->movimento;
+        $this->riclassifica($m, ['60,00', '40,00']);
+        $this->forza([$m->imputazioni()->where('importo', $forzata * 100)->firstOrFail()])->assertSessionHasNoErrors();
+
+        return $m;
+    }
+
+    /** @param list<string> $importi */
+    private function riclassifica(Movimento $m, array $importi): void
+    {
+        $tipologia = Tipologia::where('nome', 'Sponsorizzazioni e pubblicità')->value('id');
+        $this->actingAs($this->tesoriere)->put("/movimenti/{$m->id}/classificazione", [
+            'imputazioni' => collect($importi)->map(fn ($importo) => ['importo' => $importo, 'tipologia_id' => $tipologia, 'area' => 'B'])->all(),
+        ])->assertSessionHasNoErrors();
+    }
+
+    public function test_la_forzatura_resta_alla_riga_dello_stesso_importo_se_le_righe_si_invertono(): void
+    {
+        $m = $this->movimentoInDueRighe(60);
+
+        $this->riclassifica($m, ['40,00', '60,00']);
+
+        $righe = $m->imputazioni()->orderBy('id')->get();
+        $this->assertSame([4000, 6000], $righe->pluck('importo')->all());
+        $this->assertFalse($righe[0]->forzata());
+        $this->assertTrue($righe[1]->forzata());
+        $this->assertSame([], $righe[1]->forzaturaDaRivedere());
+    }
+
+    public function test_la_forzatura_di_una_riga_che_non_c_e_piu_resta_da_rivedere_sull_importo(): void
+    {
+        $m = $this->movimentoInDueRighe(40);
+
+        $this->riclassifica($m, ['100,00']);
+
+        $riga = $m->imputazioni()->firstOrFail();
+        $this->assertTrue($riga->forzata());
+        $this->assertSame(['importo'], $riga->forzaturaDaRivedere());
+        $this->get('/esercizi/2026/forzature')->assertSee('Da rivedere');
+    }
+
     public function test_le_forzature_sono_elencate_e_segnalate_quando_cambiano_i_dati_del_calcolo(): void
     {
         $sponsor = $this->entrata('Sponsorizzazioni e pubblicità', 'B');

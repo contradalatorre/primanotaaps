@@ -73,20 +73,34 @@ final class Classificazione
     /** @param list<array<string,mixed>> $imputazioni come le restituisce `risolvi` */
     private static function scriviImputazioni(Movimento $movimento, array $imputazioni): void
     {
-        // Le forzature della natura (#52) restano alla riga che prende il posto di quella di prima (la commissione non si conta), con la
-        // fotografia di allora: se area, tipologia o altro sono cambiati, la forzatura risulta da rivedere. Se le righe sono meno, la
-        // forzatura si perde, e il registro lo mostra perché il riassunto dell'imputazione la riporta.
-        $forzate = $movimento->imputazioni()->orderBy('id')->get()->reject->commissione()->values()->map->only(self::CAMPI_DELLA_FORZATURA);
+        // Le forzature della natura (#52) seguono l'importo, non la posizione (la commissione non conta): la riga con lo stesso importo
+        // di una forzata la eredita, con la fotografia di allora (se area, tipologia o altro sono cambiati, risulta da rivedere). Le
+        // forzature senza una riga dello stesso importo passano alle righe rimaste, in ordine, da rivedere sull'importo; se le righe
+        // sono meno, la forzatura si perde e il registro lo mostra, perché il riassunto dell'imputazione la riporta.
+        $forzate = $movimento->imputazioni()->orderBy('id')->get()->reject->commissione()->filter->forzata()->values();
         $movimento->imputazioni()->delete(); // le righe dei tag seguono con la chiave esterna
-        $posto = 0;
+        $libere = [];
         foreach ($imputazioni as $dati) {
             $tag = $dati['tag'];
             unset($dati['tag']);
             $nuova = $movimento->imputazioni()->create($dati);
             $nuova->tag()->sync($tag);
-            if (! $nuova->commissione() && ($forzata = $forzate[$posto++] ?? null) && $forzata['natura_forzata'] !== null) {
-                $nuova->forceFill($forzata)->save();
+            if (! $nuova->commissione()) {
+                $libere[] = $nuova;
             }
+        }
+        $senzaRiga = [];
+        foreach ($forzate as $forzata) {
+            $k = array_find_key($libere, fn (Imputazione $n) => $n->importo === $forzata->importo);
+            if ($k === null) {
+                $senzaRiga[] = $forzata;
+            } else {
+                $libere[$k]->forceFill($forzata->only(self::CAMPI_DELLA_FORZATURA))->save();
+                unset($libere[$k]);
+            }
+        }
+        foreach ($senzaRiga as $forzata) {
+            array_shift($libere)?->forceFill($forzata->only(self::CAMPI_DELLA_FORZATURA))->save();
         }
     }
 
