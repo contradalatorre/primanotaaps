@@ -141,6 +141,10 @@
         @apply text-sm text-neutral-600;
     }
 
+    .esito {
+        @apply inline-flex items-center gap-2;
+    }
+
     h2 {
         @apply mb-2 mt-8 text-xl font-bold;
     }

@@ -50,6 +50,8 @@ class RegistroModifica extends Model
                 $oggetto instanceof Nota => 'nota',
                 $oggetto instanceof Regola => 'regola',
                 $oggetto instanceof ImpostazioniAssociazione => 'impostazioni',
+                $oggetto instanceof DatiEsercizio => 'dati_esercizio',
+                $oggetto instanceof RigaFigurativa => 'riga_figurativa',
                 default => throw new LogicException('Oggetto non previsto nel registro: '.$oggetto::class),
             },
             'oggetto_id' => $oggetto->getKey(),

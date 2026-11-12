@@ -32,6 +32,10 @@
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 3h14v18H5zM9 8h6M9 12h6M9 16h3"/></svg>
                     <span class="voce-testo">Modello D</span>
                 </a>
+                <a href="{{ route('test-esercizio.indice') }}" class="voce" @if (request()->routeIs('test-esercizio*', 'dati-esercizio*')) aria-current="page" @endif>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>
+                    <span class="voce-testo">Test</span>
+                </a>
                 <a href="{{ route('manuale') }}" class="voce" @if (request()->routeIs('manuale*')) aria-current="page" @endif>
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h7a3 3 0 013 3v13a2 2 0 00-2-2H4zM20 4h-6M20 4v14h-6"/></svg>
                     <span class="voce-testo">Manuale</span>

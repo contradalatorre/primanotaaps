@@ -15,6 +15,7 @@
         <label>Codice fiscale <input type="text" name="codice_fiscale" maxlength="16" value="{{ old('codice_fiscale', $attuale?->codice_fiscale) }}"></label>
         <label>Numero RUNTS <input type="text" name="numero_runts" maxlength="255" value="{{ old('numero_runts', $attuale?->numero_runts) }}"></label>
         <label class="spunta"><input type="checkbox" name="affiliazione_rete" value="1" @checked(old('affiliazione_rete', $attuale?->affiliazione_rete))> <span>Affiliata a una rete nazionale con finalità assistenziali riconosciute (art. 85 c. 4 CTS)</span></label>
+        <label>Un test è «vicino alla soglia» oltre il (% del limite) <input type="number" name="soglia_vicino" min="1" max="99" value="{{ old('soglia_vicino', $attuale?->soglia_vicino ?? \App\Esercizio\Verifiche::SOGLIA_VICINO_DI_PARTENZA) }}"></label>
         <button type="submit" class="bottone">Salva</button>
     </form>
 
@@ -28,6 +29,7 @@
                     <div><dt>Codice fiscale</dt><dd>{{ $riga->codice_fiscale ?? 'da inserire' }}</dd></div>
                     <div><dt>Numero RUNTS</dt><dd>{{ $riga->numero_runts ?? 'da inserire' }}</dd></div>
                     <div><dt>Affiliazione a una rete nazionale</dt><dd>{{ $riga->affiliazione_rete ? 'sì' : 'no' }}</dd></div>
+                    <div><dt>«Vicino alla soglia» oltre il</dt><dd>{{ $riga->soglia_vicino }}% del limite</dd></div>
                 </dl>
             </li>
         @endforeach
