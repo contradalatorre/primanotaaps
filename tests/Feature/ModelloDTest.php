@@ -294,6 +294,7 @@ class ModelloDTest extends TestCase
 
     public function test_un_anno_impossibile_e_un_404_e_non_un_errore(): void
     {
+        $this->actingAs($this->tesoriere)->get('/esercizi/9999/modello-d')->assertOk();
         $this->actingAs($this->tesoriere)->get('/esercizi/0000/modello-d')->assertNotFound();
         $this->actingAs($this->tesoriere)->get('/esercizi/0000/imputazioni')->assertNotFound();
         $this->actingAs($this->tesoriere)->post('/esercizi/0000/apertura')->assertNotFound();
