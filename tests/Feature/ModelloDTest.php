@@ -177,7 +177,8 @@ class ModelloDTest extends TestCase
         $pagina = $this->actingAs($this->tesoriere)->get('/esercizi/2026/modello-d')->assertOk();
 
         $this->assertSame(0, Prospetto::modelloD(2026)['aree']['A']['avanzo']['importo']);
-        $pagina->assertSee('titolo=Avanzo%2Fdisavanzo+A', false);
+        $link = route('esercizio.imputazioni', ['anno' => 2026, 'chiavi' => implode(',', Prospetto::modelloD(2026)['aree']['A']['avanzo']['chiavi']), 'titolo' => 'Avanzo/disavanzo A']);
+        $pagina->assertSee('href="'.e($link).'"', false);
     }
 
     public function test_i_costi_e_proventi_figurativi_dai_dati_dell_esercizio_restano_fuori_dai_totali(): void
