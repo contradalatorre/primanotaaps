@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Giroconti;
+use App\Models\Assegnazione;
 use App\Models\Conto;
 use App\Models\Giroconto;
 use App\Models\ImportConflitto;
@@ -270,6 +271,25 @@ class ImportSatispayTest extends TestCase
         $this->actingAs($consigliere)->post("/conti/{$this->satispay->id}/riepilogo", ['riepilogo' => $this->riepilogo()])->assertForbidden();
         $this->actingAs($consigliere)->post("/conti/{$this->satispay->id}/saldi-dichiarati", ['data' => '2026-05-31', 'importo' => '10,00'])->assertForbidden();
         $this->actingAs($this->tesoriere)->post("/conti/{$this->banca()->id}/saldi-dichiarati", ['data' => '2026-05-31', 'importo' => '10,00'])->assertNotFound();
+    }
+
+    public function test_il_saldo_dichiarato_rilegge_il_permesso_e_lo_stato_del_conto_dopo_il_lock(): void
+    {
+        $dati = ['data' => '2026-05-31', 'importo' => '10,00'];
+        // Il permesso viene revocato tra il controllo della rotta e il lock del conto.
+        $utente = $this->utenteCon('Tesoriere');
+        DB::listen(function ($q) use ($utente) {
+            if (str_contains($q->sql, 'from `conti`') && str_contains($q->sql, 'for update')) {
+                Assegnazione::where('user_id', $utente->id)->delete();
+            }
+        });
+        $this->actingAs($utente)->post("/conti/{$this->satispay->id}/saldi-dichiarati", $dati)->assertForbidden();
+        $this->assertSame(0, $this->satispay->saldiDichiarati()->count());
+
+        // Su un conto chiuso non si scrive.
+        $this->satispay->update(['chiuso_il' => '2026-05-31']);
+        $this->actingAs($this->tesoriere)->post("/conti/{$this->satispay->id}/saldi-dichiarati", $dati)->assertSessionHasErrors('conto');
+        $this->assertSame(0, $this->satispay->saldiDichiarati()->count());
     }
 
     public function test_un_conflitto_mostra_cosa_e_cambiato_non_i_campi_della_banca(): void
