@@ -103,7 +103,7 @@ final class Prova
         $this->attributiUtente = $utente->getAttributes();
         $utente->setConnection(self::CONNESSIONE)->unsetRelations();
         // Senza missione lo spazio può non esistere ancora (`prepara`). Gli attributi li ha letti `auth` dalla riga vera: la preferenza che la pagina mostra (e che si salva) è quella della riga nello spazio.
-        if ($missione && $nelloSpazio = DB::connection(self::CONNESSIONE)->table($utente->getTable())->where($utente->getKeyName(), $utente->getKey())->first(['email_menzioni'])) {
+        if ($missione && $nelloSpazio = DB::connection(self::CONNESSIONE)->table($utente->getTable())->where($utente->getKeyName(), $utente->getKey())->first(['email_menzioni'])) { // shortcut: solo le preferenze (oggi una); una nuova colonna scritta dall'utente in prova va aggiunta qui
             $utente->forceFill((array) $nelloSpazio)->syncOriginal();
         }
     }

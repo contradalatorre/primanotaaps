@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Classificazione;
+use App\Giroconti;
 use App\Models\Conto;
 use App\Models\Giroconto;
 use App\Models\ImportConflitto;
@@ -295,6 +296,35 @@ class ImportPayPalTest extends TestCase
         $this->post("/import/{$import->id}/giroconti", ['movimento_a' => $this->movimento('TEST00000000000A5')->id, 'movimento_b' => $accredito->id])->assertSessionHasNoErrors();
         $this->assertSame(2, Giroconto::count());
         $this->assertSame('da_classificare', $altro->refresh()->stato);
+    }
+
+    public function test_importando_prima_la_banca_i_movimenti_paypal_aspettano_l_estratto_paypal_invece_di_essere_proposti_come_spese(): void
+    {
+        $banca = Conto::factory()->create(['tipo' => 'banca', 'nome' => 'Conto corrente', 'formato_import' => 'credit_agricole_csv', 'riga_modello_d' => 'depositi', 'aperto_il' => '2026-01-01', 'saldo_iniziale' => 100000]);
+        // Una regola del Tesoriere che somiglia ai movimenti PayPal: non deve lavorare dove un giroconto la precede.
+        $this->post('/regole', ['nome' => 'PayPal', 'testo' => 'PAYPAL', 'tipologia_id' => $this->tipologia('Utenze')])->assertSessionHasNoErrors();
+        $csv = implode("\r\n", [
+            'Data Op.;Data Val.;Causale;Descrizione;Importo;Saldo Parziale', ';;Saldo Iniziale;;;1.000,00',
+            '02/03/2026;02/03/2026;BONIFICO;BONIFICO A FAVORE DI PAYPAL;\'-100,00;900,00',
+            '12/03/2026;12/03/2026;PAGAMENTO TRAMITE POS;CARTA CA DEBIT VISA *1234 FERRAMENTA ESEMPIO;\'-10,00;890,00',
+            '30/03/2026;30/03/2026;BONIFICO A VOSTRO FAVORE;ACCREDITO PAYPAL;100,00;990,00',
+            ';;Saldo Contabile;;;990,00',
+        ])."\r\n";
+        $this->post("/conti/{$banca->id}/import", ['estratto' => UploadedFile::fake()->createWithContent('banca.csv', $csv)])->assertSessionHasNoErrors();
+        $importBanca = ImportEstratto::latest('id')->firstOrFail();
+        $this->post("/import/{$importBanca->id}/conferma")->assertSessionHasNoErrors();
+
+        $this->get("/import/{$importBanca->id}/revisione")
+            ->assertSee('data-passo="giroconti" data-conteggio="2"', false)
+            ->assertSee('data-passo="pronte" data-conteggio="0"', false)
+            ->assertSee('data-passo="decidere" data-conteggio="1"', false);
+        $this->assertSame(0, Movimento::where('conto_id', $banca->id)->whereNotNull('regola_id')->count());
+        $this->assertSame(2, Giroconti::proposte()->where('tipo', 'attesa')->count());
+
+        // Arriva l'estratto PayPal: le due metà si abbinano.
+        $this->importa($this->fixture());
+        $this->assertSame(2, Giroconti::proposte()->where('tipo', 'coppia')->count());
+        $this->assertSame(0, Giroconti::orfane()->count());
     }
 
     public function test_lo_stesso_file_due_volte_non_duplica_e_un_codice_con_dati_diversi_resta_in_conflitto(): void
