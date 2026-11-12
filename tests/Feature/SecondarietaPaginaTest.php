@@ -25,6 +25,8 @@ class SecondarietaPaginaTest extends TestCase
 
     private Conto $cassa;
 
+    private ?User $lettore = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -51,7 +53,7 @@ class SecondarietaPaginaTest extends TestCase
 
     private function lettore(): User
     {
-        return $this->utenteCon('Lettore esterno', ['scade_il' => now()->addMonth()], ['email' => 'revisore@esterno.example']);
+        return $this->lettore ??= $this->utenteCon('Lettore esterno', ['scade_il' => now()->addMonth()], ['email' => 'revisore@esterno.example']);
     }
 
     public function test_la_pagina_dice_esito_margine_e_margine_spendibile_su_entrambi_i_criteri_con_i_dati_di_oggi(): void
