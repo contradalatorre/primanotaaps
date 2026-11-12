@@ -66,7 +66,7 @@ class NaturaCommercialeTest extends TestCase
         $cena = $this->entrata('Somministrazione ai soci', 'A', 4000, ['tipo_controparte' => 'socio']);
         $this->assertTrue($cena->natura()->commerciale);
 
-        ImpostazioniAssociazione::create(['dal_esercizio' => 2026, 'denominazione' => 'Contrada La Torre APS', 'affiliazione_rete' => true]);
+        ImpostazioniAssociazione::where('dal_esercizio', 2026)->update(['affiliazione_rete' => true]); // la riga del 2026 c'è dalla migrazione
 
         $this->assertFalse($cena->refresh()->natura()->commerciale);
         $this->assertSame('somministrazione-ai-soci-affiliata', $cena->natura()->regola);
@@ -252,7 +252,7 @@ class NaturaCommercialeTest extends TestCase
         $this->get('/esercizi/2026/forzature')->assertOk()->assertSee('Lo dice il commercialista', false)->assertDontSee('Da rivedere');
         $this->get('/esercizi/2026/modello-d')->assertSee('2 forzature della natura commerciale', false)->assertDontSee('da rivedere');
 
-        ImpostazioniAssociazione::create(['dal_esercizio' => 2026, 'denominazione' => 'Contrada La Torre APS', 'affiliazione_rete' => true]);
+        ImpostazioniAssociazione::where('dal_esercizio', 2026)->update(['affiliazione_rete' => true]); // la riga del 2026 c'è dalla migrazione
 
         $this->get('/esercizi/2026/forzature')->assertSee('Da rivedere')->assertSee('affiliazione a una rete nazionale', false);
         $this->get('/esercizi/2026/modello-d')->assertSee('2 da rivedere', false);
@@ -264,7 +264,7 @@ class NaturaCommercialeTest extends TestCase
     {
         $sponsor = $this->entrata('Sponsorizzazioni e pubblicità', 'B');
         $this->forza([$sponsor]);
-        ImpostazioniAssociazione::create(['dal_esercizio' => 2026, 'denominazione' => 'Contrada La Torre APS', 'affiliazione_rete' => true]);
+        ImpostazioniAssociazione::where('dal_esercizio', 2026)->update(['affiliazione_rete' => true]); // la riga del 2026 c'è dalla migrazione
         $this->assertNotSame([], $sponsor->refresh()->forzaturaDaRivedere());
 
         $this->forza([$sponsor], ['motivazione' => 'Confermato dopo l’affiliazione'])->assertSessionHasNoErrors();
