@@ -95,6 +95,7 @@
 
                 @if ($imputazione)
                     <p class="nota">Voce Modello D: {{ $imputazione->etichettaVoce() ?? 'da ricavare (manca la tipologia)' }}</p>
+                    @include('esercizio.natura', ['imputazione' => $imputazione])
                 @endif
             </fieldset>
         @endfor

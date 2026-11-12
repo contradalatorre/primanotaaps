@@ -28,6 +28,7 @@
                     · {{ $i->tipologia?->nome ?? 'senza tipologia' }}
                     @if ($i->commissione()) · commissione @endif
                 </p>
+                @include('esercizio.natura', ['imputazione' => $i])
                 @if ($movimento->giustificativi->isNotEmpty())
                     <p class="nota">Giustificativi: {{ $movimento->giustificativi->pluck('riferimento')->join('; ') }}</p>
                 @endif

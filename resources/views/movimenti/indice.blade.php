@@ -52,6 +52,7 @@
                         @if ($voce) · <strong>{{ $voce }}</strong> @endif
                         @foreach ($imputazione->tag as $t) <span class="etichetta">{{ $t->nome }}</span> @endforeach
                     </p>
+                    @include('esercizio.natura', ['imputazione' => $imputazione])
                 @endforeach
                 @if ($movimento->tipo_controparte)
                     <p class="nota">Controparte: {{ \App\Models\Movimento::TIPI_CONTROPARTE[$movimento->tipo_controparte] }}</p>
