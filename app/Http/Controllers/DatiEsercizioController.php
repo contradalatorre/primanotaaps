@@ -78,6 +78,13 @@ class DatiEsercizioController extends Controller
         if ($costo && ($tariffa === null || $tariffa <= 0)) {
             throw ValidationException::withMessages(['tariffa' => 'Scrivi la retribuzione oraria del CCNL in euro, per esempio 12,50.']);
         }
+        // Limiti ragionevoli (anche perché il prodotto stia in un intero): 100.000 ore, 1.000 €/h.
+        if ($costo && $ore > 10_000_000) {
+            throw ValidationException::withMessages(['ore' => 'Le ore rilevate non possono superare 100.000.']);
+        }
+        if ($costo && $tariffa > 100_000) {
+            throw ValidationException::withMessages(['tariffa' => 'La retribuzione oraria non può superare 1.000 € l’ora.']);
+        }
         $importo = $costo ? intdiv($ore * $tariffa + 50, 100) : Euro::daTesto($campi['importo']);
         if ($importo === null || $importo <= 0) {
             throw ValidationException::withMessages([$costo ? 'ore' : 'importo' => 'Scrivi un importo in euro maggiore di zero, per esempio 1.234,56.']);

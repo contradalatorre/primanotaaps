@@ -241,6 +241,27 @@ class SecondarietaPaginaTest extends TestCase
         $this->actingAs($this->lettore())->post('/esercizi/2026/dati/figurativi', ['tipo' => 'provento', 'area' => 'A', 'descrizione' => 'x', 'importo' => '10'])->assertForbidden();
     }
 
+    public function test_ore_e_tariffa_fuori_misura_sono_rifiutate_senza_un_errore_500(): void
+    {
+        foreach ([['ore' => '9999999999', 'tariffa' => '9999999999'], ['ore' => '100.001', 'tariffa' => '10'], ['ore' => '10', 'tariffa' => '1.000,01']] as $caso) {
+            $this->actingAs($this->tesoriere)->post('/esercizi/2026/dati/figurativi', ['tipo' => 'costo', 'area' => 'A', 'descrizione' => 'Gruppo'] + $caso)->assertSessionHasErrors();
+        }
+        $this->assertSame(0, RigaFigurativa::count());
+        $this->actingAs($this->tesoriere)->post('/esercizi/2026/dati/figurativi', ['tipo' => 'costo', 'area' => 'A', 'descrizione' => 'Gruppo', 'ore' => '100000', 'tariffa' => '1000'])->assertSessionHasNoErrors();
+        $this->assertSame(10000000000, RigaFigurativa::sole()->importo);
+    }
+
+    public function test_con_entrate_da_distacco_la_pagina_avverte_del_personale_distaccato_nel_66(): void
+    {
+        $this->esercizioConB();
+        $this->actingAs($this->tesoriere)->get('/esercizi/2026/test')->assertDontSee('data-merlo="test-distacco"', false);
+
+        $distacco = $this->imputa('entrata', 4000, 'Quote associative', 'E');
+        \DB::table('voci_modello_d')->updateOrInsert(['esercizio' => 2026, 'area' => 'E', 'tipologia_id' => $distacco->tipologia_id], ['voce' => 'E1']);
+
+        $this->actingAs($this->tesoriere)->get('/esercizi/2026/test')->assertOk()->assertSee('data-merlo="test-distacco"', false);
+    }
+
     public function test_un_provento_figurativo_e_un_importo_documentato_e_non_entra_nel_30(): void
     {
         $this->esercizioConB();

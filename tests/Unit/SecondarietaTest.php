@@ -59,6 +59,24 @@ class SecondarietaTest extends TestCase
                 [],
                 ['a.margine' => 500000, 'a.spendibile' => 714285, 'b.margine' => 600038, 'b.spendibile' => 600038, 'proposto' => 'a'],
             ],
+            // Prima l'esito, poi lo spendibile (#17, manuale § 19: «propone quello rispettato con più margine»): il 30% «vicino» (24,3%) ha
+            // più spendibile (814,28) del 66% «rispettato» (52,1%, 646,26), ma non vince.
+            'un criterio rispettato batte uno vicino anche con meno margine spendibile' => [
+                [self::e('B3', 243000), self::e('A1', 757000), self::u('A2', 466100)],
+                [],
+                ['a.esito' => 'vicino', 'b.esito' => 'rispettato', 'a.spendibile' => 81428, 'b.spendibile' => 64626, 'proposto' => 'b', 'esito' => 'rispettato'],
+            ],
+            // Nel 66% le uscite per il personale distaccato restano nel denominatore (ricerca #6 § 2.2): con entrate E1 l'esito lo dice.
+            'con entrate da distacco il 66% avverte del personale distaccato' => [
+                [self::e('B3', 100000), self::e('E1', 400000), self::u('A2', 300000)],
+                [],
+                ['distaccoNel66' => true],
+            ],
+            'senza entrate da distacco nessun avviso sul 66%' => [
+                [self::e('B3', 100000), self::u('A2', 300000)],
+                [],
+                ['distaccoNel66' => false],
+            ],
             // La soglia «vicino» è oltre l'80% del limite: al 24% esatto (80% di 30) è ancora rispettato, un centesimo oltre è vicino.
             'esattamente all\'80% del limite è rispettato' => [
                 [self::e('B3', 2400), self::e('A1', 7600), self::u('A2', 100000)],

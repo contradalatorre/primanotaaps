@@ -43,6 +43,13 @@
         </p>
     @endif
 
+    @if ($s['distaccoNel66'])
+        <p class="avviso" role="status" data-merlo="test-distacco">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l10 18H2zM12 10v5M12 18h.01"/></svg>
+            <span>Ci sono entrate da distacco del personale: nel criterio del 66% le uscite per quel personale restano tra i costi, mentre andrebbero tolte (DM 107/2021, art. 3 c. 4). Il rapporto del 66% può risultare più basso del vero.</span>
+        </p>
+    @endif
+
     <div class="tabella-scorrevole">
         <table class="tabella" data-merlo="test-criteri">
             <caption class="text-left font-bold">I due criteri a confronto</caption>

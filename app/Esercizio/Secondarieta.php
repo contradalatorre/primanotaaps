@@ -15,7 +15,7 @@ namespace App\Esercizio;
  * percentuale (float) serve solo a mostrare.
  *
  * shortcut: le uscite per il personale distaccato non si possono marcare, quindi non si tolgono dal 66% (che ne risulta più basso,
- * cioè più favorevole): da rivedere se l'associazione distacca personale (nessuna fonte del repo lo prevede oggi).
+ * cioè più favorevole): `distaccoNel66` lo segnala quando ci sono entrate E1; da togliere con una marcatura delle uscite.
  */
 final class Secondarieta
 {
@@ -46,9 +46,11 @@ final class Secondarieta
             ], $sogliaVicino),
         ];
 
-        // Il più largo: quello che regge più entrate B in più (il margine spendibile, che la pagina mostra), a parità il 30%. Il margine
-        // in euro non basta: nel 30% le entrate B in più fanno crescere anche il totale, quindi a pari margine lo spendibile è maggiore.
-        $proposto = $criteri['b']['spendibile'] > $criteri['a']['spendibile'] ? 'b' : 'a';
+        // Prima l'esito (un rispettato vince su un vicino: #17, manuale § 19), poi il più largo: quello che regge più entrate B in più (il
+        // margine spendibile, che la pagina mostra), a parità il 30%. Il margine in euro non basta: nel 30% le entrate B in più fanno
+        // crescere anche il totale, quindi a pari margine lo spendibile è maggiore.
+        $gravita = fn (string $k) => self::GRAVITA[$criteri[$k]['esito']];
+        $proposto = [$gravita('b'), $criteri['a']['spendibile']] < [$gravita('a'), $criteri['b']['spendibile']] ? 'b' : 'a';
 
         return [
             'criteri' => $criteri,
@@ -57,6 +59,7 @@ final class Secondarieta
             'confermato' => $confermato,
             'confermatoPeggiore' => $confermato !== null && self::GRAVITA[$criteri[$confermato]['esito']] > self::GRAVITA[$criteri[$proposto]['esito']],
             'datoMancante' => ! $figurativiDichiarati,
+            'distaccoNel66' => $distacco['importo'] > 0,
             'sogliaVicino' => $sogliaVicino,
         ];
     }
