@@ -56,7 +56,7 @@ final class Giroconti
 
     /**
      * Le metà che `$regola` accetta per `$movimento`: un altro conto del tipo `con`, verso opposto, stesso importo, data
-     * entro la finestra, ancora candidate. Il più vicino per data per primo.
+     * entro la finestra, ancora candidate, su un conto non chiuso. Il più vicino per data per primo.
      *
      * @return Collection<int, Movimento>
      */
@@ -66,7 +66,7 @@ final class Giroconti
             ->where('conto_id', '!=', $movimento->conto_id)->where('verso', $movimento->verso === 'uscita' ? 'entrata' : 'uscita')
             ->where('importo', $movimento->importo)
             ->whereBetween('data', [$movimento->data->copy()->subDays($regola['giorni'])->toDateString(), $movimento->data->copy()->addDays($regola['giorni'])->toDateString()])
-            ->whereHas('conto', fn (Builder $c) => $c->where('tipo', $regola['con']))
+            ->whereHas('conto', fn (Builder $c) => $c->where('tipo', $regola['con'])->whereNull('chiuso_il'))
             ->get()->sortBy(fn (Movimento $m) => [abs((int) $m->data->diffInDays($movimento->data)), $m->id])->values();
     }
 
@@ -242,6 +242,9 @@ final class Giroconti
             Conto::orderBy('id')->lockForUpdate()->get(['id']);
             $giroconto = Giroconto::lockForUpdate()->findOrFail($girocontoId);
             $movimenti = self::bloccaMovimenti($utente, [$giroconto->uscita_id, $giroconto->entrata_id]);
+            if ($movimenti->contains(fn (Movimento $m) => $m->conto->chiuso())) {
+                throw ValidationException::withMessages(['conferma' => 'Una delle due metà è su un conto chiuso: il giroconto non si scioglie, perché la metà tornerebbe da classificare dove non si scrive più.']);
+            }
             $giroconto->delete();
             foreach ($movimenti as $movimento) {
                 $prima = $movimento->istantanea();

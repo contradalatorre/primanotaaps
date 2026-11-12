@@ -448,6 +448,35 @@ class GirocontiTest extends TestCase
         $this->assertSame(0, Giroconto::count());
     }
 
+    public function test_una_metà_su_un_conto_chiuso_non_e_una_controparte(): void
+    {
+        $prelievo = $this->prelievo();
+        $entrata = $this->inCassa('Contanti ritirati', 10000, 'entrata', '2026-05-11');
+        $this->cassa->update(['chiuso_il' => '2026-05-20']);
+
+        $this->assertTrue(Giroconti::controparti($prelievo->load('conto'), Giroconti::regolaDi($prelievo))->isEmpty());
+        $this->conferma($prelievo, $entrata)->assertSessionHasErrors('conferma');
+        $this->assertSame(0, Giroconto::count());
+    }
+
+    public function test_un_giroconto_su_un_conto_chiuso_non_si_scioglie_e_il_bottone_non_c_e(): void
+    {
+        $prelievo = $this->prelievo();
+        $entrata = $this->inCassa('Contanti ritirati', 10000, 'entrata', '2026-05-11');
+        $this->conferma($prelievo, $entrata);
+        $giroconto = Giroconto::sole();
+        $scioglimento = "/import/{$this->import->id}/giroconti/{$giroconto->id}/scioglimento";
+        $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione?passo=tutti&movimento={$prelievo->id}")->assertSee($scioglimento, false);
+
+        $this->cassa->update(['chiuso_il' => '2026-05-20']);
+
+        $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione?passo=tutti&movimento={$prelievo->id}")
+            ->assertOk()->assertDontSee($scioglimento, false)->assertDontSeeText('Sciogli il giroconto');
+        $this->actingAs($this->tesoriere)->post($scioglimento)->assertSessionHasErrors('conferma');
+        $this->assertSame(1, Giroconto::count());
+        $this->assertSame('confermato', $entrata->refresh()->stato); // sulla cassa chiusa non torna da classificare
+    }
+
     public function test_un_abbinamento_che_nessuna_regola_propone_o_non_piu_libero_si_rifiuta(): void
     {
         $prelievo = $this->prelievo();
