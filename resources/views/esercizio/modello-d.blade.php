@@ -21,7 +21,8 @@
     </form>
     <p class="nota">
         <a href="{{ route('modello-d', $anno - 1) }}" class="link">Esercizio {{ $anno - 1 }}</a> ·
-        <a href="{{ route('modello-d', $anno + 1) }}" class="link">Esercizio {{ $anno + 1 }}</a>
+        <a href="{{ route('modello-d', $anno + 1) }}" class="link">Esercizio {{ $anno + 1 }}</a> ·
+        <a href="{{ route('esercizio.iniziative', $anno) }}" class="link">Conti per iniziativa {{ $anno }}</a>
     </p>
 
     @if (! $vociCaricate)

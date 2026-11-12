@@ -38,6 +38,7 @@ class Iniziativa extends Model
     public function usata(): bool
     {
         return Imputazione::where('iniziativa_id', $this->id)->exists()
+            || PreventivoIniziativa::where('iniziativa_id', $this->id)->exists()
             || Regola::where('iniziativa_id', $this->id)->exists() || EsempioClassificazione::where('iniziativa_id', $this->id)->exists();
     }
 }

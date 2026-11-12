@@ -33,6 +33,7 @@ class Tipologia extends Model
     public function usata(): bool
     {
         return Imputazione::where('tipologia_id', $this->id)->exists()
+            || PreventivoIniziativa::where('tipologia_id', $this->id)->exists()
             || Regola::where('tipologia_id', $this->id)->exists() || EsempioClassificazione::where('tipologia_id', $this->id)->exists();
     }
 }

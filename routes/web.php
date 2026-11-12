@@ -12,6 +12,7 @@ use App\Http\Controllers\GirocontiController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ImportEstrattiController;
 use App\Http\Controllers\ImpostazioniController;
+use App\Http\Controllers\IniziativeController;
 use App\Http\Controllers\ManualeController;
 use App\Http\Controllers\MigrazioniController;
 use App\Http\Controllers\MovimentiController;
@@ -63,6 +64,13 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::get('/modello-d', [EsercizioController::class, 'indice'])->name('modello-d.indice');
         Route::get('/esercizi/{anno}/modello-d', [EsercizioController::class, 'modelloD'])->where('anno', '[1-9][0-9]{3}')->name('modello-d');
         Route::get('/esercizi/{anno}/imputazioni', [EsercizioController::class, 'imputazioni'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.imputazioni');
+        // Conti per iniziativa con preventivo e scostamento (#57).
+        Route::get('/esercizi/{anno}/iniziative', [IniziativeController::class, 'conti'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.iniziative');
+    });
+    // Il preventivo di un'iniziativa lo scrive chi gestisce regole, tipologie e iniziative (#16).
+    Route::middleware('can:gestire_regole')->where(['anno' => '[1-9][0-9]{3}', 'iniziativa' => '[0-9]+'])->group(function () {
+        Route::get('/esercizi/{anno}/iniziative/{iniziativa}/preventivo', [IniziativeController::class, 'preventivo'])->name('esercizio.preventivo');
+        Route::put('/esercizi/{anno}/iniziative/{iniziativa}/preventivo', [IniziativeController::class, 'salva'])->name('esercizio.preventivo.salva');
     });
     // Aprire un esercizio nuovo copia voci e predefiniti: è «modificare la tabella delle voci» (#16).
     Route::post('/esercizi/{anno}/apertura', [EsercizioController::class, 'apri'])->where('anno', '[1-9][0-9]{3}')->middleware('can:riclassificare_in_blocco')->name('esercizio.apri');
