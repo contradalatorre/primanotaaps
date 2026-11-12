@@ -37,6 +37,9 @@ final class Prova
 
     private ?string $connessioneUtente = null;
 
+    /** @var ?array<string,mixed> gli attributi dell'utente com'erano sul database vero, da rimettere uscendo */
+    private ?array $attributiUtente = null;
+
     public function attiva(): bool
     {
         return $this->reale !== null;
@@ -97,7 +100,12 @@ final class Prova
         // sottoquery di `Menzione::rivolteA`) e i suoi salvataggi (preferenze), lavora sulla sua riga nello spazio.
         $this->utente = $utente;
         $this->connessioneUtente = $utente->getConnectionName();
+        $this->attributiUtente = $utente->getAttributes();
         $utente->setConnection(self::CONNESSIONE)->unsetRelations();
+        // Senza missione lo spazio può non esistere ancora (`prepara`). Gli attributi li ha letti `auth` dalla riga vera: la preferenza che la pagina mostra (e che si salva) è quella della riga nello spazio.
+        if ($missione && $nelloSpazio = DB::connection(self::CONNESSIONE)->table($utente->getTable())->where($utente->getKeyName(), $utente->getKey())->first(['email_menzioni'])) {
+            $utente->forceFill((array) $nelloSpazio)->syncOriginal();
+        }
     }
 
     public function esci(): void
@@ -109,8 +117,8 @@ final class Prova
         DB::purge(self::CONNESSIONE);
         Http::preventStrayRequests($this->httpPrima);
         config(['mail.default' => $this->mailPrima]);
-        $this->utente->setConnection($this->connessioneUtente)->unsetRelations();
-        $this->reale = $this->missione = $this->mailPrima = $this->utente = $this->connessioneUtente = null;
+        $this->utente->setConnection($this->connessioneUtente)->unsetRelations()->setRawAttributes($this->attributiUtente, true);
+        $this->reale = $this->missione = $this->mailPrima = $this->utente = $this->connessioneUtente = $this->attributiUtente = null;
     }
 
     /** Esegue `$lavoro` nello spazio dell'utente e ne esce sempre. */
