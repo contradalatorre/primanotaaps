@@ -77,6 +77,19 @@ class ContiIniziativaTest extends TestCase
         $pagina->assertSeeText('100,00')->assertSeeText('-50,00'); // scostamenti: 800−700 e 350−400
     }
 
+    public function test_le_tre_colonne_hanno_le_righe_per_tipologia(): void
+    {
+        $this->imputa($this->cassa, 'entrata', 50000, '2025-06-01', 'Somministrazione');
+        $this->imputa($this->cassa, 'entrata', 80000, '2026-06-01', 'Somministrazione');
+        $this->imputa($this->cassa, 'uscita', 20000, '2025-06-02', 'Acquisti per la somministrazione'); // nel 2026 non si è speso
+
+        $pagina = $this->actingAs($this->tesoriere)->get('/esercizi/2026/iniziative')->assertOk();
+
+        // esercizio scelto, precedente, dall'avvio: una cella per colonna, sulla riga della tipologia
+        $pagina->assertSeeTextInOrder(['Somministrazione', '800,00', '500,00', '1.300,00']);
+        $pagina->assertSeeTextInOrder(['Acquisti per la somministrazione', '0,00', '200,00', '200,00']);
+    }
+
     public function test_senza_preventivo_la_pagina_lo_dice_e_non_mostra_scostamenti(): void
     {
         $this->imputa($this->cassa, 'entrata', 80000, '2026-06-01', 'Somministrazione');
@@ -179,6 +192,18 @@ class ContiIniziativaTest extends TestCase
             $this->actingAs($this->tesoriere)->put($url, ['righe' => $righe])->assertSessionHasErrors(null, '', $caso);
             $this->assertSame([500], PreventivoIniziativa::pluck('importo')->all(), $caso);
         }
+    }
+
+    public function test_una_tipologia_archiviata_gia_nel_preventivo_si_salva_di_nuovo(): void
+    {
+        $archiviata = Tipologia::forceCreate(['nome' => 'Tipologia archiviata', 'verso' => 'uscita', 'spiegazione' => 'prova', 'proprieta' => [], 'archiviata_il' => now()]);
+        $this->preventivo('Tipologia archiviata', 500);
+        $url = "/esercizi/2026/iniziative/{$this->festa->id}/preventivo";
+
+        $this->actingAs($this->tesoriere)->get($url)->assertOk()->assertSeeText('Tipologia archiviata');
+        $this->actingAs($this->tesoriere)->put($url, ['righe' => [['tipologia_id' => $archiviata->id, 'importo' => '7']]])->assertRedirect('/esercizi/2026/iniziative');
+
+        $this->assertSame([700], PreventivoIniziativa::where('tipologia_id', $archiviata->id)->pluck('importo')->all());
     }
 
     public function test_chi_non_ha_gestire_regole_vede_i_conti_ma_non_scrive_il_preventivo(): void

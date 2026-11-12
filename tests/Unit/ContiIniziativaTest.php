@@ -20,6 +20,12 @@ class ContiIniziativaTest extends TestCase
         return collect($conti['righe'][$lato])->firstWhere('tipologia', $tipologia);
     }
 
+    /** La riga senza le colonne del precedente e dall'avvio: il solo confronto con il preventivo. */
+    private function confronto(array $conti, string $lato, string $tipologia): array
+    {
+        return array_diff_key($this->riga($conti, $lato, $tipologia), ['precedente' => 0, 'avvio' => 0]);
+    }
+
     public function test_esercizio_scelto_precedente_e_totale_dall_avvio(): void
     {
         $righe = [
@@ -34,6 +40,22 @@ class ContiIniziativaTest extends TestCase
         $this->assertSame(['entrate' => 80000, 'uscite' => 30000, 'risultato' => 50000], $c['scelto']);
         $this->assertSame(['entrate' => 50000, 'uscite' => 20000, 'risultato' => 30000], $c['precedente']);
         $this->assertSame(['entrate' => 140000, 'uscite' => 50000, 'risultato' => 90000], $c['avvio']);
+    }
+
+    public function test_ogni_tipologia_ha_effettivo_nell_esercizio_scelto_nel_precedente_e_dall_avvio(): void
+    {
+        $conti = ContiIniziativa::calcola([
+            $this->r(2024, 'entrate', 'Somministrazione', 10000), $this->r(2024, 'uscite', 'Imposte', 300),
+            $this->r(2025, 'entrate', 'Somministrazione', 50000),
+            $this->r(2026, 'entrate', 'Somministrazione', 80000), $this->r(2026, 'entrate', 'Somministrazione', 1000),
+            $this->r(2027, 'entrate', 'Somministrazione', 99999), // dopo l'esercizio scelto: non conta
+        ], [], 2026);
+
+        $s = $this->riga($conti, 'entrate', 'Somministrazione');
+        $this->assertSame([81000, 50000, 141000], [$s['effettivo'], $s['precedente'], $s['avvio']]);
+        // una tipologia mossa solo prima del precedente compare lo stesso, con zero nelle prime due colonne
+        $i = $this->riga($conti, 'uscite', 'Imposte');
+        $this->assertSame([0, 0, 300], [$i['effettivo'], $i['precedente'], $i['avvio']]);
     }
 
     public function test_il_risultato_puo_essere_negativo_e_un_esercizio_senza_righe_vale_zero(): void
@@ -53,9 +75,9 @@ class ContiIniziativaTest extends TestCase
         );
 
         $this->assertTrue($conti['conPreventivo']);
-        $this->assertSame(['tipologia' => 'Somministrazione', 'effettivo' => 80000, 'previsto' => 70000, 'scostamento' => 10000], $this->riga($conti, 'entrate', 'Somministrazione'));
+        $this->assertSame(['tipologia' => 'Somministrazione', 'effettivo' => 80000, 'previsto' => 70000, 'scostamento' => 10000], $this->confronto($conti, 'entrate', 'Somministrazione'));
         // 350,00 spesi contro 400,00 previsti: −50,00 (sotto il preventivo)
-        $this->assertSame(['tipologia' => 'Acquisto di servizi', 'effettivo' => 35000, 'previsto' => 40000, 'scostamento' => -5000], $this->riga($conti, 'uscite', 'Acquisto di servizi'));
+        $this->assertSame(['tipologia' => 'Acquisto di servizi', 'effettivo' => 35000, 'previsto' => 40000, 'scostamento' => -5000], $this->confronto($conti, 'uscite', 'Acquisto di servizi'));
         $this->assertSame(['effettivo' => 80000, 'previsto' => 70000, 'scostamento' => 10000], $conti['totali']['entrate']);
         $this->assertSame(['effettivo' => 35000, 'previsto' => 40000, 'scostamento' => -5000], $conti['totali']['uscite']);
         $this->assertSame(['effettivo' => 45000, 'previsto' => 30000, 'scostamento' => 15000], $conti['totali']['risultato']);
@@ -69,9 +91,9 @@ class ContiIniziativaTest extends TestCase
             2026,
         );
 
-        $this->assertSame(['tipologia' => 'Affitto spazi', 'effettivo' => 0, 'previsto' => 25000, 'scostamento' => -25000], $this->riga($conti, 'uscite', 'Affitto spazi'));
+        $this->assertSame(['tipologia' => 'Affitto spazi', 'effettivo' => 0, 'previsto' => 25000, 'scostamento' => -25000], $this->confronto($conti, 'uscite', 'Affitto spazi'));
         // non prevista: il previsto è zero, tutto lo speso è scostamento
-        $this->assertSame(['tipologia' => 'Imposte', 'effettivo' => 1200, 'previsto' => 0, 'scostamento' => 1200], $this->riga($conti, 'uscite', 'Imposte'));
+        $this->assertSame(['tipologia' => 'Imposte', 'effettivo' => 1200, 'previsto' => 0, 'scostamento' => 1200], $this->confronto($conti, 'uscite', 'Imposte'));
     }
 
     public function test_senza_preventivo_non_c_e_scostamento(): void
@@ -79,15 +101,15 @@ class ContiIniziativaTest extends TestCase
         $conti = ContiIniziativa::calcola([$this->r(2026, 'entrate', 'Somministrazione', 80000)], [], 2026);
 
         $this->assertFalse($conti['conPreventivo']);
-        $this->assertSame(['tipologia' => 'Somministrazione', 'effettivo' => 80000, 'previsto' => null, 'scostamento' => null], $this->riga($conti, 'entrate', 'Somministrazione'));
+        $this->assertSame(['tipologia' => 'Somministrazione', 'effettivo' => 80000, 'previsto' => null, 'scostamento' => null], $this->confronto($conti, 'entrate', 'Somministrazione'));
         $this->assertSame(['effettivo' => 80000, 'previsto' => null, 'scostamento' => null], $conti['totali']['entrate']);
         $this->assertSame(['effettivo' => 80000, 'previsto' => null, 'scostamento' => null], $conti['totali']['risultato']);
     }
 
-    public function test_le_righe_sono_solo_dell_esercizio_scelto_e_in_ordine_di_nome(): void
+    public function test_le_righe_sono_in_ordine_di_nome_e_non_contano_gli_esercizi_dopo_lo_scelto(): void
     {
         $conti = ContiIniziativa::calcola([
-            $this->r(2025, 'entrate', 'Contributi', 1), $this->r(2026, 'entrate', 'Somministrazione', 2), $this->r(2026, 'entrate', 'Erogazioni liberali', 3),
+            $this->r(2027, 'entrate', 'Contributi', 1), $this->r(2026, 'entrate', 'Somministrazione', 2), $this->r(2026, 'entrate', 'Erogazioni liberali', 3),
         ], [], 2026);
 
         $this->assertSame(['Erogazioni liberali', 'Somministrazione'], array_column($conti['righe']['entrate'], 'tipologia'));

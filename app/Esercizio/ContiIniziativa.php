@@ -17,12 +17,19 @@ final class ContiIniziativa
     public static function calcola(array $righe, array $preventivo, int $anno): array
     {
         $conPreventivo = $preventivo !== [];
+        // Per lato e tipologia l'effettivo nelle tre colonne: esercizio scelto, precedente, dall'avvio.
         $effettivo = ['entrate' => [], 'uscite' => []];
         $previsto = ['entrate' => [], 'uscite' => []];
         foreach ($righe as $r) {
-            if ($r->esercizio === $anno) {
-                $effettivo[$r->lato][$r->tipologia] = ($effettivo[$r->lato][$r->tipologia] ?? 0) + $r->importo;
+            if ($r->esercizio > $anno) {
+                continue;
             }
+            $v = &$effettivo[$r->lato][$r->tipologia];
+            $v ??= ['scelto' => 0, 'precedente' => 0, 'avvio' => 0];
+            $v['scelto'] += $r->esercizio === $anno ? $r->importo : 0;
+            $v['precedente'] += $r->esercizio === $anno - 1 ? $r->importo : 0;
+            $v['avvio'] += $r->importo;
+            unset($v);
         }
         foreach ($preventivo as $p) {
             $previsto[$p->lato][$p->tipologia] = ($previsto[$p->lato][$p->tipologia] ?? 0) + $p->importo;
@@ -33,8 +40,12 @@ final class ContiIniziativa
         foreach (['entrate', 'uscite'] as $lato) {
             $nomi = array_unique([...array_keys($effettivo[$lato]), ...array_keys($previsto[$lato])]);
             sort($nomi, SORT_STRING);
-            $dettaglio[$lato] = array_map(fn (string $nome) => ['tipologia' => $nome] + self::confronto($effettivo[$lato][$nome] ?? 0, $conPreventivo ? ($previsto[$lato][$nome] ?? 0) : null), $nomi);
-            $totali[$lato] = self::confronto(array_sum($effettivo[$lato]), $conPreventivo ? array_sum($previsto[$lato]) : null);
+            $dettaglio[$lato] = array_map(function (string $nome) use ($effettivo, $previsto, $lato, $conPreventivo) {
+                $e = $effettivo[$lato][$nome] ?? ['scelto' => 0, 'precedente' => 0, 'avvio' => 0];
+
+                return ['tipologia' => $nome] + self::confronto($e['scelto'], $conPreventivo ? ($previsto[$lato][$nome] ?? 0) : null) + ['precedente' => $e['precedente'], 'avvio' => $e['avvio']];
+            }, $nomi);
+            $totali[$lato] = self::confronto(array_sum(array_column($effettivo[$lato], 'scelto')), $conPreventivo ? array_sum($previsto[$lato]) : null);
         }
         $totali['risultato'] = self::confronto(
             $totali['entrate']['effettivo'] - $totali['uscite']['effettivo'],
