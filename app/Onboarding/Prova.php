@@ -6,6 +6,7 @@ use App\Models\SpazioProva;
 use App\Models\User;
 use Closure;
 use Illuminate\Container\Attributes\Singleton;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +37,9 @@ final class Prova
     private ?User $utente = null;
 
     private ?string $connessioneUtente = null;
+
+    /** @var ?array<string,mixed> gli attributi dell'utente com'erano sul database vero, da rimettere uscendo */
+    private ?array $attributiUtente = null;
 
     public function attiva(): bool
     {
@@ -85,6 +89,19 @@ final class Prova
             throw new RuntimeException('Lo spazio di prova non è disponibile: il database di prova non risponde.', previous: $e);
         }
 
+        // Gli attributi li ha letti `auth` dalla riga vera: la preferenza che la pagina mostra (e che si salva) è quella della riga nello spazio.
+        // Letta prima di cambiare stato, così un errore non lascia il default sulla connessione di prova. Senza missione lo spazio può non
+        // esistere ancora (`prepara`); uno nato prima di una colonna nuova non la ha: vale quella vera.
+        // shortcut: solo le preferenze (oggi una); una nuova colonna scritta dall'utente in prova va aggiunta qui.
+        $preferenze = null;
+        if ($missione) {
+            try {
+                $preferenze = (array) DB::connection(self::CONNESSIONE)->table($utente->getTable())->where($utente->getKeyName(), $utente->getKey())->first(['email_menzioni']) ?: null;
+            } catch (QueryException $e) {
+                report($e);
+            }
+        }
+
         $this->reale = $reale;
         $this->missione = $missione;
         $this->mailPrima = config('mail.default');
@@ -97,7 +114,11 @@ final class Prova
         // sottoquery di `Menzione::rivolteA`) e i suoi salvataggi (preferenze), lavora sulla sua riga nello spazio.
         $this->utente = $utente;
         $this->connessioneUtente = $utente->getConnectionName();
+        $this->attributiUtente = $utente->getAttributes();
         $utente->setConnection(self::CONNESSIONE)->unsetRelations();
+        if ($preferenze) {
+            $utente->forceFill($preferenze)->syncOriginal();
+        }
     }
 
     public function esci(): void
@@ -109,8 +130,8 @@ final class Prova
         DB::purge(self::CONNESSIONE);
         Http::preventStrayRequests($this->httpPrima);
         config(['mail.default' => $this->mailPrima]);
-        $this->utente->setConnection($this->connessioneUtente)->unsetRelations();
-        $this->reale = $this->missione = $this->mailPrima = $this->utente = $this->connessioneUtente = null;
+        $this->utente->setConnection($this->connessioneUtente)->unsetRelations()->setRawAttributes($this->attributiUtente, true);
+        $this->reale = $this->missione = $this->mailPrima = $this->utente = $this->connessioneUtente = $this->attributiUtente = null;
     }
 
     /** Esegue `$lavoro` nello spazio dell'utente e ne esce sempre. */

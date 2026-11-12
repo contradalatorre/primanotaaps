@@ -43,6 +43,12 @@ class Giroconto extends Model
         return $movimento->verso === 'uscita' ? $this->entrata : $this->uscita;
     }
 
+    /** Una delle due metà sta su un conto chiuso: sciogliere la riporterebbe da classificare su un conto dove non si scrive (#84). */
+    public function suContoChiuso(): bool
+    {
+        return $this->uscita->conto->chiuso() || $this->entrata->conto->chiuso();
+    }
+
     public function scopeDelle(Builder $query, iterable $idMovimenti): void
     {
         $id = collect($idMovimenti);

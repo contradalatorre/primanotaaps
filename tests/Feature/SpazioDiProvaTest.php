@@ -239,4 +239,21 @@ class SpazioDiProvaTest extends TestCase
         $this->assertSame('riepilogo', User::find($utente->id)->email_menzioni);
         $this->assertSame('nessuna', $this->prova()->per($utente, null, fn () => User::find($utente->id)->email_menzioni));
     }
+
+    public function test_in_prova_la_pagina_delle_preferenze_mostra_quella_dello_spazio_non_quella_vera(): void
+    {
+        $utente = $this->utenteCon('Tesoriere'); // riga vera: riepilogo
+        $this->actingAs($utente)->post(route('impara.avvia', 'import-e-revisione'));
+        $this->prova()->per($utente, null, fn () => DB::table('users')->where('id', $utente->id)->update(['email_menzioni' => 'nessuna']));
+
+        // Una richiesta nuova: `auth` rilegge l'utente dal database vero, come in produzione (nei test `actingAs` ne riusa l'istanza).
+        $this->actingAs(User::find($utente->id))->get(route('preferenze'))->assertOk()
+            ->assertSee('value="nessuna" checked', false)->assertDontSee('value="riepilogo" checked', false);
+        $this->assertSame('riepilogo', User::find($utente->id)->email_menzioni);
+
+        // Entrando l'utente prende la preferenza dello spazio; uscendo riavrebbe quella vera.
+        $istanza = User::find($utente->id);
+        $this->assertSame('nessuna', $this->prova()->per($istanza, Catalogo::predefinito()->missione('import-e-revisione'), fn () => $istanza->email_menzioni));
+        $this->assertSame('riepilogo', $istanza->email_menzioni);
+    }
 }

@@ -42,10 +42,14 @@
         @endunless
         @include('revisione.dubbio', ['movimento' => $dettaglio])
         @if ($giroconto)
-            <form method="POST" action="{{ route('import.giroconti.scioglie', [$import, $giroconto]) }}">
-                @csrf
-                <button type="submit" class="bottone-piccolo">Sciogli il giroconto</button>
-            </form>
+            @if ($giroconto->suContoChiuso())
+                <span class="nota">Un conto del giroconto è chiuso: non si scioglie.</span>
+            @else
+                <form method="POST" action="{{ route('import.giroconti.scioglie', [$import, $giroconto]) }}">
+                    @csrf
+                    <button type="submit" class="bottone-piccolo">Sciogli il giroconto</button>
+                </form>
+            @endif
         @else
             <a href="{{ route('movimenti.classificazione', $dettaglio) }}" class="bottone-piccolo">{{ $dettaglio->stato === 'da_classificare' ? 'Classifica' : 'Rivedi la classificazione' }}</a>
         @endif

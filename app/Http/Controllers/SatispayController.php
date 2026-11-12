@@ -8,6 +8,7 @@ use App\Import\SatispayRiepilogo;
 use App\Models\Conto;
 use App\Models\RegistroModifica;
 use App\Models\SaldoDichiarato;
+use App\Permesso;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -73,7 +74,13 @@ class SatispayController extends Controller
 
         // A conto bloccato: due invii insieme (doppio clic) non si pestano sulla stessa data e il registro tiene ogni passaggio.
         DB::transaction(function () use ($request, $conto, $dati, $importo) {
-            Conto::lockForUpdate()->findOrFail($conto->id);
+            $conto = Conto::lockForUpdate()->findOrFail($conto->id);
+            // Il permesso e lo stato del conto si rileggono a riga bloccata (MySQL, REPEATABLE READ): quelli della rotta possono essere di prima.
+            $request->user()->unsetRelation('assegnazioniAttive');
+            abort_unless($request->user()->puo(Permesso::ImportareEConfermare), 403);
+            if ($conto->chiuso()) {
+                throw ValidationException::withMessages(['conto' => 'Il conto è chiuso: non si registrano nuovi saldi.']);
+            }
             $saldo = SaldoDichiarato::firstOrNew(['conto_id' => $conto->id, 'data' => $dati['data']]);
             $prima = $saldo->exists ? ['importo' => $saldo->importo, 'spiegazione' => $saldo->spiegazione] : null;
             $saldo->fill(['user_id' => $request->user()->id, 'importo' => $importo, 'spiegazione' => trim($dati['spiegazione'] ?? '') ?: null])->save();

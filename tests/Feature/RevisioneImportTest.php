@@ -404,6 +404,23 @@ class RevisioneImportTest extends TestCase
         $this->actingAs($this->tesoriere)->get($url)->assertSee('data-passo="dubbi" data-conteggio="0"', false);
     }
 
+    public function test_gli_id_dei_dubbi_aperti_si_leggono_con_la_lista_non_con_una_query_per_movimento(): void
+    {
+        $s = $this->scenario();
+        foreach (['ghiaccio', 'gazebo', 'contributo', 'bolletta'] as $chiave) {
+            $s[$chiave]->note()->create(['user_id' => $this->tesoriere->id, 'testo' => 'Dubbio '.$chiave, 'dubbio' => true]);
+        }
+
+        $query = 0;
+        DB::listen(function ($q) use (&$query) {
+            $query += (int) str_contains($q->sql, 'from `note`');
+        });
+        $pagina = $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione?passo=tutti")->assertOk()->getContent();
+
+        $this->assertSame(4, substr_count($pagina, 'name="dubbi_visti[]"'));
+        $this->assertLessThanOrEqual(2, $query, 'le note in dubbio si caricano una volta per la lista, non una per riga');
+    }
+
     public function test_le_righe_della_revisione_hanno_icona_e_conteggio_delle_note(): void
     {
         $s = $this->scenario();
