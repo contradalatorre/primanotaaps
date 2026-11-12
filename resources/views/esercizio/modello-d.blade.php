@@ -127,7 +127,7 @@
                     <tbody>
                         @foreach ($m['figurativi'][$chiave]['righe'] as $riga)
                             <tr>
-                                <td>{{ $riga['etichetta'] }}@foreach ($riga['dettaglio'] as $d)<br><span class="nota">{{ $d['descrizione'] }}: {{ $euro($d['importo']) }} €</span>@endforeach</td>
+                                <td>{{ $riga['etichetta'] }}</td>
                                 <td class="text-right">{{ $euro($riga['importo']) }}</td>
                             </tr>
                         @endforeach

@@ -61,11 +61,11 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::get('/manuale/esporta', [ManualeController::class, 'esporta'])->name('manuale.esporta');
         // Il Modello D a schermo (#51), sempre provvisorio; ogni cifra porta all'elenco delle sue imputazioni.
         Route::get('/modello-d', [EsercizioController::class, 'indice'])->name('modello-d.indice');
-        Route::get('/esercizi/{anno}/modello-d', [EsercizioController::class, 'modelloD'])->where('anno', '[0-9]{4}')->name('modello-d');
-        Route::get('/esercizi/{anno}/imputazioni', [EsercizioController::class, 'imputazioni'])->where('anno', '[0-9]{4}')->name('esercizio.imputazioni');
+        Route::get('/esercizi/{anno}/modello-d', [EsercizioController::class, 'modelloD'])->where('anno', '[1-9][0-9]{3}')->name('modello-d');
+        Route::get('/esercizi/{anno}/imputazioni', [EsercizioController::class, 'imputazioni'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.imputazioni');
     });
     // Aprire un esercizio nuovo copia voci e predefiniti: è «modificare la tabella delle voci» (#16).
-    Route::post('/esercizi/{anno}/apertura', [EsercizioController::class, 'apri'])->where('anno', '[0-9]{4}')->middleware('can:riclassificare_in_blocco')->name('esercizio.apri');
+    Route::post('/esercizi/{anno}/apertura', [EsercizioController::class, 'apri'])->where('anno', '[1-9][0-9]{3}')->middleware('can:riclassificare_in_blocco')->name('esercizio.apri');
     // I dati di base (conti) sono di chi ha `gestire_regole`: #16 non ha un permesso a parte.
     Route::middleware('can:gestire_regole')->group(function () {
         Route::get('/conti/nuovo', [ContiController::class, 'nuovo'])->name('conti.nuovo');

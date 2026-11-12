@@ -25,7 +25,11 @@
 @endphp
 <li class="scheda">
     <p>
-        <strong>{{ $riga->user->name }}</strong> {{ $azioni[$riga->azione] ?? $riga->azione }} {{ $oggetti[$riga->oggetto_tipo] ?? 'il movimento' }} {{ $riga->oggetto_tipo === 'manuale' ? '§ '.(($riga->dopo ?? $riga->prima)['codice'] ?? $riga->oggetto_id) : 'n. '.$riga->oggetto_id }}
+        <strong>{{ $riga->user->name }}</strong> {{ $azioni[$riga->azione] ?? $riga->azione }} {{ $oggetti[$riga->oggetto_tipo] ?? 'il movimento' }} {{ match ($riga->oggetto_tipo) {
+            'manuale' => '§ '.(($riga->dopo ?? $riga->prima)['codice'] ?? $riga->oggetto_id),
+            'impostazioni' => (($riga->dopo ?? $riga->prima)['dal_esercizio'] ?? $riga->oggetto_id), // il dato che le identifica per chi legge: l'esercizio, non l'id della riga
+            default => 'n. '.$riga->oggetto_id,
+        } }}
         <span class="nota">· {{ $riga->created_at->format('d/m/Y H:i') }}</span>
     </p>
     @if ($riga->motivazione) <p>Motivazione: {{ $riga->motivazione }}</p> @endif

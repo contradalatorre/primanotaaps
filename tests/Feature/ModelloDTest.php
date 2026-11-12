@@ -190,8 +190,18 @@ class ModelloDTest extends TestCase
 
         $pagina = $this->actingAs($this->tesoriere)->get('/esercizi/2026/modello-d')->assertOk();
 
-        $pagina->assertSeeText('Volontari del Carnevale, 40 ore: 600,00 €')->assertSeeText('Prestazione gratuita di un tecnico: 150,00 €')->assertDontSeeText('Di un altro anno');
+        // Solo righe e importi: le descrizioni libere possono nominare persone (storia 143) e non stanno nel Modello D.
+        $pagina->assertSeeText('Da attività di interesse generale')->assertSeeText('600,00')->assertSeeText('150,00')
+            ->assertDontSeeText('Volontari del Carnevale')->assertDontSeeText('Prestazione gratuita')->assertDontSeeText('Di un altro anno');
         $this->assertSame(20000, Prospetto::modelloD(2026)['avanzoComplessivo']['importo']);
+    }
+
+    public function test_un_figurativo_in_un_area_senza_riga_e_segnalato_senza_la_sua_descrizione(): void
+    {
+        RigaFigurativa::create(['esercizio' => 2026, 'tipo' => 'costo', 'area' => 'E', 'descrizione' => 'Ore di Mario Rossi', 'importo' => 8000]);
+
+        $this->actingAs($this->tesoriere)->get('/esercizi/2026/modello-d')->assertOk()
+            ->assertSeeText('Un costo figurativo di 80,00 €')->assertDontSeeText('Mario Rossi');
     }
 
     public function test_gli_impedimenti_si_elencano_accanto_al_prospetto(): void
@@ -263,6 +273,30 @@ class ModelloDTest extends TestCase
         $this->actingAs($this->tesoriere)->put('/impostazioni', ['dal_esercizio' => 2026, 'denominazione' => 'X'])->assertForbidden();
         $this->actingAs(User::factory()->create())->get('/esercizi/2026/modello-d')->assertForbidden();
         $this->actingAs($this->tesoriere)->get('/modello-d')->assertRedirect('/esercizi/2026/modello-d');
+    }
+
+    public function test_l_elenco_offre_di_aprire_il_movimento_solo_a_chi_puo_classificarlo(): void
+    {
+        $this->imputa($this->movimento($this->cassa, 'entrata', 1000), 'Quote associative', 'A');
+        $lettore = $this->utenteCon('Lettore esterno', ['scade_il' => now()->addMonth()], ['email' => 'revisore@esterno.example']);
+
+        $this->actingAs($this->tesoriere)->get('/esercizi/2026/imputazioni?chiavi=entrate:A1')->assertSeeText('Apri il movimento');
+        $this->actingAs($lettore)->get('/esercizi/2026/imputazioni?chiavi=entrate:A1')->assertOk()->assertSeeText('10,00')->assertDontSeeText('Apri il movimento');
+    }
+
+    public function test_il_registro_dice_da_quale_esercizio_valgono_le_impostazioni_modificate(): void
+    {
+        $admin = $this->utenteCon('Amministratore');
+        $this->actingAs($admin)->put('/impostazioni', ['dal_esercizio' => 2031, 'denominazione' => 'Contrada La Torre APS'])->assertSessionHasNoErrors();
+
+        $this->actingAs($admin)->get('/registro')->assertOk()->assertSeeText('le impostazioni dell’associazione dall’esercizio 2031');
+    }
+
+    public function test_un_anno_impossibile_e_un_404_e_non_un_errore(): void
+    {
+        $this->actingAs($this->tesoriere)->get('/esercizi/0000/modello-d')->assertNotFound();
+        $this->actingAs($this->tesoriere)->get('/esercizi/0000/imputazioni')->assertNotFound();
+        $this->actingAs($this->tesoriere)->post('/esercizi/0000/apertura')->assertNotFound();
     }
 
     public function test_un_esercizio_nuovo_senza_voci_si_apre_copiando_voci_e_predefiniti_dal_precedente(): void

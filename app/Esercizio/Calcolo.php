@@ -135,7 +135,8 @@ final class Calcolo
                     continue;
                 }
                 if (! isset($righe[$f->area])) {
-                    $anomalie[] = "Il $tipo figurativo «{$f->descrizione}» è nell'area {$f->area}, che nel Modello D non ha una riga: non è nel prospetto.";
+                    // Senza la descrizione libera: può nominare una persona (storia 143).
+                    $anomalie[] = "Un $tipo figurativo di ".Euro::formatta($f->importo)." € è nell'area {$f->area}, che nel Modello D non ha una riga: non è nel prospetto.";
 
                     continue;
                 }

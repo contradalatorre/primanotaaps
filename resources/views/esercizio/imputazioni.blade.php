@@ -31,7 +31,9 @@
                 @if ($movimento->giustificativi->isNotEmpty())
                     <p class="nota">Giustificativi: {{ $movimento->giustificativi->pluck('riferimento')->join('; ') }}</p>
                 @endif
-                <p><a href="{{ route('movimenti.classificazione', $movimento) }}" class="link">Apri il movimento</a></p>
+                @if ($movimento->classificabileDa(auth()->user()))
+                    <p><a href="{{ route('movimenti.classificazione', $movimento) }}" class="link">Apri il movimento</a></p>
+                @endif
             </li>
         @empty
             <li class="vuoto">Nessuna imputazione per questa cifra.</li>
