@@ -138,6 +138,7 @@ class Imputazione extends Model
         return collect([
             Euro::formatta($this->importo).' €', 'area '.$this->area->value, $this->attivita?->nome, $this->iniziativa?->nome,
             $this->tipologia?->nome ?? 'senza tipologia', $tag->isEmpty() ? null : 'tag: '.$tag->join(', '),
+            $this->forzata() ? 'natura forzata: '.($this->natura_forzata ? 'commerciale' : 'non commerciale') : null,
         ])->filter()->join(' · ');
     }
 }

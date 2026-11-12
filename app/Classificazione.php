@@ -73,11 +73,20 @@ final class Classificazione
     /** @param list<array<string,mixed>> $imputazioni come le restituisce `risolvi` */
     private static function scriviImputazioni(Movimento $movimento, array $imputazioni): void
     {
+        // Le forzature della natura (#52) restano alla riga che prende il posto di quella di prima (la commissione non si conta), con la
+        // fotografia di allora: se area, tipologia o altro sono cambiati, la forzatura risulta da rivedere. Se le righe sono meno, la
+        // forzatura si perde, e il registro lo mostra perché il riassunto dell'imputazione la riporta.
+        $forzate = $movimento->imputazioni()->orderBy('id')->get()->reject->commissione()->values()->map->only(self::CAMPI_DELLA_FORZATURA);
         $movimento->imputazioni()->delete(); // le righe dei tag seguono con la chiave esterna
+        $posto = 0;
         foreach ($imputazioni as $dati) {
             $tag = $dati['tag'];
             unset($dati['tag']);
-            $movimento->imputazioni()->create($dati)->tag()->sync($tag);
+            $nuova = $movimento->imputazioni()->create($dati);
+            $nuova->tag()->sync($tag);
+            if (! $nuova->commissione() && ($forzata = $forzate[$posto++] ?? null) && $forzata['natura_forzata'] !== null) {
+                $nuova->forceFill($forzata)->save();
+            }
         }
     }
 
@@ -163,6 +172,8 @@ final class Classificazione
         ])->save();
         RegistroModifica::registra($utente, $movimento, $azione, $prima, $movimento->istantanea());
     }
+
+    private const CAMPI_DELLA_FORZATURA = ['natura_forzata', 'forzatura_motivazione', 'forzatura_da', 'forzatura_il', 'forzatura_ingressi'];
 
     /** Quello che fa cambiare la classificazione: i tag no. */
     private const CAMPI_DELLA_CLASSIFICAZIONE = ['importo', 'area', 'attivita_id', 'iniziativa_id', 'tipologia_id'];
@@ -254,7 +265,7 @@ final class Classificazione
     }
 
     /** A riga bloccata i permessi si rileggono (come `Note::controllaPermesso`): quelli caricati dal controllo della rotta possono essere di prima di una revoca. */
-    private static function conPermessiRiletti(User $utente): User
+    public static function conPermessiRiletti(User $utente): User
     {
         return $utente->unsetRelation('assegnazioniAttive');
     }
