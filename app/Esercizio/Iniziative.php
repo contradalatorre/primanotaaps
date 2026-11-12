@@ -25,7 +25,8 @@ final class Iniziative
         $inAreaA = [];
         // Solo gli esercizi in cui ci sono movimenti: un anno lontano nel futuro non deve costare una query per anno.
         $primo = (int) substr((string) Movimento::min('data'), 0, 4);
-        for ($e = $primo; $primo > 0 && $e <= min($anno, (int) substr((string) Movimento::max('data'), 0, 4)); $e++) {
+        $ultimo = min($anno, (int) substr((string) Movimento::max('data'), 0, 4));
+        for ($e = $primo; $primo > 0 && $e <= $ultimo; $e++) {
             foreach (Prospetto::imputazioni($e, $proposte) as $r) {
                 $i = $r['imputazione'];
                 if ($i->iniziativa_id === null) {

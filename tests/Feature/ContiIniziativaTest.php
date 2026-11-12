@@ -123,7 +123,7 @@ class ContiIniziativaTest extends TestCase
         app('router')->getRoutes()->refreshNameLookups();
 
         $this->actingAs($this->tesoriere)->get('/esercizi/2026/iniziative')->assertOk()
-            ->assertSeeText('pareggio')->assertSee('/esercizi/2026/test#pareggio-area-a', false);
+            ->assertSeeText('pareggio')->assertSee('/esercizi/2026/test#pareggio-iniziativa-'.$this->festa->id, false);
     }
 
     public function test_chi_ha_gestire_regole_salva_il_preventivo_e_resta_nel_registro(): void
@@ -134,7 +134,7 @@ class ContiIniziativaTest extends TestCase
             ['tipologia_id' => $this->tipologia('Somministrazione')->id, 'importo' => '1.200,50'],
             ['tipologia_id' => $this->tipologia('Acquisti per la somministrazione')->id, 'importo' => '400'],
             ['tipologia_id' => '', 'importo' => ''], // riga vuota del modulo: si ignora
-        ]])->assertRedirect("/esercizi/2026/iniziative");
+        ]])->assertRedirect('/esercizi/2026/iniziative');
 
         $this->assertSame([120050, 40000], PreventivoIniziativa::where('iniziativa_id', $this->festa->id)->where('esercizio', 2026)->orderBy('id')->pluck('importo')->all());
         $registro = RegistroModifica::where('oggetto_tipo', 'iniziativa')->where('azione', 'preventivo')->latest('id')->firstOrFail();
@@ -165,6 +165,7 @@ class ContiIniziativaTest extends TestCase
         $url = "/esercizi/2026/iniziative/{$this->festa->id}/preventivo";
         $somministrazione = $this->tipologia('Somministrazione')->id;
         $this->preventivo('Somministrazione', 500);
+        $archiviata = Tipologia::forceCreate(['nome' => 'Tipologia archiviata', 'verso' => 'uscita', 'spiegazione' => 'prova', 'proprieta' => [], 'archiviata_il' => now()])->id;
 
         foreach ([
             'tipologia ripetuta' => [['tipologia_id' => $somministrazione, 'importo' => '1'], ['tipologia_id' => $somministrazione, 'importo' => '2']],
@@ -173,6 +174,7 @@ class ContiIniziativaTest extends TestCase
             'importo non numerico' => [['tipologia_id' => $somministrazione, 'importo' => 'tanto']],
             'importo senza tipologia' => [['tipologia_id' => '', 'importo' => '5']],
             'tipologia inesistente' => [['tipologia_id' => 999999, 'importo' => '5']],
+            'tipologia archiviata nuova' => [['tipologia_id' => $archiviata, 'importo' => '5']],
         ] as $caso => $righe) {
             $this->actingAs($this->tesoriere)->put($url, ['righe' => $righe])->assertSessionHasErrors(null, '', $caso);
             $this->assertSame([500], PreventivoIniziativa::pluck('importo')->all(), $caso);

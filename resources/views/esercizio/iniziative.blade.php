@@ -83,7 +83,7 @@
             @endif
 
             @if ($scheda['inAreaA'] && Route::has('esercizio.test'))
-                <p class="nota" id="pareggio-{{ $i->id }}">Indicatore di pareggio dell’area A (informativo, non è il test di legge): <a href="{{ route('esercizio.test', $anno) }}#pareggio-area-a" class="link">vedi nei test</a>.</p>
+                <p class="nota" id="pareggio-{{ $i->id }}">Indicatore di pareggio dell’area A (informativo, non è il test di legge): <a href="{{ route('esercizio.test', $anno) }}#pareggio-iniziativa-{{ $i->id }}" class="link">vedi nei test</a>.</p>
             @endif
             @can('gestire_regole')
                 <p><a href="{{ route('esercizio.preventivo', [$anno, $i]) }}" class="link">{{ $c['conPreventivo'] ? 'Modifica' : 'Scrivi' }} il preventivo {{ $anno }} di {{ $i->nome }}</a></p>

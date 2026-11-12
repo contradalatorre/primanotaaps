@@ -4,7 +4,7 @@
 
 @section('contenuto')
     <h1>Preventivo {{ $anno }} · {{ $iniziativa->nome }}</h1>
-    <p class="nota">Facoltativo e senza approvazione: le entrate e le uscite che prevedi per l’iniziativa nell’esercizio, una riga per tipologia (il verso è quello della tipologia). Si confrontano con le imputazioni confermate nei conti per iniziativa. Per toglierlo svuota tutte le righe.</p>
+    <p class="nota">Facoltativo e senza approvazione: le entrate e le uscite che prevedi per l’iniziativa nell’esercizio, una riga per tipologia (il verso è quello della tipologia). Nei conti per iniziativa si confrontano con le imputazioni (solo le confermate, salvo che chieda anche le proposte). Per toglierlo svuota tutte le righe.</p>
 
     <form method="POST" action="{{ route('esercizio.preventivo.salva', [$anno, $iniziativa]) }}" class="modulo" data-merlo="preventivo-modulo">
         @csrf

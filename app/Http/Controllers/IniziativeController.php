@@ -10,6 +10,7 @@ use App\Models\Tipologia;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 /**
  * I conti per iniziativa e il preventivo (#57). I conti li vede chi ha `vedere`; il preventivo lo scrive chi ha `gestire_regole` (#16: «iniziative, preventivi»).
@@ -45,9 +46,11 @@ class IniziativeController extends Controller
     {
         // Le righe vuote del modulo si ignorano; una riga a metà no.
         $righe = collect($request->input('righe', []))->filter(fn ($r) => filled($r['tipologia_id'] ?? null) || filled($r['importo'] ?? null))->values()->all();
+        // Come nel modulo: una tipologia archiviata si accetta solo se è già nel preventivo.
+        $usate = Preventivo::righe($iniziativa->id, $anno)->pluck('tipologia_id')->all();
         $dati = Validator::make(['righe' => $righe], [
             'righe' => ['array', 'max:200'],
-            'righe.*.tipologia_id' => ['required', 'integer', 'distinct', 'exists:tipologie,id'],
+            'righe.*.tipologia_id' => ['required', 'integer', 'distinct', Rule::exists('tipologie', 'id')->where(fn ($q) => $q->whereNull('archiviata_il')->orWhereIn('id', $usate))],
             'righe.*.importo' => ['required', 'string', fn ($campo, $valore, $fallisci) => ($c = Euro::daTesto($valore)) === null || $c <= 0
                 ? $fallisci('L’importo deve essere maggiore di zero, in euro e al più con due decimali.') : null],
         ], [
