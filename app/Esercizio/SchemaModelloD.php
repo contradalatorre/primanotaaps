@@ -7,8 +7,10 @@ namespace App\Esercizio;
  * anche a zero. I codici sono quelli di `voci_modello_d` («A1», «E5», «Imposte»); «A1» c'è sia tra le entrate sia tra le
  * uscite, quindi una riga si identifica con il lato: «entrate:A1».
  *
- * shortcut: le etichette sono scritte dallo schema come lo riproducono le guide (Cantiere Terzo Settore, Asso360), non
- * dal testo della Gazzetta Ufficiale (#8: non verificato direttamente); da riscontrare sul DM prima del deposito.
+ * shortcut: le etichette delle righe non sono verificate su nessuna fonte scritta: sono scritte dalla memoria dello schema
+ * del DM. Asso360 (schemi di bilancio ETS, 2022) conferma solo la struttura (cinque aree, investimenti e disinvestimenti,
+ * avanzi, liquidità, prospetto dei figurativi), non le righe; la Gazzetta Ufficiale non era leggibile (#8). Da riscontrare
+ * sul testo del DM 5/3/2020 prima del deposito. Meno certe: le righe dei costi figurativi (A, B, E) e le entrate di E.
  * Le righe degli investimenti («I1»…«I4») non hanno ancora tipologie che le usino: restano a zero finché non nascono.
  */
 final class SchemaModelloD

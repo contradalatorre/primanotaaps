@@ -169,6 +169,17 @@ class ModelloDTest extends TestCase
         $this->actingAs($this->tesoriere)->get('/esercizi/2026/modello-d')->assertSee('/esercizi/2026/imputazioni?chiavi=entrate%3AA4', false);
     }
 
+    public function test_un_avanzo_a_zero_con_entrate_e_uscite_uguali_porta_comunque_alle_sue_imputazioni(): void
+    {
+        $this->imputa($this->movimento($this->cassa, 'entrata', 1000), 'Quote associative', 'A');
+        $this->imputa($this->movimento($this->cassa, 'uscita', 1000), 'Servizi vari', 'A');
+
+        $pagina = $this->actingAs($this->tesoriere)->get('/esercizi/2026/modello-d')->assertOk();
+
+        $this->assertSame(0, Prospetto::modelloD(2026)['aree']['A']['avanzo']['importo']);
+        $pagina->assertSee('titolo=Avanzo%2Fdisavanzo+A', false);
+    }
+
     public function test_i_costi_e_proventi_figurativi_dai_dati_dell_esercizio_restano_fuori_dai_totali(): void
     {
         $this->imputa($this->movimento($this->cassa, 'entrata', 20000), 'Quote associative', 'A');

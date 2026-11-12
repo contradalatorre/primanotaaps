@@ -61,7 +61,7 @@
             <h2>{{ $area }}) {{ $sezione['titolo'] }}</h2>
             @include('esercizio.blocco', ['blocco' => $sezione['uscite']])
             @include('esercizio.blocco', ['blocco' => $sezione['entrate']])
-            <p class="font-bold">Avanzo/disavanzo {{ lcfirst($sezione['titolo']) }}: @include('esercizio.cifra', ['cifra' => $sezione['avanzo'], 'titolo' => 'Avanzo/disavanzo '.$area]) €</p>
+            <p class="font-bold">Avanzo/disavanzo {{ lcfirst($sezione['titolo']) }}: @include('esercizio.cifra', ['cifra' => $sezione['avanzo'], 'titolo' => 'Avanzo/disavanzo '.$area, 'sempre' => true]) €</p>
         </section>
     @endforeach
 
@@ -77,7 +77,7 @@
                         'Imposte' => $m['imposte'],
                         'Avanzo/disavanzo d’esercizio prima degli investimenti e disinvestimenti patrimoniali e finanziamenti' => $m['avanzoPrimaDegliInvestimenti'],
                     ] as $etichetta => $cifra)
-                        <tr><td>{{ $etichetta }}</td><td class="text-right">@include('esercizio.cifra', ['cifra' => $cifra, 'titolo' => $etichetta])</td></tr>
+                        <tr><td>{{ $etichetta }}</td><td class="text-right">@include('esercizio.cifra', ['cifra' => $cifra, 'titolo' => $etichetta, 'sempre' => str_starts_with($etichetta, 'Avanzo')])</td></tr>
                     @endforeach
                 </tbody>
             </table>
@@ -87,8 +87,8 @@
         <div class="tabella-scorrevole">
             <table class="tabella">
                 <tbody>
-                    <tr><td>Avanzo/disavanzo da investimenti e disinvestimenti patrimoniali e finanziamenti</td><td class="text-right">@include('esercizio.cifra', ['cifra' => $m['investimenti']['avanzo'], 'titolo' => 'Investimenti e disinvestimenti'])</td></tr>
-                    <tr class="font-bold"><td>Avanzo/disavanzo complessivo</td><td class="text-right">@include('esercizio.cifra', ['cifra' => $m['avanzoComplessivo'], 'titolo' => 'Avanzo/disavanzo complessivo'])</td></tr>
+                    <tr><td>Avanzo/disavanzo da investimenti e disinvestimenti patrimoniali e finanziamenti</td><td class="text-right">@include('esercizio.cifra', ['cifra' => $m['investimenti']['avanzo'], 'titolo' => 'Investimenti e disinvestimenti', 'sempre' => true])</td></tr>
+                    <tr class="font-bold"><td>Avanzo/disavanzo complessivo</td><td class="text-right">@include('esercizio.cifra', ['cifra' => $m['avanzoComplessivo'], 'titolo' => 'Avanzo/disavanzo complessivo', 'sempre' => true])</td></tr>
                 </tbody>
             </table>
         </div>
