@@ -18,7 +18,7 @@ return new class extends Migration
             $table->unsignedSmallInteger('esercizio');
             $table->foreignId('tipologia_id')->constrained('tipologie')->restrictOnDelete();
             $table->unsignedBigInteger('importo'); // centesimi, maggiore di zero
-            $table->unique(['iniziativa_id', 'esercizio', 'tipologia_id']);
+            $table->unique(['iniziativa_id', 'esercizio', 'tipologia_id'], 'preventivi_iniziativa_riga_unique'); // nome esplicito: quello automatico supera i 64 caratteri di MySQL
         });
     }
 

@@ -61,18 +61,18 @@ class ContiIniziativaTest extends TestCase
     public function test_la_pagina_mostra_esercizio_precedente_totale_dall_avvio_e_il_confronto_con_il_preventivo(): void
     {
         $this->imputa($this->cassa, 'entrata', 50000, '2025-06-01', 'Somministrazione');
-        $this->imputa($this->cassa, 'uscita', 20000, '2025-06-02', 'Acquisto di servizi');
+        $this->imputa($this->cassa, 'uscita', 20000, '2025-06-02', 'Acquisti per la somministrazione');
         $this->imputa($this->cassa, 'entrata', 80000, '2026-06-01', 'Somministrazione');
-        $this->imputa($this->cassa, 'uscita', 35000, '2026-06-02', 'Acquisto di servizi');
+        $this->imputa($this->cassa, 'uscita', 35000, '2026-06-02', 'Acquisti per la somministrazione');
         $this->preventivo('Somministrazione', 70000);
-        $this->preventivo('Acquisto di servizi', 40000);
+        $this->preventivo('Acquisti per la somministrazione', 40000);
 
         $pagina = $this->actingAs($this->tesoriere)->get('/esercizi/2026/iniziative')->assertOk();
 
         $pagina->assertSeeText('Festa della Torre');
         $pagina->assertSeeText('Esercizio 2026')->assertSeeText('Esercizio 2025')->assertSeeText('Dall’avvio');
         $pagina->assertSeeText('1.300,00')->assertSeeText('550,00'); // entrate e uscite dall'avvio: 500+800, 200+350
-        $pagina->assertSeeText('Somministrazione')->assertSeeText('Acquisto di servizi');
+        $pagina->assertSeeText('Somministrazione')->assertSeeText('Acquisti per la somministrazione');
         $pagina->assertSeeText('700,00')->assertSeeText('400,00'); // preventivi
         $pagina->assertSeeText('100,00')->assertSeeText('-50,00'); // scostamenti: 800−700 e 350−400
     }
@@ -92,11 +92,11 @@ class ContiIniziativaTest extends TestCase
         $incasso->update(['importo' => 10000]);
         Imputazione::create(['movimento_id' => $incasso->movimento_id, 'importo' => -350, 'area' => 'D', 'tipologia_id' => $this->tipologia(Tipologia::COMMISSIONI)->id]);
         // Un giroconto con imputazioni sulle due metà, un movimento eliminato e uno solo proposto.
-        $uscita = $this->imputa($this->cassa, 'uscita', 3000, '2026-05-01', 'Acquisto di servizi')->movimento;
+        $uscita = $this->imputa($this->cassa, 'uscita', 3000, '2026-05-01', 'Acquisti per la somministrazione')->movimento;
         $entrata = $this->imputa($this->banca, 'entrata', 3000, '2026-05-01', 'Somministrazione')->movimento;
         Giroconto::create(['uscita_id' => $uscita->id, 'entrata_id' => $entrata->id, 'regola' => 'prova', 'confermato_da' => $this->tesoriere->id, 'confermato_il' => now()]);
-        $this->imputa($this->cassa, 'uscita', 999, '2026-06-01', 'Acquisto di servizi', null, ['eliminato_il' => now()]);
-        $this->imputa($this->cassa, 'uscita', 4000, '2026-02-01', 'Acquisto di servizi', null, ['stato' => 'proposto', 'confermato_il' => null, 'confermato_da' => null]);
+        $this->imputa($this->cassa, 'uscita', 999, '2026-06-01', 'Acquisti per la somministrazione', null, ['eliminato_il' => now()]);
+        $this->imputa($this->cassa, 'uscita', 4000, '2026-02-01', 'Acquisti per la somministrazione', null, ['stato' => 'proposto', 'confermato_il' => null, 'confermato_da' => null]);
 
         $this->actingAs($this->tesoriere)->get('/esercizi/2026/iniziative')->assertOk()
             ->assertSeeText('100,00')->assertDontSeeText('3,50')->assertDontSeeText('30,00')->assertDontSeeText('9,99')->assertDontSeeText('40,00');
@@ -132,7 +132,7 @@ class ContiIniziativaTest extends TestCase
 
         $this->actingAs($this->tesoriere)->put("/esercizi/2026/iniziative/{$this->festa->id}/preventivo", ['righe' => [
             ['tipologia_id' => $this->tipologia('Somministrazione')->id, 'importo' => '1.200,50'],
-            ['tipologia_id' => $this->tipologia('Acquisto di servizi')->id, 'importo' => '400'],
+            ['tipologia_id' => $this->tipologia('Acquisti per la somministrazione')->id, 'importo' => '400'],
             ['tipologia_id' => '', 'importo' => ''], // riga vuota del modulo: si ignora
         ]])->assertRedirect("/esercizi/2026/iniziative");
 
@@ -208,7 +208,7 @@ class ContiIniziativaTest extends TestCase
 
     public function test_una_tipologia_o_un_iniziativa_nel_preventivo_non_si_cancellano(): void
     {
-        $nuova = Tipologia::create(['nome' => 'Tipologia di prova', 'verso' => 'uscita', 'spiegazione' => 'prova', 'proprieta' => []]);
+        $nuova = Tipologia::forceCreate(['nome' => 'Tipologia di prova', 'verso' => 'uscita', 'spiegazione' => 'prova', 'proprieta' => []]);
         $iniziativa = Iniziativa::create(['nome' => 'Iniziativa di prova']);
         PreventivoIniziativa::create(['iniziativa_id' => $iniziativa->id, 'esercizio' => 2026, 'tipologia_id' => $nuova->id, 'importo' => 100]);
 
