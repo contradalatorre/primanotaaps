@@ -286,6 +286,25 @@ class NaturaCommercialeTest extends TestCase
         $this->assertTrue($riga->forzata());
         $this->assertSame(['importo'], $riga->forzaturaDaRivedere());
         $this->get('/esercizi/2026/forzature')->assertSee('Da rivedere');
+        $this->get('/esercizi/2026/modello-d')->assertSee('1 da rivedere', false);
+    }
+
+    public function test_con_due_righe_dello_stesso_importo_la_forzatura_resta_a_quella_con_gli_stessi_ingressi(): void
+    {
+        $m = $this->entrata('Sponsorizzazioni e pubblicità', 'B', 10000)->movimento;
+        $righe = [['importo' => '50,00', 'tipologia_id' => Tipologia::where('nome', 'Sponsorizzazioni e pubblicità')->value('id'), 'area' => 'B'],
+            ['importo' => '50,00', 'tipologia_id' => Tipologia::where('nome', 'Quote associative')->value('id'), 'area' => 'A']];
+        $salva = fn () => $this->actingAs($this->tesoriere)->put("/movimenti/{$m->id}/classificazione", ['imputazioni' => $righe])->assertSessionHasNoErrors();
+        $salva();
+        $quota = $m->imputazioni()->orderBy('id')->get()[1];
+        $this->forza([$quota], ['natura' => 'commerciale'])->assertSessionHasNoErrors();
+
+        $salva(); // le stesse righe, nello stesso ordine
+
+        $righeDopo = $m->imputazioni()->orderBy('id')->get();
+        $this->assertFalse($righeDopo[0]->forzata());
+        $this->assertTrue($righeDopo[1]->forzata());
+        $this->assertSame([], $righeDopo[1]->forzaturaDaRivedere());
     }
 
     public function test_le_forzature_sono_elencate_e_segnalate_quando_cambiano_i_dati_del_calcolo(): void
