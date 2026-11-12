@@ -12,7 +12,7 @@
             <h2>Test di secondarietà</h2>
             <p>@include('esercizio.stato-esito', ['esito' => $secondarieta['esito']])
                 — criterio {{ $secondarieta['proposto'] }} ({{ $criterio['soglia'] }}%), con i dati di oggi:
-                {{ $secondarieta['esito'] === 'non_rispettato' ? 'limite superato di '.\App\Euro::formatta(-$criterio['margine']).' €' : 'ancora '.\App\Euro::formatta($criterio['margine']).' € sotto il limite' }}.
+                {{ $secondarieta['esito'] === 'non_rispettato' ? 'soglia superata di '.\App\Euro::formatta(-$criterio['margine']).' €' : 'ancora '.\App\Euro::formatta($criterio['margine']).' € sotto il limite' }}.
                 @if ($secondarieta['datoMancante']) Dato mancante: i costi figurativi non sono dichiarati, l’esito potrebbe essere migliore. @endif
             </p>
             <p><a href="{{ route('test-esercizio', today()->year) }}" class="link">Apri il test dell’esercizio</a></p>

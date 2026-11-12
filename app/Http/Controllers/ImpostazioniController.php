@@ -30,7 +30,7 @@ class ImpostazioniController extends Controller
             'soglia_vicino' => ['nullable', 'integer', 'between:1,99'], // oltre questa percentuale del limite un test è «vicino alla soglia» (#53)
         ]);
         $dati['affiliazione_rete'] = $request->boolean('affiliazione_rete');
-        if ($dati['soglia_vicino'] === null) {
+        if (($dati['soglia_vicino'] ?? null) === null) {
             unset($dati['soglia_vicino']); // non indicata: resta quella che c'è (o l'80% di partenza)
         }
 

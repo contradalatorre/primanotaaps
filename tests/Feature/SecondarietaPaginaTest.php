@@ -146,7 +146,7 @@ class SecondarietaPaginaTest extends TestCase
     {
         $this->esercizioConB();
         $modello = Prospetto::modelloD(2026);
-        $link = route('esercizio.imputazioni', ['anno' => 2026, 'chiavi' => implode(',', $modello['aree']['B']['entrate']['chiavi']), 'titolo' => 'Entrate B (attività diverse)']);
+        $link = route('esercizio.imputazioni', ['anno' => 2026, 'chiavi' => implode(',', $modello['aree']['B']['entrate']['totale']['chiavi']), 'titolo' => 'Entrate B (attività diverse)']);
 
         $this->actingAs($this->tesoriere)->get('/esercizi/2026/test')->assertSee('href="'.e($link).'"', false)
             ->assertSeeText('Il calcolo, con i numeri')->assertSeeText('Base normativa e manuale')->assertSeeText('DM Lavoro 19 maggio 2021 n. 107')
@@ -177,7 +177,7 @@ class SecondarietaPaginaTest extends TestCase
 
         $this->imputa('entrata', 3000, 'Sponsorizzazioni e pubblicità', 'B');
         $this->actingAs($this->tesoriere)->get('/')->assertSee('home-test-secondarieta')
-            ->assertSeeText('Non rispettato')->assertSeeText('limite superato di')
+            ->assertSeeText('Non rispettato')->assertSeeText('soglia superata di')
             ->assertSee('href="'.route('test-esercizio', 2026).'"', false);
     }
 
