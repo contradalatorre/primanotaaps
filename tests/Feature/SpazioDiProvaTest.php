@@ -250,5 +250,10 @@ class SpazioDiProvaTest extends TestCase
         $this->actingAs(User::find($utente->id))->get(route('preferenze'))->assertOk()
             ->assertSee('value="nessuna" checked', false)->assertDontSee('value="riepilogo" checked', false);
         $this->assertSame('riepilogo', User::find($utente->id)->email_menzioni);
+
+        // Entrando l'utente prende la preferenza dello spazio; uscendo riavrebbe quella vera.
+        $istanza = User::find($utente->id);
+        $this->assertSame('nessuna', $this->prova()->per($istanza, Catalogo::predefinito()->missione('import-e-revisione'), fn () => $istanza->email_menzioni));
+        $this->assertSame('riepilogo', $istanza->email_menzioni);
     }
 }

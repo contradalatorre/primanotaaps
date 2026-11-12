@@ -6,6 +6,7 @@ use App\Models\SpazioProva;
 use App\Models\User;
 use Closure;
 use Illuminate\Container\Attributes\Singleton;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -88,6 +89,19 @@ final class Prova
             throw new RuntimeException('Lo spazio di prova non è disponibile: il database di prova non risponde.', previous: $e);
         }
 
+        // Gli attributi li ha letti `auth` dalla riga vera: la preferenza che la pagina mostra (e che si salva) è quella della riga nello spazio.
+        // Letta prima di cambiare stato, così un errore non lascia il default sulla connessione di prova. Senza missione lo spazio può non
+        // esistere ancora (`prepara`); uno nato prima di una colonna nuova non la ha: vale quella vera.
+        // shortcut: solo le preferenze (oggi una); una nuova colonna scritta dall'utente in prova va aggiunta qui.
+        $preferenze = null;
+        if ($missione) {
+            try {
+                $preferenze = (array) DB::connection(self::CONNESSIONE)->table($utente->getTable())->where($utente->getKeyName(), $utente->getKey())->first(['email_menzioni']) ?: null;
+            } catch (QueryException $e) {
+                report($e);
+            }
+        }
+
         $this->reale = $reale;
         $this->missione = $missione;
         $this->mailPrima = config('mail.default');
@@ -102,9 +116,8 @@ final class Prova
         $this->connessioneUtente = $utente->getConnectionName();
         $this->attributiUtente = $utente->getAttributes();
         $utente->setConnection(self::CONNESSIONE)->unsetRelations();
-        // Senza missione lo spazio può non esistere ancora (`prepara`). Gli attributi li ha letti `auth` dalla riga vera: la preferenza che la pagina mostra (e che si salva) è quella della riga nello spazio.
-        if ($missione && $nelloSpazio = DB::connection(self::CONNESSIONE)->table($utente->getTable())->where($utente->getKeyName(), $utente->getKey())->first(['email_menzioni'])) { // shortcut: solo le preferenze (oggi una); una nuova colonna scritta dall'utente in prova va aggiunta qui
-            $utente->forceFill((array) $nelloSpazio)->syncOriginal();
+        if ($preferenze) {
+            $utente->forceFill($preferenze)->syncOriginal();
         }
     }
 
