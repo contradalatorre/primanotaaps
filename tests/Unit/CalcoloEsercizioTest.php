@@ -6,6 +6,7 @@ use App\Esercizio\Calcolo;
 use App\Esercizio\Figurativo;
 use App\Esercizio\Imputata;
 use App\Esercizio\Saldo;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -125,49 +126,105 @@ class CalcoloEsercizioTest extends TestCase
         $this->assertSame(1100, $m['liquidita']['iniziale']);
     }
 
-    public function test_quadratura_con_la_variazione_della_liquidita(): void
+    /** @return iterable<string, array{list<Imputata>, list<Saldo>, bool, int}> imputazioni, saldi, quadra?, differenza */
+    public static function quadrature(): iterable
     {
-        $m = Calcolo::modelloD([$this->e('A1', 1000), $this->u('A2', 300)], [new Saldo('depositi', 500, 1100)], []);
-
-        $this->assertSame(700, $m['avanzoComplessivo']['importo']);
-        $this->assertFalse($m['quadratura']['quadra']);
-        $this->assertSame(-100, $m['quadratura']['differenza']); // la liquidità è cresciuta di 600 e non di 700
+        yield 'esercizio vuoto' => [[], [], true, 0];
+        yield 'un incasso in cassa' => [[new Imputata('entrate', 'A1', 1000)], [new Saldo('cassa', 0, 1000)], true, 0];
+        yield 'incasso al lordo e commissione in D1 (#48)' => [[new Imputata('entrate', 'A7', 1000), new Imputata('uscite', 'D1', 35)], [new Saldo('depositi', 0, 965)], true, 0];
+        yield 'imposte e investimenti sono uscite di cassa' => [[new Imputata('entrate', 'A1', 1000), new Imputata('uscite', 'Imposte', 100), new Imputata('uscite', 'I1', 200)], [new Saldo('cassa', 0, 700)], true, 0];
+        yield 'la liquidità cresce meno dell\'avanzo' => [[new Imputata('entrate', 'A1', 1000), new Imputata('uscite', 'A2', 300)], [new Saldo('depositi', 500, 1100)], false, -100];
+        yield 'la liquidità cresce senza imputazioni' => [[], [new Saldo('cassa', 100, 250)], false, 150];
     }
 
-    public function test_figurativi_a_parte_dagli_avanzi(): void
+    #[DataProvider('quadrature')]
+    public function test_quadratura_con_la_variazione_della_liquidita(array $imputazioni, array $saldi, bool $quadra, int $differenza): void
     {
-        $m = Calcolo::modelloD([$this->e('A1', 1000)], [], [
-            new Figurativo('costo', 'A', 'Volontari del Carnevale, 40 ore', 300),
-            new Figurativo('costo', 'E', 'Volontari della segreteria', 100),
-            new Figurativo('provento', 'A', 'Prestazione gratuita di un tecnico', 200),
-        ]);
+        $m = Calcolo::modelloD($imputazioni, $saldi, []);
 
-        $costi = array_column($m['figurativi']['costi']['righe'], 'importo', 'area');
-        $this->assertSame(['A' => 300, 'B' => 0, 'E' => 100], $costi);
-        $this->assertSame(400, $m['figurativi']['costi']['totale']);
-        $proventi = array_column($m['figurativi']['proventi']['righe'], 'importo', 'area');
-        $this->assertSame(['A' => 200, 'B' => 0], $proventi);
-        $this->assertSame(200, $m['figurativi']['proventi']['totale']);
+        $this->assertSame($quadra, $m['quadratura']['quadra']);
+        $this->assertSame($differenza, $m['quadratura']['differenza']);
+    }
+
+    /** @return iterable<string, array{list<Imputata>, array<string, int>, int}> imputazioni, righe attese per «lato:voce», anomalie */
+    public static function voci(): iterable
+    {
+        yield 'la stessa voce di entrata e di uscita non si confonde' => [
+            [new Imputata('entrate', 'A1', 1000), new Imputata('entrate', 'A1', 500), new Imputata('uscite', 'A1', 300)],
+            ['entrate:A1' => 1500, 'uscite:A1' => 300], 0,
+        ];
+        yield 'Imposte è una riga solo delle uscite' => [
+            [new Imputata('entrate', 'Imposte', 50)],
+            ['entrate:A1' => 0], 1,
+        ];
+        yield 'le righe degli investimenti sono ai due lati' => [
+            [new Imputata('uscite', 'I1', 200), new Imputata('entrate', 'I3', 50)],
+            ['uscite:I1' => 200, 'entrate:I3' => 50], 0,
+        ];
+        yield 'una voce fuori dallo schema è un\'anomalia' => [
+            [new Imputata('entrate', 'A1', 1000), new Imputata('entrate', 'X9', 70)],
+            ['entrate:A1' => 1000], 1,
+        ];
+        yield 'una voce di un altro lato è un\'anomalia' => [
+            [new Imputata('uscite', 'A10', 10)],
+            ['uscite:A5' => 0], 1,
+        ];
+    }
+
+    #[DataProvider('voci')]
+    public function test_le_voci_vanno_alla_loro_riga(array $imputazioni, array $attese, int $anomalie): void
+    {
+        $m = Calcolo::modelloD($imputazioni, [], []);
+
+        $righe = $this->righe($m);
+        foreach ($attese as $chiave => $importo) {
+            $this->assertSame($importo, $righe[$chiave], $chiave);
+        }
+        $this->assertCount($anomalie, $m['anomalie']);
+    }
+
+    /** @return iterable<string, array{list<Figurativo>, array<string, int>, array<string, int>, int}> figurativi, costi per area, proventi per area, anomalie */
+    public static function figurativi(): iterable
+    {
+        yield 'nessun figurativo' => [[], ['A' => 0, 'B' => 0], ['A' => 0, 'B' => 0], 0];
+        yield 'costi e proventi nelle aree A e B' => [
+            [new Figurativo('costo', 'A', 'Volontari del Carnevale, 40 ore', 300), new Figurativo('costo', 'A', 'Altre ore', 50), new Figurativo('provento', 'B', 'Prestazione gratuita di un tecnico', 200)],
+            ['A' => 350, 'B' => 0], ['A' => 0, 'B' => 200], 0,
+        ];
+        // Il DM 5/3/2020 ha solo le righe 1) attività di interesse generale e 2) attività diverse: gli altri non sono persi in silenzio.
+        foreach (['costo', 'provento'] as $tipo) {
+            foreach (['C', 'D', 'E'] as $area) {
+                yield "un $tipo figurativo in area $area è un'anomalia" => [[new Figurativo($tipo, $area, 'Ore di un volontario', 500)], ['A' => 0, 'B' => 0], ['A' => 0, 'B' => 0], 1];
+            }
+        }
+    }
+
+    #[DataProvider('figurativi')]
+    public function test_figurativi_a_parte_dagli_avanzi(array $figurativi, array $costi, array $proventi, int $anomalie): void
+    {
+        $m = Calcolo::modelloD([new Imputata('entrate', 'A1', 1000)], [], $figurativi);
+
+        $this->assertSame($costi, array_column($m['figurativi']['costi']['righe'], 'importo', 'area'));
+        $this->assertSame($proventi, array_column($m['figurativi']['proventi']['righe'], 'importo', 'area'));
+        $this->assertSame(array_sum($costi), $m['figurativi']['costi']['totale']);
+        $this->assertSame(array_sum($proventi), $m['figurativi']['proventi']['totale']);
         $this->assertSame(1000, $m['avanzoComplessivo']['importo']);
-        $this->assertSame('Volontari del Carnevale, 40 ore', $m['figurativi']['costi']['righe'][0]['dettaglio'][0]['descrizione']);
+        $this->assertCount($anomalie, $m['anomalie']);
     }
 
-    public function test_un_figurativo_in_un_area_senza_riga_e_un_anomalia_non_e_perso_in_silenzio(): void
+    public function test_il_dettaglio_di_un_figurativo_porta_la_descrizione(): void
     {
-        $m = Calcolo::modelloD([], [], [new Figurativo('provento', 'C', 'Valore di una prestazione', 500)]);
+        $m = Calcolo::modelloD([], [], [new Figurativo('costo', 'A', 'Volontari del Carnevale, 40 ore', 300)]);
 
-        $this->assertSame(0, $m['figurativi']['proventi']['totale']);
-        $this->assertCount(1, $m['anomalie']);
-        $this->assertStringContainsString('figurativo', $m['anomalie'][0]);
+        $this->assertSame([['descrizione' => 'Volontari del Carnevale, 40 ore', 'importo' => 300]], $m['figurativi']['costi']['righe'][0]['dettaglio']);
     }
 
-    public function test_una_voce_fuori_dallo_schema_o_mancante_e_un_anomalia_e_non_entra_nei_totali(): void
+    public function test_senza_riga_si_raccolgono_le_voci_mancanti_o_sconosciute(): void
     {
-        $m = Calcolo::modelloD([$this->e('A1', 1000), $this->e('X9', 70), new Imputata('uscite', null, 30)], [], []);
+        $m = Calcolo::modelloD([new Imputata('entrate', 'A1', 1000), new Imputata('entrate', 'X9', 70), new Imputata('uscite', null, 30)], [], []);
 
         $this->assertSame(1000, $m['gestione']['entrate']['importo']);
         $this->assertSame(0, $m['gestione']['uscite']['importo']);
-        $this->assertCount(2, $m['anomalie']);
         $this->assertSame(70, $m['senzaRiga']['entrate']);
         $this->assertSame(30, $m['senzaRiga']['uscite']);
     }

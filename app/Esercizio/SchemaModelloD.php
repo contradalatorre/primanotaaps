@@ -10,7 +10,7 @@ namespace App\Esercizio;
  * shortcut: le etichette delle righe non sono verificate su nessuna fonte scritta: sono scritte dalla memoria dello schema
  * del DM. Asso360 (schemi di bilancio ETS, 2022) conferma solo la struttura (cinque aree, investimenti e disinvestimenti,
  * avanzi, liquidità, prospetto dei figurativi), non le righe; la Gazzetta Ufficiale non era leggibile (#8). Da riscontrare
- * sul testo del DM 5/3/2020 prima del deposito. Meno certe: le righe dei costi figurativi (A, B, E) e le entrate di E.
+ * sul testo del DM 5/3/2020 prima del deposito. Meno certe: le righe dei costi e proventi figurativi e le entrate di E.
  * Le righe degli investimenti («I1»…«I4») non hanno ancora tipologie che le usino: restano a zero finché non nascono.
  */
 final class SchemaModelloD
@@ -89,12 +89,14 @@ final class SchemaModelloD
             : ['1' => 'Disinvestimenti di immobilizzazioni inerenti alle attività di interesse generale', '2' => 'Disinvestimenti di immobilizzazioni inerenti alle attività diverse', '3' => 'Disinvestimenti di attività finanziarie e patrimoniali', '4' => 'Ricevimento di finanziamenti e di prestiti']);
     }
 
-    /** Righe del prospetto dei costi e proventi figurativi: area → etichetta. */
-    public static function figurativi(string $tipo): array
+    /**
+     * Righe del prospetto dei costi e proventi figurativi, uguali per costi e proventi: area → etichetta. Il DM 5/3/2020
+     * (Modello D, sezione costi e proventi figurativi) ha solo 1) attività di interesse generale e 2) attività diverse;
+     * un figurativo in un'altra area è un'anomalia segnalata, non una riga inventata. Da confermare con il commercialista.
+     */
+    public static function figurativi(): array
     {
-        return $tipo === 'costo'
-            ? ['A' => 'Da attività di interesse generale', 'B' => 'Da attività diverse', 'E' => 'Di supporto generale']
-            : ['A' => 'Da attività di interesse generale', 'B' => 'Da attività diverse'];
+        return ['A' => 'Da attività di interesse generale', 'B' => 'Da attività diverse'];
     }
 
     /** @param array<string, string> $righe numero → etichetta */

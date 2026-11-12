@@ -127,7 +127,7 @@ final class Calcolo
         $prospetto = [];
         foreach (['costo' => 'costi', 'provento' => 'proventi'] as $tipo => $nome) {
             $righe = [];
-            foreach (SchemaModelloD::figurativi($tipo) as $area => $etichetta) {
+            foreach (SchemaModelloD::figurativi() as $area => $etichetta) {
                 $righe[$area] = ['area' => $area, 'etichetta' => $etichetta, 'importo' => 0, 'dettaglio' => []];
             }
             foreach ($figurativi as $f) {
