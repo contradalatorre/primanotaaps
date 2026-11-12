@@ -301,8 +301,9 @@ class ImportPayPalTest extends TestCase
     public function test_importando_prima_la_banca_i_movimenti_paypal_aspettano_l_estratto_paypal_invece_di_essere_proposti_come_spese(): void
     {
         $banca = Conto::factory()->create(['tipo' => 'banca', 'nome' => 'Conto corrente', 'formato_import' => 'credit_agricole_csv', 'riga_modello_d' => 'depositi', 'aperto_il' => '2026-01-01', 'saldo_iniziale' => 100000]);
+        $this->actingAs($this->tesoriere);
         // Una regola del Tesoriere che somiglia ai movimenti PayPal: non deve lavorare dove un giroconto la precede.
-        $this->post('/regole', ['nome' => 'PayPal', 'testo' => 'PAYPAL', 'tipologia_id' => $this->tipologia('Utenze')])->assertSessionHasNoErrors();
+        $this->post('/regole', ['nome' => 'PayPal', 'testo' => 'PAYPAL', 'tipologia_id' => $this->tipologia('Utenze'), 'area' => 'A'])->assertSessionHasNoErrors();
         $csv = implode("\r\n", [
             'Data Op.;Data Val.;Causale;Descrizione;Importo;Saldo Parziale', ';;Saldo Iniziale;;;1.000,00',
             '02/03/2026;02/03/2026;BONIFICO;BONIFICO A FAVORE DI PAYPAL;\'-100,00;900,00',
