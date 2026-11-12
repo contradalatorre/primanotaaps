@@ -3,7 +3,7 @@
 @if ($movimento->inDubbio())
     <form method="POST" action="{{ route('movimenti.dubbio.chiudi', $movimento) }}">
         @csrf
-        @foreach ($movimento->note()->dubbioAperto()->orderBy('id')->pluck('id') as $id)<input type="hidden" name="dubbi_visti[]" value="{{ $id }}">@endforeach
+        @foreach ($movimento->dubbiAperti->pluck('id') as $id)<input type="hidden" name="dubbi_visti[]" value="{{ $id }}">@endforeach
         <button type="submit" class="spunta-conferma spunta-dubbio" data-dubbio aria-pressed="true" aria-label="Togli il dubbio: {{ $movimento->descrizione }}">?</button>
     </form>
 @else

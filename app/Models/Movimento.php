@@ -64,6 +64,12 @@ class Movimento extends Model
         return $this->hasMany(Giustificativo::class);
     }
 
+    /** I dubbi aperti, per id (le note dubbio non chiuse né eliminate): la scheda li mostra e chi li toglie dice quali ha visto. */
+    public function dubbiAperti(): MorphMany
+    {
+        return $this->note()->dubbioAperto()->orderBy('id');
+    }
+
     public function note(): MorphMany
     {
         return $this->morphMany(Nota::class, 'oggetto', 'oggetto_tipo', 'oggetto_id');
