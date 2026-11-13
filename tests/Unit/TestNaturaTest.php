@@ -223,6 +223,18 @@ class TestNaturaTest extends TestCase
                 [self::e('D', 'D1', 9000), self::e('B', 'B3', 1000)],
                 ['ente.fuoriDalTest' => 9000, 'ente.nonCommerciali' => 0, 'ente.commerciali' => 1000, 'ente.esito' => 'non_rispettato'],
             ],
+            'le entrate di D ed E commerciali per natura o forzate commerciali contano tra i proventi' => [
+                [self::e('A', 'A1', 1000), self::e('E', 'E1', 5000, ['proprieta' => ['commerciale_per_natura']]), self::e('D', 'D3', 5000, ['forzata' => true])],
+                ['ente.commerciali' => 10000, 'ente.nonCommerciali' => 1000, 'ente.fuoriDalTest' => 0, 'ente.esito' => 'non_rispettato'],
+            ],
+            'un\'entrata di D forzata non commerciale resta fuori dal test' => [
+                [self::e('D', 'D3', 5000, ['forzata' => false]), self::e('A', 'A1', 1000)],
+                ['ente.commerciali' => 0, 'ente.nonCommerciali' => 1000, 'ente.fuoriDalTest' => 5000, 'ente.esito' => 'rispettato'],
+            ],
+            'solo soci: un corrispettivo di terzi commerciale per natura conta, il test non è vuoto' => [
+                [self::e('A', 'A2', 10000), self::e('A', 'A7', 5000, ['proprieta' => ['commerciale_per_natura']]), self::u('A', 'A2', 8000)],
+                ['areaA.soloSoci' => false, 'areaA.stato' => 'non_rispettato'],
+            ],
             'un\'entrata di cui non si sa la natura conta come commerciale e si segnala' => [
                 [self::e('A', null, 3000, ['senzaTipologia' => true]), self::e('A', 'A1', 10000)],
                 ['ente.senzaNatura' => 1, 'ente.commerciali' => 3000, 'ente.nonCommerciali' => 10000],

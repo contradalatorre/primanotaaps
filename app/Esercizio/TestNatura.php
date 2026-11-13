@@ -89,7 +89,9 @@ final class TestNatura
         $costi = $diretti['importo'] + $quota;
         $scarto = $corrispettivi['importo'] - $costi;
         // Senza corrispettivi di terzi (solo soci, decommercializzati dall'art. 85) il confronto pro-rata dei terzi è vuoto: T ≤ C·T/P vale per T = 0.
-        $soloSoci = $scarto > 0 && array_sum(array_map(fn (Imputata $i) => $i->lato === 'entrate' && $i->natura?->dipendeDal2bis ? $i->importo : 0, $imputazioni)) === 0;
+        // Conta ogni corrispettivo che non è di un socio, anche se commerciale per natura o forzato: è un provento di terzi.
+        $soloSoci = $scarto > 0 && array_sum(array_map(fn (Imputata $i) => $i->lato === 'entrate' && $i->area === 'A' && in_array($i->voce, Natura::CORRISPETTIVI, true)
+            && ! in_array($i->natura?->regola, ['corrispettivo-socio', 'somministrazione-ai-soci-affiliata'], true) ? $i->importo : 0, $imputazioni)) === 0;
         $tolleranza = self::tolleranza($anno, $storico);
         $stato = match (true) {
             $scarto <= 0 || $soloSoci => 'pareggio',
@@ -167,8 +169,8 @@ final class TestNatura
     }
 
     /**
-     * Art. 79 c. 5: l'ente è commerciale se i proventi commerciali superano le entrate non commerciali. Contano solo le aree A, B e C
-     * (D ed E sono fuori dai test) e il valore normale delle prestazioni gratuite dell'area A, finché l'area A è non commerciale.
+     * Art. 79 c. 5: l'ente è commerciale se i proventi commerciali superano le entrate non commerciali. Contano le aree A, B e C
+     * (D ed E sono fuori dai test, salvo le entrate commerciali per natura o forzate tali) e il valore normale delle prestazioni gratuite dell'area A, finché l'area A è non commerciale.
      */
     private static function ente(int $anno, array $imputazioni, array $figurativi, bool $areaACommerciale, int $sogliaVicino, bool $figurativiDichiarati): array
     {
@@ -177,8 +179,10 @@ final class TestNatura
             if ($i->lato !== 'entrate' || $i->natura === null) {
                 continue;
             }
+            $commerciale = self::commerciale($i, $areaACommerciale);
+            // D ed E non sono tra le non commerciali (fuori dal test), ma un'entrata commerciale per natura o forzata tale resta tra i proventi.
             if (! in_array($i->area, ['A', 'B', 'C'], true)) {
-                $fuori += $i->importo;
+                $commerciale === true ? $commerciali += $i->importo : $fuori += $i->importo;
 
                 continue;
             }
@@ -189,7 +193,6 @@ final class TestNatura
 
                 continue;
             }
-            $commerciale = self::commerciale($i, $areaACommerciale);
             if ($commerciale === null) {
                 $senzaNatura++;
                 $commerciale = true; // prudente
