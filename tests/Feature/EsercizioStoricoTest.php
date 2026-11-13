@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Esercizio\Verifiche;
 use App\Import\EsempiDalFoglio;
 use App\Models\Attivita;
 use App\Models\Conto;
@@ -245,6 +246,19 @@ class EsercizioStoricoTest extends TestCase
             ->assertSeeText('1.234,56')->assertSeeText('Cassa e banca')->assertSeeText('800,00')->assertSeeText('2.500,00')->assertSeeText('3.300,00')
             ->assertSeeText('99,00') // il costo figurativo del 2025
             ->assertSeeText('1.194,56'); // avanzo complessivo 2025: 1.234,56 − 40,00 − 7,00
+    }
+
+    public function test_il_confronto_del_2026_usa_lo_storico_per_la_colonna_2025_e_dichiara_non_disponibile_lo_stesso_periodo(): void
+    {
+        $this->storico(['entrate:A1' => 123456, 'uscite:E2' => 4000]);
+
+        $colonne = Verifiche::pagina(2026)['confronto'];
+
+        $this->assertSame(['2024', '2025', '2025, stesso periodo (dal 1/1 al 20/12): non disponibile, esercizio storico', '2026 (in corso)'], array_column($colonne, 'etichetta'));
+        $this->assertSame([true, false, true, true], array_column($colonne, 'vuota')); // il 2024 e il 2026 senza movimenti
+        $this->assertSame([123456, 4000], [$colonne[1]['entrate'], $colonne[1]['uscite']]);
+        $this->assertTrue($colonne[1]['senzaEsiti']); // il foglio non ha le imputazioni per attività: niente test
+        $this->actingAs($this->tesoriere)->get('/esercizi/2026/test')->assertOk()->assertSeeText('non disponibile, esercizio storico')->assertSeeText('1.234,56 €');
     }
 
     public function test_la_pagina_dell_esercizio_storico_mostra_i_suoi_importi_e_non_il_quadro_dei_movimenti(): void

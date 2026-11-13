@@ -63,21 +63,34 @@ final class Verifiche
      */
     private static function confronto(int $anno, bool $proposte, array $esercizi): array
     {
+        // Un esercizio storico (#63) non ha movimenti né imputazioni per attività: dal foglio vengono solo le entrate e le uscite, nessun esito.
+        $per = fn (string $etichetta, int $y) => ($storico = EsercizioStorico::modelloD($y)) !== null
+            ? self::colonnaSenzaEsiti($etichetta, $storico['gestione']['entrate']['importo'], $storico['gestione']['uscite']['importo'])
+            : self::colonna($etichetta, $y, ...$esercizi[$y]);
         $colonne = [];
         foreach ([$anno - 2, $anno - 1] as $y) {
-            $colonne[] = self::colonna((string) $y, $y, ...$esercizi[$y]);
+            $colonne[] = $per((string) $y, $y);
         }
         if ($anno === today()->year) {
             $oggi = today();
             $periodo = $oggi->format('d/m');
             $fino = $oggi->copy()->subYearsNoOverflow(1)->toDateString();
-            $colonne[] = self::colonna(($anno - 1).', stesso periodo (dal 1/1 al '.$periodo.')', $anno - 1, ...self::calcolaCatena($anno - 1, $proposte, $fino));
+            $etichetta = ($anno - 1).', stesso periodo (dal 1/1 al '.$periodo.')';
+            // Lo storico ha solo i totali dell'anno: lo stesso periodo non si ricava, e uno zero sarebbe una cifra falsa.
+            $colonne[] = EsercizioStorico::where('esercizio', $anno - 1)->exists()
+                ? self::colonnaSenzaEsiti($etichetta.': non disponibile, esercizio storico', 0, 0, vuota: true)
+                : self::colonna($etichetta, $anno - 1, ...self::calcolaCatena($anno - 1, $proposte, $fino));
             $colonne[] = self::colonna($anno.' (in corso)', $anno, ...$esercizi[$anno]);
         } else {
-            $colonne[] = self::colonna((string) $anno, $anno, ...$esercizi[$anno]);
+            $colonne[] = $per((string) $anno, $anno);
         }
 
         return $colonne;
+    }
+
+    private static function colonnaSenzaEsiti(string $etichetta, int $entrate, int $uscite, bool $vuota = false): array
+    {
+        return ['etichetta' => $etichetta, 'vuota' => $vuota, 'senzaEsiti' => true, 'entrate' => $entrate, 'uscite' => $uscite];
     }
 
     private static function colonna(string $etichetta, int $anno, array $modelloD, array $catena): array
@@ -88,6 +101,7 @@ final class Verifiche
 
         return [
             'etichetta' => $etichetta,
+            'senzaEsiti' => false,
             'vuota' => $gestione['entrate']['importo'] === 0 && $gestione['uscite']['importo'] === 0,
             'entrate' => $gestione['entrate']['importo'],
             'uscite' => $gestione['uscite']['importo'],

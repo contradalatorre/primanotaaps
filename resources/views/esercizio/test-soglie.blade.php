@@ -162,7 +162,7 @@
 
 <section data-merlo="test-confronto" id="test-confronto">
     <h2>Confronto con gli altri esercizi</h2>
-    <p class="nota">I valori e gli esiti degli ultimi tre esercizi, affiancati; durante l’anno anche lo stesso periodo dell’anno precedente, senza i costi e i proventi figurativi (che sono dell’anno intero). Sono calcolati oggi dai movimenti, non sono le versioni approvate.</p>
+    <p class="nota">I valori e gli esiti degli ultimi tre esercizi, affiancati; durante l’anno anche lo stesso periodo dell’anno precedente, senza i costi e i proventi figurativi (che sono dell’anno intero). Sono calcolati oggi dai movimenti, non sono le versioni approvate. Un esercizio storico viene dal foglio approvato: ha solo entrate e uscite, senza esiti e senza lo stesso periodo.</p>
     <div class="tabella-scorrevole">
         <table class="tabella" data-merlo="test-confronto-tabella">
             <thead>
@@ -199,7 +199,7 @@
                         <th scope="row">{{ $titolo }}</th>
                         @foreach ($confronto as $c)
                             <td class="text-right">
-                                @if ($c['vuota']) —
+                                @if ($c['vuota'] || $c['senzaEsiti']) —
                                 @else
                                     @include('esercizio.stato-esito', ['esito' => $c[$chiave]['esito']])
                                     <br><span class="nota">{{ $chiave === 'forfettario' ? $euro($c[$chiave]['ricavi']).' € di ricavi' : $pct($c[$chiave]['rapporto']) }}</span>
