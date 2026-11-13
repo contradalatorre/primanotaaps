@@ -194,8 +194,13 @@ final class TestNatura
                 continue;
             }
             $commerciale = self::commerciale($i, $areaACommerciale);
-            // D ed E non sono tra le non commerciali (fuori dal test), ma un'entrata commerciale per natura o forzata tale resta tra i proventi.
+            // D ed E non sono tra le non commerciali (fuori dal test), ma un'entrata commerciale per natura o forzata tale resta tra i proventi;
+            // una di cui non si sa la natura conta come in A-C (prudente, e si segnala).
             if (! in_array($i->area, ['A', 'B', 'C'], true)) {
+                if ($commerciale === null) {
+                    $senzaNatura++;
+                    $commerciale = true;
+                }
                 $commerciale === true ? $commerciali += $i->importo : $fuori += $i->importo;
 
                 continue;
@@ -241,7 +246,7 @@ final class TestNatura
     /**
      * Art. 86: i ricavi commerciali dell'esercizio (A: i corrispettivi resi commerciali dal 2-bis o per natura; B: tutte le attività diverse,
      * sponsorizzazioni comprese; C, D ed E solo se la natura o una forzatura le fa commerciali, tranne le raccolte fondi abituali C1 che contano per prudenza: interessi, sopravvenienze e liberalità restano fuori).
-     * Un'entrata di cui non si sa la natura conta (prudenza, come nell'ente). Il 3% si arrotonda per eccesso. L'accesso al regime si misura sull'esercizio
+     * Un'entrata di cui non si sa la natura conta, in qualunque area (prudenza, come nell'ente). Il 3% si arrotonda per eccesso. L'accesso al regime si misura sull'esercizio
      * precedente (per il 2026 vale la previsione): qui si vedono i ricavi dell'esercizio, che sono quelli che contano dall'anno dopo.
      */
     private static function forfettario(int $anno, array $imputazioni, bool $areaACommerciale, int $sogliaVicino): array
@@ -259,7 +264,7 @@ final class TestNatura
             if ($c1) {
                 $commerciale = true;
             }
-            if ($commerciale === null && in_array($i->area, ['A', 'B', 'C'], true)) {
+            if ($commerciale === null) {
                 $senzaNatura++;
                 $commerciale = true;
             }

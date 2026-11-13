@@ -243,6 +243,10 @@ class TestNaturaTest extends TestCase
                 [self::e('A', null, 3000, ['senzaTipologia' => true]), self::e('A', 'A1', 10000)],
                 ['ente.senzaNatura' => 1, 'ente.commerciali' => 3000, 'ente.nonCommerciali' => 10000],
             ],
+            'un\'entrata di D o E di cui non si sa la natura conta come commerciale e si segnala, come in A-C' => [
+                [self::e('D', null, 4000, ['senzaTipologia' => true]), self::e('A', 'A1', 10000)],
+                ['ente.senzaNatura' => 1, 'ente.commerciali' => 4000, 'ente.fuoriDalTest' => 0, 'ente.nonCommerciali' => 10000, 'forfettario.senzaNatura' => 1, 'forfettario.ricavi' => 4000],
+            ],
             'oltre l\'80% del limite: vicino' => [
                 [self::e('A', 'A1', 1000), self::e('B', 'B3', 900)],
                 ['ente.esito' => 'vicino', 'ente.margine' => 100],
