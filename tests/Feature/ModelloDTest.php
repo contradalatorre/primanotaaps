@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Esercizio\Apertura;
 use App\Esercizio\Prospetto;
+use App\Models\Assegnazione;
 use App\Models\Conto;
 use App\Models\Giroconto;
 use App\Models\ImportEstratto;
@@ -17,6 +19,7 @@ use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 /** Il Modello D a schermo, le sue imputazioni, gli impedimenti e le impostazioni dell'associazione (#51). Dati inventati. */
@@ -327,6 +330,21 @@ class ModelloDTest extends TestCase
 
         $this->actingAs($consigliere)->post('/esercizi/2027/apertura')->assertForbidden();
         $this->actingAs($consigliere)->get('/esercizi/2027/modello-d')->assertOk()->assertSeeText('Chi può modificare la tabella delle voci può copiarla dal 2026');
+        $this->assertSame(0, DB::table('voci_modello_d')->where('esercizio', 2027)->count());
+    }
+
+    public function test_il_permesso_revocato_dopo_il_controllo_della_rotta_non_basta_ad_aprire_l_esercizio(): void
+    {
+        $utente = $this->utenteCon('Tesoriere');
+        $this->assertTrue($utente->can('riclassificare_in_blocco')); // il controllo della rotta carica le assegnazioni
+        Assegnazione::where('user_id', $utente->id)->delete(); // revoca nel frattempo
+
+        try {
+            Apertura::apri($utente, 2027);
+            $this->fail('L’apertura doveva essere rifiutata.');
+        } catch (HttpException $e) {
+            $this->assertSame(403, $e->getStatusCode());
+        }
         $this->assertSame(0, DB::table('voci_modello_d')->where('esercizio', 2027)->count());
     }
 

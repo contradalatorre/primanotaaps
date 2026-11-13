@@ -33,16 +33,17 @@ class DatiEsercizio extends Model
      * dal controllo della rotta possono essere di prima di una revoca) ed esegue `$scrittura($dati)` nella stessa transazione.
      * La riga si crea FUORI dalla transazione: un `INSERT IGNORE` su una riga che c'è già prende un blocco condiviso, e due
      * richieste che poi chiedono quello esclusivo si bloccano a vicenda (deadlock su MySQL). Non si blocca una riga che non c'è:
-     * il blocco sullo spazio vuoto lascia correre due scritture insieme. Anche le righe figurative si scrivono sotto questo blocco.
+     * il blocco sullo spazio vuoto lascia correre due scritture insieme. Anche le righe figurative si scrivono sotto questo blocco, e l'apertura
+     * dell'esercizio (`Apertura`, permesso `$permesso` diverso): la riga dell'esercizio fa da serratura anche per scritture che non la toccano.
      */
-    public static function sottoBlocco(User $utente, int $esercizio, Closure $scrittura): mixed
+    public static function sottoBlocco(User $utente, int $esercizio, Closure $scrittura, Permesso $permesso = Permesso::GestireEsercizio): mixed
     {
         DB::table('dati_esercizio')->insertOrIgnore(['esercizio' => $esercizio, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'created_at' => now(), 'updated_at' => now()]);
 
-        return DB::transaction(function () use ($utente, $esercizio, $scrittura) {
+        return DB::transaction(function () use ($utente, $esercizio, $scrittura, $permesso) {
             $dati = self::where('esercizio', $esercizio)->lockForUpdate()->firstOrFail();
             $utente->unsetRelation('assegnazioniAttive');
-            abort_unless($utente->puo(Permesso::GestireEsercizio), 403);
+            abort_unless($utente->puo($permesso), 403);
 
             return $scrittura($dati);
         });
