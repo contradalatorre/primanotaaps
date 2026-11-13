@@ -49,17 +49,19 @@ class VerificheController extends Controller
         $campi = $request->validate(['testo' => ['nullable', 'string', 'max:5000'], 'ripristina' => ['nullable', 'boolean']]);
         $testo = $request->boolean('ripristina') ? '' : trim(str_replace(["\r\n", "\r"], "\n", $campi['testo'] ?? ''));
 
-        DatiEsercizio::sottoBlocco($request->user(), $anno, function (DatiEsercizio $dati) use ($request, $anno, $testo) {
+        $proposte = $request->boolean('proposte'); // l'interruttore della pagina da cui si salva: il testo proposto era calcolato con quella scelta
+
+        DatiEsercizio::sottoBlocco($request->user(), $anno, function (DatiEsercizio $dati) use ($request, $anno, $testo, $proposte) {
             $prima = $dati->istantanea();
             // La proposta si calcola a riga bloccata, con i dati appena riletti.
-            $proposta = Annotazione::testo($anno, Verifiche::secondarieta($anno), $dati->criterio_riparto);
+            $proposta = Annotazione::testo($anno, Verifiche::secondarieta($anno, $proposte), $dati->criterio_riparto);
             $dati->update(['annotazione_in_calce' => $testo === '' || $testo === $proposta ? null : $testo]);
             if ($dati->istantanea() !== $prima) {
                 RegistroModifica::registra($request->user(), $dati, 'modificato', $prima, $dati->istantanea());
             }
         });
 
-        return redirect()->route('test-esercizio', $anno)->with('ok', 'Annotazione in calce salvata.');
+        return redirect()->route('test-esercizio', ['anno' => $anno] + ($proposte ? ['proposte' => 1] : []))->with('ok', 'Annotazione in calce salvata.');
     }
 
     public function confermaCriterio(Request $request, int $anno): RedirectResponse

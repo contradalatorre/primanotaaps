@@ -83,7 +83,7 @@
     @if ($e['effettoDal'] !== null)
         <p class="avviso" role="status" data-merlo="test-ente-effetto">
             {!! $icona !!}
-            <span>{{ $anno <= 2027 ? 'Per il 2026 e il 2027 il cambio di qualifica vale dal periodo successivo' : 'Il cambio di qualifica vale dall’inizio del periodo d’imposta' }} ({{ $e['effettoDal'] }}; art. 79 c. 5-ter CTS).</span>
+            <span>{{ $e['effettoDal'] > $anno ? 'Per il 2026 e il 2027 il cambio di qualifica vale dal periodo successivo' : 'Il cambio di qualifica vale dall’inizio del periodo d’imposta' }} ({{ $e['effettoDal'] }}; art. 79 c. 5-ter CTS).</span>
         </p>
     @endif
 
@@ -156,6 +156,7 @@
         <form method="POST" action="{{ route('test-esercizio.annotazione', $anno) }}">
             @csrf
             @method('PUT')
+            @if ($proposte) <input type="hidden" name="proposte" value="1"> @endif
             <label>Testo dell’annotazione
                 <textarea name="testo" rows="9" maxlength="5000" class="campo">{{ old('testo', $annotazione['testo']) }}</textarea>
             </label>

@@ -46,7 +46,9 @@ final class TestNatura
     public static function calcola(int $anno, array $modelloD, array $imputazioni, array $figurativi, string $criterioRiparto, array $storico, int $sogliaVicino, bool $figurativiDichiarati): array
     {
         $areaA = self::areaA($anno, $modelloD, $criterioRiparto, $storico, $sogliaVicino);
-        $nonRispettato = $areaA['stato'] === 'non_rispettato';
+        // Senza corrispettivi di terzi (solo soci, decommercializzati) il confronto pro-rata dei terzi è vuoto: non c'è niente da rendere commerciale.
+        $terzi = array_sum(array_map(fn (Imputata $i) => $i->lato === 'entrate' && $i->natura?->dipendeDal2bis ? $i->importo : 0, $imputazioni));
+        $nonRispettato = $areaA['stato'] === 'non_rispettato' && $terzi > 0;
 
         // Passo 2: il 2-bis non rispettato rende commerciali i corrispettivi dei terzi in area A, salvo forzatura.
         foreach ($imputazioni as $i) {
@@ -179,8 +181,8 @@ final class TestNatura
                 continue;
             }
             // Neutre: sponsorizzazioni e pubblicità (proprietà della tipologia); le raccolte fondi abituali (C1) possono avere corrispettivo
-            // continuativo, e finché non si distingue dalle liberalità si tengono neutre, mai tra le non commerciali.
-            if ($i->neutra || ($i->area === 'C' && $i->voce === 'C1')) {
+            // continuativo, e finché non si distingue dalle liberalità si tengono neutre, mai tra le non commerciali; una forzatura le sposta (prevale).
+            if ($i->neutra || ($i->area === 'C' && $i->voce === 'C1' && $i->forzata === null)) {
                 $neutre += $i->importo;
 
                 continue;

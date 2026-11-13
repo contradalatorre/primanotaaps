@@ -205,6 +205,18 @@ class TestNaturaPaginaTest extends TestCase
         $this->assertSame(0, RegistroModifica::where('oggetto_tipo', 'dati_esercizio')->count());
     }
 
+    public function test_il_testo_proposto_con_l_interruttore_delle_proposte_non_si_fissa_se_non_cambia(): void
+    {
+        $this->imputa('entrata', 16000, 'Quote associative', 'A');
+        $this->imputa('entrata', 5000, 'Sponsorizzazioni e pubblicità', 'B', [], 'proposto');
+        $proposto = $this->pagina('?proposte=1')->viewData('annotazione')['proposta'];
+        $this->assertNotSame($proposto, $this->pagina()->viewData('annotazione')['proposta']);
+
+        $this->actingAs($this->tesoriere)->put('/esercizi/2026/test/annotazione', ['testo' => $proposto, 'proposte' => '1'])->assertRedirect('/esercizi/2026/test?proposte=1');
+
+        $this->assertNull(DatiEsercizio::per(2026)->annotazione_in_calce);
+    }
+
     public function test_l_annotazione_la_modifica_solo_chi_gestisce_l_esercizio(): void
     {
         $lettore = $this->utenteCon('Lettore esterno', ['scade_il' => now()->addMonth()], ['email' => 'revisore@esterno.example']);

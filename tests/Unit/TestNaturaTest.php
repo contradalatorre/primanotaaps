@@ -78,6 +78,11 @@ class TestNaturaTest extends TestCase
                 [self::e('A', 'A7', 9000), self::e('A', 'A2', 3000), self::u('A', 'A2', 10000)],
                 ['areaA.corrispettivi.importo' => 12000, 'areaA.stato' => 'non_rispettato', 'areaA.reseCommerciali.numero' => 1, 'areaA.reseCommerciali.importo' => 9000],
             ],
+            'solo corrispettivi dei soci: il confronto dei terzi è vuoto, niente diventa commerciale e il valore normale conta' => [
+                [self::e('A', 'A2', 12000), self::u('A', 'A2', 10000)],
+                ['areaA.stato' => 'non_rispettato', 'areaA.reseCommerciali.numero' => 0, 'ente.commerciali' => 0, 'ente.nonCommerciali' => 12000 + 500, 'ente.valoreNormale' => 500],
+                ['figurativi' => [new Figurativo('provento', 'A', 'prestazioni gratuite', 500)]],
+            ],
             'la quota associativa non è un corrispettivo' => [
                 [self::e('A', 'A1', 50000), self::u('A', 'A2', 1000)],
                 ['areaA.corrispettivi.importo' => 0, 'areaA.stato' => 'pareggio'],
@@ -185,6 +190,10 @@ class TestNaturaTest extends TestCase
             'la raccolta fondi occasionale è non commerciale, quella abituale è neutra' => [
                 [self::e('C', 'C2', 4000), self::e('C', 'C1', 7000), self::e('B', 'B3', 3000)],
                 ['ente.nonCommerciali' => 4000, 'ente.neutre' => 7000, 'ente.commerciali' => 3000, 'ente.esito' => 'rispettato'],
+            ],
+            'una forzatura sposta anche una raccolta fondi abituale dai neutri' => [
+                [self::e('C', 'C1', 8000, ['forzata' => false]), self::e('B', 'B3', 3000)],
+                ['ente.neutre' => 0, 'ente.nonCommerciali' => 8000, 'ente.esito' => 'rispettato'],
             ],
             'il valore normale delle prestazioni gratuite dell\'area A pesa tra le non commerciali' => [
                 [self::e('A', 'A1', 1000), self::e('B', 'B3', 2000)],
