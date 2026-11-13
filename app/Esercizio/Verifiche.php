@@ -26,7 +26,10 @@ final class Verifiche
      * precedente (`soglie`) e il confronto con gli esercizi vicini (`confronto`), dallo stesso Modello D e da una sola lettura delle imputazioni
      * di ogni esercizio. Il pareggio per iniziativa porta anche il nome dell'iniziativa.
      *
-     * @return array{s: array, catena: array, soglie: array, confronto: array}
+     * Le soglie guardano anche il terzo e il quarto esercizio prima (la persistenza dell'obbligo degli artt. 30 e 31), che bastano come misure: senza catena.
+     * `inAttesa` è quel che attende conferma nell'esercizio precedente: le soglie si misurano sui soli confermati.
+     *
+     * @return array{s: array, catena: array, soglie: array, confronto: array, inAttesa: array}
      */
     public static function pagina(int $anno, bool $proposte = false): array
     {
@@ -40,6 +43,13 @@ final class Verifiche
         foreach ([$anno - 1, $anno - 2] as $y) {
             $misure[$y] = self::misura($y, $esercizi[$y][0]);
         }
+        foreach ([$anno - 3, $anno - 4] as $y) {
+            $misure[$y] = self::misura($y, Prospetto::modelloD($y));
+        }
+        $inAttesa = self::inAttesa($anno - 1);
+        if ($misure[$anno - 1] !== null) {
+            $misure[$anno - 1]['inAttesa'] = $inAttesa['entrate']['numero'];
+        }
         $vicino = ImpostazioniAssociazione::per($anno)?->soglia_vicino ?? self::SOGLIA_VICINO_DI_PARTENZA;
 
         return [
@@ -47,6 +57,7 @@ final class Verifiche
             'catena' => $catena,
             'soglie' => Soglie::calcola($anno, $misure, $vicino),
             'confronto' => self::confronto($anno, $proposte, $esercizi),
+            'inAttesa' => $inAttesa,
         ];
     }
 
