@@ -266,6 +266,25 @@ class ModelloDTest extends TestCase
         $this->actingAs($admin)->put('/impostazioni', ['dal_esercizio' => 2026, 'denominazione' => ''])->assertSessionHasErrors('denominazione');
     }
 
+    public function test_il_permesso_revocato_dopo_il_controllo_della_rotta_non_basta_a_scrivere_le_impostazioni(): void
+    {
+        $utente = $this->utenteCon('Amministratore');
+        $this->assertTrue($utente->can('gestire_impostazioni')); // il controllo della rotta carica le assegnazioni
+        Assegnazione::where('user_id', $utente->id)->delete(); // revoca nel frattempo
+
+        foreach ([2026, 2027] as $anno) { // una riga che c'è e una che non c'è
+            try {
+                ImpostazioniAssociazione::scrivi($utente, ['dal_esercizio' => $anno, 'denominazione' => 'Nome rifiutato', 'affiliazione_rete' => false]);
+                $this->fail('La scrittura doveva essere rifiutata.');
+            } catch (HttpException $e) {
+                $this->assertSame(403, $e->getStatusCode());
+            }
+        }
+        $this->assertSame('Contrada La Torre APS', ImpostazioniAssociazione::where('dal_esercizio', 2026)->value('denominazione'));
+        $this->assertFalse(ImpostazioniAssociazione::where('dal_esercizio', 2027)->exists());
+        $this->assertSame(0, RegistroModifica::where('oggetto_tipo', 'impostazioni')->count());
+    }
+
     public function test_chi_puo_vedere_legge_il_modello_d_ma_solo_chi_gestisce_le_impostazioni_le_cambia(): void
     {
         $lettore = $this->utenteCon('Lettore esterno', ['scade_il' => now()->addMonth()], ['email' => 'revisore@esterno.example']);

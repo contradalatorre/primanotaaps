@@ -3,10 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\ImpostazioniAssociazione;
-use App\Models\RegistroModifica;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Le impostazioni dell'associazione (#51, storia 135): denominazione, codice fiscale, numero RUNTS e affiliazione a una rete
@@ -34,14 +32,7 @@ class ImpostazioniController extends Controller
             unset($dati['soglia_vicino']); // non indicata: resta quella che c'è (o l'80% di partenza)
         }
 
-        DB::transaction(function () use ($dati, $request) {
-            $riga = ImpostazioniAssociazione::where('dal_esercizio', $dati['dal_esercizio'])->lockForUpdate()->first();
-            $prima = $riga?->istantanea();
-            $riga ??= new ImpostazioniAssociazione;
-            $riga->fill($dati)->save();
-            $riga->refresh(); // il valore di partenza della soglia lo dà il database
-            RegistroModifica::registra($request->user(), $riga, $prima === null ? 'creato' : 'modificato', $prima, $riga->istantanea());
-        });
+        ImpostazioniAssociazione::scrivi($request->user(), $dati);
 
         return redirect()->route('impostazioni')->with('ok', 'Impostazioni salvate, valgono dall’esercizio '.$dati['dal_esercizio'].' in poi.');
     }
