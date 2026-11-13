@@ -70,7 +70,7 @@
     @if ($a13['modelloE'])
         <p class="avviso" role="status" data-merlo="test-modello-e">
             {!! $icona !!}
-            <span>L’esercizio {{ $r }} è sotto i 60.000 euro (entrate {{ $euro($a13['entrate']) }} €): potete redigere il Modello E, la forma aggregata del rendiconto (art. 13 c. 2-bis CTS, dal rendiconto 2026). È una facoltà, e una volta scelta il modello vincola. La scelta e la produzione del Modello E sono a parte.</span>
+            <span>L’esercizio {{ $r }} è sotto i 60.000 euro (entrate {{ $euro($a13['entrate']) }} €): potete redigere il Modello E, la forma aggregata del rendiconto (art. 13 c. 2-bis CTS, dal rendiconto 2026). È una facoltà, e una volta scelta il modello vincola. Non vale per un ente commerciale: controllate l’esito del test dell’ente. La scelta e la produzione del Modello E sono a parte.</span>
         </p>
     @endif
 

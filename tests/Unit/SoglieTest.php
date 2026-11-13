@@ -57,6 +57,7 @@ class SoglieTest extends TestCase
                 'art30.superati' => 2, 'art30.mancanti' => 2, 'art30.esito' => 'vicino',
             ]],
             'due parametri oltre l’80% del limite, nessuno superato: vicino' => [2026, [2025 => self::m(250_000, 130_000, 2), 2024 => $ok], ['art30.superati' => 0, 'art30.esito' => 'vicino', 'art30.parametri.entrate.stato' => 'vicino']],
+            'un parametro vicino e uno non dichiarato (che vale superato): due parametri alla soglia, vicino' => [2026, [2025 => self::m(250_000, null, 2), 2024 => $ok], ['art30.superati' => 1, 'art30.mancanti' => 1, 'art30.esito' => 'vicino']],
             'la revisione ha limiti dieci volte più alti' => [2026, [2025 => self::m(3_000_001, 1_500_001, 21), 2024 => self::m(3_000_001, 1_500_001, 21)], [
                 'art31.superati' => 3, 'art31.esito' => 'non_rispettato', 'art31.parametri.attivo.limite' => 150_000_000, 'art31.parametri.entrate.limite' => 300_000_000, 'art31.parametri.dipendenti.limite' => 20,
             ]],

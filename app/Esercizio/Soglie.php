@@ -113,7 +113,7 @@ final class Soglie
             'parametri' => $parametri,
             'superati' => $contano(['superato', 'mancante']),
             'mancanti' => $contano(['mancante']),
-            'vicini' => $contano(['vicino', 'superato']),
+            'vicini' => $contano(['vicino', 'superato', 'mancante']), // un dato mancante vale superato, quindi anche oltre la soglia «vicino»
         ];
     }
 
