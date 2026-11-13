@@ -366,7 +366,7 @@ class RevisioneImportTest extends TestCase
 
         $this->actingAs($this->tesoriere)->get("/import/{$this->import->id}/revisione?passo=pronte&movimento={$s['gazebo']->id}")
             ->assertOk()->assertSeeText('Proposta da Tina Verdi')->assertSeeText('Uscite A1')->assertSeeText('Natura')
-            ->assertSeeText('Da calcolare')->assertSee('data-successivo', false);
+            ->assertSeeText('non si applica alle uscite')->assertSee('data-successivo', false);
     }
 
     public function test_la_pagina_dell_import_confermato_porta_alla_revisione(): void

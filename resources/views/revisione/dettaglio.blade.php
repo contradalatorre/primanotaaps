@@ -24,12 +24,12 @@
         @forelse ($dettaglio->imputazioni as $imputazione)
             <div><dt>Imputazione</dt><dd>{{ $imputazione->riassunto() }}</dd></div>
             <div><dt>Voce Modello D</dt><dd>{{ $imputazione->etichettaVoce() ?? 'Si ricava da area e tipologia: scegli la tipologia.' }}</dd></div>
+            <div><dt>Natura</dt><dd>@include('esercizio.natura', ['imputazione' => $imputazione])</dd></div>
         @empty
             <div><dt>Imputazione</dt><dd>Da classificare.</dd></div>
             <div><dt>Voce Modello D</dt><dd>—</dd></div>
+            <div><dt>Natura</dt><dd>Si calcola dopo la classificazione.</dd></div>
         @endforelse
-        {{-- La natura commerciale si calcola con l'esercizio (#55 e seguenti): fin lì un segnaposto. --}}
-        <div><dt>Natura</dt><dd>Da calcolare: arriva con il calcolo dell’esercizio.</dd></div>
         @endif
         @if ($dettaglio->giustificativi->isNotEmpty())
             <div><dt>Giustificativi</dt><dd>{{ $dettaglio->giustificativi->pluck('riferimento')->join('; ') }}</dd></div>

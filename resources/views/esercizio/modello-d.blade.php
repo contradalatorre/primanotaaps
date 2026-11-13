@@ -56,6 +56,8 @@
         @endif
     </section>
 
+    @include('esercizio.forzature-link', ['anno' => $anno])
+
     @foreach ($m['aree'] as $area => $sezione)
         <section data-merlo="modello-d-area-{{ $area }}">
             <h2>{{ $area }}) {{ $sezione['titolo'] }}</h2>

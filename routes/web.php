@@ -8,6 +8,7 @@ use App\Http\Controllers\CronController;
 use App\Http\Controllers\DatiDiClassificazioneController;
 use App\Http\Controllers\EmergenzaController;
 use App\Http\Controllers\EsercizioController;
+use App\Http\Controllers\ForzatureController;
 use App\Http\Controllers\GirocontiController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ImportEstrattiController;
@@ -63,7 +64,11 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::get('/modello-d', [EsercizioController::class, 'indice'])->name('modello-d.indice');
         Route::get('/esercizi/{anno}/modello-d', [EsercizioController::class, 'modelloD'])->where('anno', '[1-9][0-9]{3}')->name('modello-d');
         Route::get('/esercizi/{anno}/imputazioni', [EsercizioController::class, 'imputazioni'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.imputazioni');
+        Route::get('/esercizi/{anno}/forzature', [ForzatureController::class, 'indice'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.forzature'); // #52
     });
+    // Forzare la natura commerciale (#52) è di chi classifica; App\Forzature rilegge il permesso a riga bloccata.
+    Route::post('/imputazioni/natura', [ForzatureController::class, 'forza'])->middleware('can:importare_e_confermare')->name('natura.forza');
+    Route::post('/imputazioni/natura/toglie', [ForzatureController::class, 'togli'])->middleware('can:importare_e_confermare')->name('natura.togli');
     // Aprire un esercizio nuovo copia voci e predefiniti: è «modificare la tabella delle voci» (#16).
     Route::post('/esercizi/{anno}/apertura', [EsercizioController::class, 'apri'])->where('anno', '[1-9][0-9]{3}')->middleware('can:riclassificare_in_blocco')->name('esercizio.apri');
     // I dati di base (conti) sono di chi ha `gestire_regole`: #16 non ha un permesso a parte.

@@ -23,6 +23,7 @@ class Tipologia extends Model
     public const PROPRIETA = [
         'commerciale_per_natura' => 'Commerciale per natura',
         'neutra_nel_test_dell_ente' => 'Neutra nel test dell’ente',
+        'somministrazione' => 'Somministrazione di alimenti e bevande (art. 85 c. 4)',
     ];
 
     protected function casts(): array

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Area;
+use App\Esercizio\Natura;
 use App\Euro;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,7 +22,12 @@ class Imputazione extends Model
 
     protected function casts(): array
     {
-        return ['area' => Area::class, 'importo' => 'integer'];
+        return ['area' => Area::class, 'importo' => 'integer', 'natura_forzata' => 'boolean', 'forzatura_il' => 'datetime', 'forzatura_ingressi' => 'array'];
+    }
+
+    public function forzataDa(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'forzatura_da');
     }
 
     public function movimento(): BelongsTo
@@ -77,6 +83,54 @@ class Imputazione extends Model
         return $voce === null ? null : ($this->tipologia->verso === 'entrata' ? 'Entrate ' : 'Uscite ').$voce;
     }
 
+    /**
+     * I dati da cui dipende la natura commerciale calcolata (`Natura::calcola`). Si fotografano quando si forza: se oggi sono
+     * diversi, la forzatura va rivista. Con l'esito del test 2-bis (#54) entrerà anche quello.
+     * shortcut: voce, tipologia e impostazioni si leggono a ogni chiamata (una query per imputazione, come `voce()`), senza cache.
+     *
+     * @return array{importo: int, lato: string, area: string, voce: ?string, tipologia_id: ?int, proprieta: list<string>, tipo_controparte: ?string, affiliazione_rete: bool}
+     */
+    public function ingressiNatura(): array
+    {
+        return [
+            'importo' => $this->importo, // non entra nel calcolo: serve a riconoscere la riga forzata quando si riclassifica
+            'lato' => ($this->tipologia?->verso ?? $this->movimento->verso) === 'entrata' ? 'entrate' : 'uscite',
+            'area' => $this->area->value,
+            'voce' => $this->voce(),
+            'tipologia_id' => $this->tipologia_id,
+            'proprieta' => collect($this->tipologia?->proprieta)->sort()->values()->all(),
+            'tipo_controparte' => $this->movimento->tipo_controparte,
+            'affiliazione_rete' => (bool) ImpostazioniAssociazione::per($this->movimento->data->year)?->affiliazione_rete,
+        ];
+    }
+
+    /** La natura commerciale che discende dalle regole, a prescindere da una forzatura. */
+    public function natura(): Natura
+    {
+        return Natura::calcola($this->ingressiNatura());
+    }
+
+    public function forzata(): bool
+    {
+        return $this->natura_forzata !== null;
+    }
+
+    /** La natura che vale: la forzatura se c'è, altrimenti la calcolata (null: non si può dire). */
+    public function naturaEffettiva(): ?bool
+    {
+        return $this->forzata() ? $this->natura_forzata : $this->natura()->commerciale;
+    }
+
+    /**
+     * Cosa è cambiato, tra i dati da cui dipende il calcolo, dopo la forzatura: vuoto se la forzatura è ancora quella pensata.
+     *
+     * @return list<string>
+     */
+    public function forzaturaDaRivedere(): array
+    {
+        return $this->forzata() ? Natura::cambiamenti($this->forzatura_ingressi ?? [], $this->ingressiNatura()) : [];
+    }
+
     /** Una riga di testo per il registro delle modifiche. */
     public function riassunto(): string
     {
@@ -85,6 +139,7 @@ class Imputazione extends Model
         return collect([
             Euro::formatta($this->importo).' €', 'area '.$this->area->value, $this->attivita?->nome, $this->iniziativa?->nome,
             $this->tipologia?->nome ?? 'senza tipologia', $tag->isEmpty() ? null : 'tag: '.$tag->join(', '),
+            $this->forzata() ? 'natura forzata: '.($this->natura_forzata ? 'commerciale' : 'non commerciale') : null,
         ])->filter()->join(' · ');
     }
 }

@@ -95,7 +95,8 @@ class DatiInizialiClassificazioneTest extends TestCase
     public function test_le_proprieta_fiscali_delle_tipologie_che_le_hanno(): void
     {
         $this->assertSame(['commerciale_per_natura', 'neutra_nel_test_dell_ente'], Tipologia::firstWhere('nome', 'Sponsorizzazioni e pubblicità')->proprieta);
-        $this->assertSame(['commerciale_per_natura'], Tipologia::firstWhere('nome', 'Somministrazione')->proprieta);
+        $this->assertSame(['commerciale_per_natura', 'somministrazione'], Tipologia::firstWhere('nome', 'Somministrazione')->proprieta);
+        $this->assertSame(['commerciale_per_natura', 'somministrazione'], Tipologia::firstWhere('nome', 'Somministrazione ai soci')->proprieta);
         $this->assertSame([], Tipologia::firstWhere('nome', 'Quote associative')->proprieta);
     }
 }

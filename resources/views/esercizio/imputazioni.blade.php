@@ -10,6 +10,8 @@
         · differenza <strong>{{ \App\Euro::formatta($elenco['entrate'] - $elenco['uscite']) }} €</strong>
     </p>
 
+    <form method="POST" action="{{ route('natura.forza') }}" class="modulo modulo-stretto">
+    @csrf
     <ul class="schede" data-merlo="imputazioni-elenco">
         @forelse ($elenco['imputazioni'] as $riga)
             @php($i = $riga['imputazione'])
@@ -28,6 +30,10 @@
                     · {{ $i->tipologia?->nome ?? 'senza tipologia' }}
                     @if ($i->commissione()) · commissione @endif
                 </p>
+                @include('esercizio.natura', ['imputazione' => $i])
+                @if ($riga['lato'] === 'entrate') @can('importare_e_confermare')
+                    <label class="spunta"><input type="checkbox" name="imputazioni[]" value="{{ $i->id }}"> <span>Scegli per forzare la natura</span></label>
+                @endcan @endif
                 @if ($movimento->giustificativi->isNotEmpty())
                     <p class="nota">Giustificativi: {{ $movimento->giustificativi->pluck('riferimento')->join('; ') }}</p>
                 @endif
@@ -39,5 +45,8 @@
             <li class="vuoto">Nessuna imputazione per questa cifra.</li>
         @endforelse
     </ul>
+    @if ($elenco['imputazioni']->isNotEmpty()) @include('esercizio.forza-modulo') @endif
+    </form>
+    <p><a href="{{ route('esercizio.forzature', $anno) }}" class="link">Le forzature della natura commerciale {{ $anno }}</a></p>
     <p><a href="{{ route('modello-d', $anno) }}{{ $proposte ? '?proposte=1' : '' }}" class="link">Torna al Modello D {{ $anno }}</a></p>
 @endsection

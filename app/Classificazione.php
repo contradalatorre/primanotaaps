@@ -73,11 +73,39 @@ final class Classificazione
     /** @param list<array<string,mixed>> $imputazioni come le restituisce `risolvi` */
     private static function scriviImputazioni(Movimento $movimento, array $imputazioni): void
     {
+        // Le forzature della natura (#52) seguono l'importo, non la posizione (la commissione non conta): la riga con la stessa
+        // classificazione (o, in mancanza, lo stesso importo) di una forzata la eredita, con la fotografia di allora: se area,
+        // tipologia o altro sono cambiati, risulta da rivedere. Le forzature senza una riga corrispondente passano alle righe
+        // rimaste, in ordine, da rivedere sull'importo; se le righe sono meno, la forzatura si perde e il registro lo mostra,
+        // perché il riassunto dell'imputazione la riporta.
+        $forzate = $movimento->imputazioni()->orderBy('id')->get()->reject->commissione()->filter->forzata()->values();
         $movimento->imputazioni()->delete(); // le righe dei tag seguono con la chiave esterna
+        $libere = [];
         foreach ($imputazioni as $dati) {
             $tag = $dati['tag'];
             unset($dati['tag']);
-            $movimento->imputazioni()->create($dati)->tag()->sync($tag);
+            $nuova = $movimento->imputazioni()->create($dati);
+            $nuova->tag()->sync($tag);
+            if (! $nuova->commissione()) {
+                $libere[] = $nuova;
+            }
+        }
+        // Tre passate su tutte le forzate: prima la riga uguale nella classificazione, poi quella con lo stesso importo, poi le rimaste.
+        foreach ([
+            fn (Imputazione $f, Imputazione $n) => $f->only(self::CAMPI_DELLA_CLASSIFICAZIONE) == $n->only(self::CAMPI_DELLA_CLASSIFICAZIONE),
+            fn (Imputazione $f, Imputazione $n) => $f->importo === $n->importo,
+            fn () => true,
+        ] as $uguale) {
+            foreach ($forzate as $f => $forzata) {
+                foreach ($libere as $k => $nuova) {
+                    if ($uguale($forzata, $nuova)) {
+                        $nuova->forceFill($forzata->only(self::CAMPI_DELLA_FORZATURA))->save();
+                        unset($forzate[$f], $libere[$k]);
+
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -163,6 +191,8 @@ final class Classificazione
         ])->save();
         RegistroModifica::registra($utente, $movimento, $azione, $prima, $movimento->istantanea());
     }
+
+    private const CAMPI_DELLA_FORZATURA = ['natura_forzata', 'forzatura_motivazione', 'forzatura_da', 'forzatura_il', 'forzatura_ingressi'];
 
     /** Quello che fa cambiare la classificazione: i tag no. */
     private const CAMPI_DELLA_CLASSIFICAZIONE = ['importo', 'area', 'attivita_id', 'iniziativa_id', 'tipologia_id'];
@@ -254,7 +284,7 @@ final class Classificazione
     }
 
     /** A riga bloccata i permessi si rileggono (come `Note::controllaPermesso`): quelli caricati dal controllo della rotta possono essere di prima di una revoca. */
-    private static function conPermessiRiletti(User $utente): User
+    public static function conPermessiRiletti(User $utente): User
     {
         return $utente->unsetRelation('assegnazioniAttive');
     }
