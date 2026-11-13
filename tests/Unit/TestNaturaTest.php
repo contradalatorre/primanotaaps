@@ -293,13 +293,92 @@ class TestNaturaTest extends TestCase
     #[DataProvider('casi')]
     public function test_a_tabella(array $imputazioni, array $atteso, array $opzioni = []): void
     {
-        $r = self::esegui($imputazioni, $opzioni);
+        $this->assertCasi(self::esegui($imputazioni, $opzioni), $atteso);
+    }
 
+    /** @param  array<string, mixed>  $atteso */
+    private function assertCasi(array $r, array $atteso): void
+    {
         foreach ($atteso as $percorso => $valore) {
             $trovato = Arr::get($r, $percorso);
             $this->assertEquals($valore, $trovato, "Valore di $percorso");
             $this->assertSame(gettype($valore), gettype($trovato), "Tipo di $percorso");
         }
+    }
+
+    /** @return array<string, array{0: list<Imputata>, 1: array<string, mixed>}> */
+    public static function casiForfettario(): array
+    {
+        return [
+            'senza entrate: rispettato, niente imponibile' => [[], ['forfettario.ricavi' => 0, 'forfettario.esito' => 'rispettato', 'forfettario.imponibile' => 0, 'forfettario.uscitaDal' => null, 'forfettario.margine' => 8500000]],
+            'quote e liberalità non sono ricavi' => [[self::e('A', 'A1', 5000), self::e('A', 'A4', 7000), self::e('C', 'C2', 900)], ['forfettario.ricavi' => 0]],
+            'un corrispettivo di terzi in area A, finché il 2-bis regge, non è un ricavo' => [
+                [self::e('A', 'A7', 5000), self::u('A', 'A2', 12000)],
+                ['forfettario.ricavi' => 0],
+            ],
+            'col 2-bis non rispettato lo stesso corrispettivo diventa un ricavo' => [
+                [self::e('A', 'A7', 10601), self::u('A', 'A2', 10000)],
+                ['forfettario.ricavi' => 10601, 'forfettario.perArea.A' => 10601],
+            ],
+            'la somministrazione è commerciale per natura anche col 2-bis rispettato' => [
+                [self::e('A', 'A7', 4000, ['proprieta' => ['commerciale_per_natura', 'somministrazione']]), self::u('A', 'A2', 12000)],
+                ['forfettario.ricavi' => 4000],
+            ],
+            'una sponsorizzazione è neutra per l’ente ma conta per il forfettario' => [
+                [self::sponsor(6000), self::e('B', 'B3', 14000)],
+                ['forfettario.ricavi' => 20000, 'forfettario.perArea.B' => 20000, 'ente.neutre' => 6000, 'ente.commerciali' => 14000],
+            ],
+            'i contributi B2 e B4 contano per prudenza e si vedono a parte' => [
+                [self::e('B', 'B2', 3000), self::e('B', 'B4', 2000), self::e('B', 'B3', 1000)],
+                ['forfettario.ricavi' => 6000, 'forfettario.contributiB' => 5000],
+            ],
+            'gli interessi (area D) restano fuori, una forzatura li porta dentro' => [
+                [self::e('D', 'D1', 800), self::e('D', 'D1', 300, ['forzata' => true])],
+                ['forfettario.ricavi' => 300, 'forfettario.perArea.D' => 300],
+            ],
+            'una forzatura a non commerciale toglie dai ricavi anche un’entrata di area B' => [
+                [self::e('B', 'B3', 5000, ['forzata' => false]), self::e('B', 'B3', 1000)],
+                ['forfettario.ricavi' => 1000],
+            ],
+            'una raccolta fondi abituale (C1) non è un ricavo, forzata sì' => [
+                [self::e('C', 'C1', 4000), self::e('C', 'C1', 600, ['forzata' => true])],
+                ['forfettario.ricavi' => 600, 'forfettario.perArea.C' => 600],
+            ],
+            'un’entrata senza tipologia non si sa se è commerciale: per prudenza conta' => [
+                [self::e('B', 'B3', 700, ['senzaTipologia' => true])],
+                ['forfettario.ricavi' => 700, 'forfettario.senzaNatura' => 1],
+            ],
+            'oltre l’80% della soglia: vicino' => [
+                [self::e('B', 'B3', 6800001)],
+                ['forfettario.esito' => 'vicino', 'forfettario.uscitaDal' => null],
+            ],
+            'esattamente 85.000 euro: vicino, non oltre la soglia' => [
+                [self::e('B', 'B3', 8500000)],
+                ['forfettario.esito' => 'vicino', 'forfettario.margine' => 0, 'forfettario.uscitaDal' => null],
+            ],
+            'un centesimo oltre: non rispettato, si esce dall’anno successivo' => [
+                [self::e('B', 'B3', 8500001)],
+                ['forfettario.esito' => 'non_rispettato', 'forfettario.margine' => -1, 'forfettario.uscitaDal' => 2027],
+            ],
+            'il 3% si arrotonda per eccesso (mai a favore)' => [
+                [self::e('B', 'B3', 1001)],
+                ['forfettario.imponibile' => 31],
+            ],
+            'il 3% di un importo esatto non si tocca' => [
+                [self::e('B', 'B3', 20000)],
+                ['forfettario.imponibile' => 600],
+            ],
+        ];
+    }
+
+    /**
+     * @param  list<Imputata>  $imputazioni
+     * @param  array<string, mixed>  $atteso
+     */
+    #[DataProvider('casiForfettario')]
+    public function test_il_forfettario_a_tabella(array $imputazioni, array $atteso): void
+    {
+        $this->assertCasi(self::esegui($imputazioni), $atteso);
     }
 
     public function test_il_pareggio_per_iniziativa_non_ha_l_iniziativa_in_area_b(): void
