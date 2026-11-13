@@ -280,8 +280,8 @@ class ImportPayPalTest extends TestCase
         $dellaBanca = fn (string $verso, int $importo, string $data, string $descrizione) => Movimento::factory()->create([
             'conto_id' => $banca->id, 'verso' => $verso, 'importo' => $importo, 'data' => $data, 'descrizione' => $descrizione, 'inserito_da' => $this->tesoriere->id,
         ]);
-        $versamento = $dellaBanca('uscita', 10000, '2026-03-02', 'BONIFICO A FAVORE DI PAYPAL');
-        $accredito = $dellaBanca('entrata', 10000, '2026-03-30', 'ACCREDITO PAYPAL');
+        $versamento = $dellaBanca('uscita', 10000, '2026-03-02', 'BONIFICO A FAVORE DI PAYPAL (EUROPE)');
+        $accredito = $dellaBanca('entrata', 10000, '2026-03-30', 'ACCREDITO PAYPAL (EUROPE)');
         $altro = $dellaBanca('entrata', 1915, '2026-03-12', 'ALTRO ACCREDITO');
 
         $this->carica($this->fixture())->assertSessionHasNoErrors();
@@ -291,7 +291,7 @@ class ImportPayPalTest extends TestCase
 
         $this->get("/import/{$import->id}/revisione?passo=giroconti")->assertOk()
             ->assertSee('data-passo="giroconti" data-conteggio="2"', false)
-            ->assertSeeText('BONIFICO A FAVORE DI PAYPAL')->assertSeeText('ACCREDITO PAYPAL')->assertDontSeeText('ALTRO ACCREDITO');
+            ->assertSeeText('BONIFICO A FAVORE DI PAYPAL (EUROPE)')->assertSeeText('ACCREDITO PAYPAL (EUROPE)')->assertDontSeeText('ALTRO ACCREDITO');
         $this->post("/import/{$import->id}/giroconti", ['movimento_a' => $this->movimento('TEST00000000000A1')->id, 'movimento_b' => $versamento->id])->assertSessionHasNoErrors();
         $this->post("/import/{$import->id}/giroconti", ['movimento_a' => $this->movimento('TEST00000000000A5')->id, 'movimento_b' => $accredito->id])->assertSessionHasNoErrors();
         $this->assertSame(2, Giroconto::count());
@@ -306,9 +306,9 @@ class ImportPayPalTest extends TestCase
         $this->post('/regole', ['nome' => 'PayPal', 'testo' => 'PAYPAL', 'tipologia_id' => $this->tipologia('Utenze'), 'area' => 'A'])->assertSessionHasNoErrors();
         $csv = implode("\r\n", [
             'Data Op.;Data Val.;Causale;Descrizione;Importo;Saldo Parziale', ';;Saldo Iniziale;;;1.000,00',
-            '02/03/2026;02/03/2026;BONIFICO;BONIFICO A FAVORE DI PAYPAL;\'-100,00;900,00',
+            '02/03/2026;02/03/2026;BONIFICO;BONIFICO A FAVORE DI PAYPAL (EUROPE);\'-100,00;900,00',
             '12/03/2026;12/03/2026;PAGAMENTO TRAMITE POS;CARTA CA DEBIT VISA *1234 FERRAMENTA ESEMPIO;\'-10,00;890,00',
-            '30/03/2026;30/03/2026;BONIFICO A VOSTRO FAVORE;ACCREDITO PAYPAL;100,00;990,00',
+            '30/03/2026;30/03/2026;BONIFICO A VOSTRO FAVORE;ACCREDITO PAYPAL (EUROPE);100,00;990,00',
             ';;Saldo Contabile;;;990,00',
         ])."\r\n";
         $this->post("/conti/{$banca->id}/import", ['estratto' => UploadedFile::fake()->createWithContent('banca.csv', $csv)])->assertSessionHasNoErrors();
