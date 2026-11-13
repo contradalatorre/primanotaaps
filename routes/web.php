@@ -9,6 +9,7 @@ use App\Http\Controllers\DatiDiClassificazioneController;
 use App\Http\Controllers\DatiEsercizioController;
 use App\Http\Controllers\EmergenzaController;
 use App\Http\Controllers\EsercizioController;
+use App\Http\Controllers\EsercizioStoricoController;
 use App\Http\Controllers\ForzatureController;
 use App\Http\Controllers\GirocontiController;
 use App\Http\Controllers\HomeController;
@@ -95,6 +96,13 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
     });
     // Aprire un esercizio nuovo copia voci e predefiniti: è «modificare la tabella delle voci» (#16).
     Route::post('/esercizi/{anno}/apertura', [EsercizioController::class, 'apri'])->where('anno', '[1-9][0-9]{3}')->middleware('can:riclassificare_in_blocco')->name('esercizio.apri');
+    // L'esercizio storico dal foglio approvato (#63, #18): lo vede chi vede, lo carica chi gestisce i dati dell'esercizio, lo modifica solo chi può riaprirlo.
+    Route::middleware('can:vedere')->get('/esercizi/{anno}/storico', [EsercizioStoricoController::class, 'indice'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.storico');
+    Route::middleware('can:gestire_esercizio')->where(['anno' => '[1-9][0-9]{3}', 'token' => '[A-Za-z0-9]{40}'])->group(function () {
+        Route::post('/esercizi/{anno}/storico', [EsercizioStoricoController::class, 'carica'])->name('esercizio.storico.carica');
+        Route::get('/esercizi/{anno}/storico/anteprima/{token}', [EsercizioStoricoController::class, 'anteprima'])->name('esercizio.storico.anteprima');
+        Route::post('/esercizi/{anno}/storico/anteprima/{token}', [EsercizioStoricoController::class, 'conferma'])->name('esercizio.storico.conferma');
+    });
     // I dati di base (conti) sono di chi ha `gestire_regole`: #16 non ha un permesso a parte.
     Route::middleware('can:gestire_regole')->group(function () {
         Route::get('/conti/nuovo', [ContiController::class, 'nuovo'])->name('conti.nuovo');

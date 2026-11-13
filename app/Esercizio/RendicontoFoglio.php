@@ -61,7 +61,7 @@ final class RendicontoFoglio
                     $importo === null || $importo === 0 || $voci['uscite:Imposte'] = ($voci['uscite:Imposte'] ?? 0) + $importo;
                 } elseif ($importo !== null && $importo !== 0) {
                     $codice = $c !== null && preg_match('/^(\d+)\)/', $testo, $m) ? $c['area'].$m[1] : null;
-                    if ($codice !== null && SchemaModelloD::conosce($c['lato'], $codice)) {
+                    if ($importo > 0 && $codice !== null && SchemaModelloD::conosce($c['lato'], $codice)) { // un importo negativo lo guarda una persona
                         $voci[$c['lato'].':'.$codice] = ($voci[$c['lato'].':'.$codice] ?? 0) + $importo;
                     } elseif ($c !== null || preg_match('/^\d+\)/', $testo)) { // fuori da ogni sezione le righe senza numero sono il contorno del foglio
                         $nonRiconosciute[] = ['riga' => $n + 1, 'etichetta' => trim($etichetta), 'importo' => $importo];
