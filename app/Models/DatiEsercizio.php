@@ -38,6 +38,7 @@ class DatiEsercizio extends Model
      */
     public static function sottoBlocco(User $utente, int $esercizio, Closure $scrittura, Permesso $permesso = Permesso::GestireEsercizio): mixed
     {
+        abort_unless($utente->puo($permesso), 403); // prima di inserire: chi è stato revocato non crea la riga (si rilegge poi a riga bloccata)
         DB::table('dati_esercizio')->insertOrIgnore(['esercizio' => $esercizio, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'created_at' => now(), 'updated_at' => now()]);
 
         return DB::transaction(function () use ($utente, $esercizio, $scrittura, $permesso) {
