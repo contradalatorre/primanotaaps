@@ -87,7 +87,7 @@ class ContiIniziativaTest extends TestCase
 
         // esercizio scelto, precedente, dall'avvio: una cella per colonna, sulla riga della tipologia
         $pagina->assertSeeTextInOrder(['Somministrazione', '800,00', '500,00', '1.300,00']);
-        $pagina->assertSeeTextInOrder(['Acquisti per la somministrazione', '0,00', '200,00', '200,00']);
+        $pagina->assertSeeInOrder(['Acquisti per la somministrazione', '<td class="text-right">0,00</td>', '<td class="text-right">200,00</td>', '<td class="text-right">200,00</td>'], false);
     }
 
     public function test_senza_preventivo_la_pagina_lo_dice_e_non_mostra_scostamenti(): void
