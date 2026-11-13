@@ -80,11 +80,16 @@ class TestNaturaPaginaTest extends TestCase
     public function test_cambiando_i_dati_tra_due_richieste_l_esito_segue(): void
     {
         $this->esercizio(costiA: 8000);
+        $corrispettivo = Imputazione::whereHas('tipologia', fn ($t) => $t->where('nome', 'Corrispettivi da terzi'))->firstOrFail();
+        $movimento = "/movimenti/{$corrispettivo->movimento_id}/classificazione";
         $this->pagina()->assertSeeText('ha reso commerciali 1 imputazione');
+        // La natura di ogni imputazione dice lo stesso della pagina dei test.
+        $this->actingAs($this->tesoriere)->get($movimento)->assertOk()->assertSeeText('Natura commerciale: commerciale');
 
         $this->imputa('uscita', 5000, 'Utenze', 'A');
 
         $this->pagina()->assertDontSeeText('ha reso commerciali');
+        $this->actingAs($this->tesoriere)->get($movimento)->assertOk()->assertSeeText('Natura commerciale: non commerciale');
     }
 
     public function test_la_tolleranza_del_6_per_cento_si_spiega_e_non_rende_commerciale(): void

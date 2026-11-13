@@ -80,7 +80,7 @@ class TestNaturaTest extends TestCase
             ],
             'solo corrispettivi dei soci: il confronto dei terzi è vuoto, niente diventa commerciale e il valore normale conta' => [
                 [self::e('A', 'A2', 12000), self::u('A', 'A2', 10000)],
-                ['areaA.stato' => 'non_rispettato', 'areaA.reseCommerciali.numero' => 0, 'ente.commerciali' => 0, 'ente.nonCommerciali' => 12000 + 500, 'ente.valoreNormale' => 500],
+                ['areaA.stato' => 'pareggio', 'areaA.esito' => 'rispettato', 'areaA.soloSoci' => true, 'areaA.reseCommerciali.numero' => 0, 'ente.commerciali' => 0, 'ente.nonCommerciali' => 12000 + 500, 'ente.valoreNormale' => 500],
                 ['figurativi' => [new Figurativo('provento', 'A', 'prestazioni gratuite', 500)]],
             ],
             'la quota associativa non è un corrispettivo' => [
@@ -102,6 +102,11 @@ class TestNaturaTest extends TestCase
             'le altre uscite di D (investimenti finanziari) non sono spese generali' => [
                 [self::e('A', 'A7', 10000), self::u('A', 'A2', 8000), self::u('D', 'D2', 5000)],
                 ['areaA.costi.generali.importo' => 0, 'areaA.costi.importo' => 8000],
+            ],
+            'riparto per ricavi: conta il corrispettivo dell\'area A, non la quota associativa (la quota sarebbe più grande, a favore)' => [
+                // 10.000 di corrispettivi su 40.000 di entrate A–D (con 20.000 di quote) = 25% di 4.000
+                [self::e('A', 'A7', 10000), self::e('A', 'A1', 20000), self::e('B', 'B3', 10000), self::u('E', 'E2', 4000)],
+                ['areaA.costi.quota.importo' => 1000, 'areaA.costi.quota.numeratore' => 10000, 'areaA.costi.quota.denominatore' => 40000],
             ],
             'riparto per costi diretti: la quota è delle uscite A sulle uscite delle attività' => [
                 // quota A = 8.000 / (8.000 A + 2.000 B) = 80%; spese generali 4.000 + 1.000 → 4.000

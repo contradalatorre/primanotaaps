@@ -29,6 +29,29 @@ final class Verifiche
      */
     public static function pagina(int $anno, bool $proposte = false): array
     {
+        [$modelloD, $catena] = self::calcolaCatena($anno, $proposte);
+
+        return ['s' => self::secondarietaDa($anno, $modelloD), 'catena' => $catena];
+    }
+
+    /**
+     * Il 2-bis dell'esercizio non è rispettato: i corrispettivi dei terzi in area A sono commerciali (`Imputazione::natura`). Con le sole imputazioni
+     * confermate. Si calcola una volta per richiesta (negli attributi della richiesta, non in una statica: le richieste dei test condividono il processo).
+     */
+    public static function areaACommerciale(int $anno): bool
+    {
+        $attributi = request()->attributes;
+        $chiave = "area-a-commerciale.$anno";
+        if (! $attributi->has($chiave)) {
+            $attributi->set($chiave, self::calcolaCatena($anno, false)[1]['areaA']['stato'] === 'non_rispettato');
+        }
+
+        return $attributi->get($chiave);
+    }
+
+    /** @return array{0: array, 1: array} il Modello D e la catena, con il nome delle iniziative del pareggio */
+    private static function calcolaCatena(int $anno, bool $proposte): array
+    {
         $impostazioni = ImpostazioniAssociazione::per($anno);
         $imputate = Prospetto::imputate(Prospetto::imputazioni($anno, $proposte), (bool) $impostazioni?->affiliazione_rete);
         $modelloD = Prospetto::modelloD($anno, $proposte, $imputate);
@@ -41,7 +64,7 @@ final class Verifiche
         $nomi = Iniziativa::whereIn('id', array_keys($catena['pareggi']))->pluck('nome', 'id');
         $catena['pareggi'] = array_map(fn (array $p) => $p + ['nome' => $nomi[$p['iniziativa']] ?? '—'], $catena['pareggi']);
 
-        return ['s' => self::secondarietaDa($anno, $modelloD), 'catena' => $catena];
+        return [$modelloD, $catena];
     }
 
     /**

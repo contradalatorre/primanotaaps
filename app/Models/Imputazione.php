@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Area;
 use App\Esercizio\Natura;
+use App\Esercizio\Verifiche;
 use App\Euro;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -110,10 +111,19 @@ class Imputazione extends Model
         ];
     }
 
-    /** La natura commerciale che discende dalle regole, a prescindere da una forzatura. */
+    /**
+     * La natura commerciale che discende dalle regole, a prescindere da una forzatura: il corrispettivo di un terzo in area A è commerciale
+     * se nell'esercizio il test 2-bis non è rispettato (#54, con le sole confermate). La fotografia degli ingressi (`ingressiNatura`) non
+     * contiene l'esito del test: ogni suo cambio segnerebbe «da rivedere» tutte le forzature dell'esercizio, anche quelle che il test non tocca.
+     */
     public function natura(): Natura
     {
-        return Natura::calcola($this->ingressiNatura());
+        $natura = Natura::calcola($this->ingressiNatura());
+        if ($natura->dipendeDal2bis && Verifiche::areaACommerciale($this->movimento->data->year)) {
+            return new Natura(true, 'corrispettivo-area-a-commerciale', 'Corrispettivo dell’area A: nell’esercizio i corrispettivi superano i costi effettivi e il test dell’art. 79 c. 2-bis non è rispettato, quindi è commerciale.', true);
+        }
+
+        return $natura;
     }
 
     public function forzata(): bool

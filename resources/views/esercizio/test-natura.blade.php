@@ -6,6 +6,8 @@
     $a = $catena['areaA'];
     $e = $catena['ente'];
     $t = $a['tolleranza'];
+    $perc = \App\Esercizio\TestNatura::TOLLERANZA_PERCENTO;
+    $esercizi = \App\Esercizio\TestNatura::TOLLERANZA_ESERCIZI;
     $icona = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l10 18H2zM12 10v5M12 18h.01"/></svg>';
 @endphp
 
@@ -17,12 +19,14 @@
         @include('esercizio.stato-esito', ['esito' => $a['esito']])
         <span class="etichetta">{{ \App\Esercizio\TestNatura::STATI[$a['stato']] }}</span>
         — Corrispettivi dell’area A: {{ $euro($a['corrispettivi']['importo']) }} €, costi effettivi {{ $euro($a['costi']['importo']) }} €: il {{ $pct($a['rapporto']) }}.
-        @if ($a['stato'] === 'pareggio')
+        @if ($a['soloSoci'])
+            I corrispettivi superano i costi di {{ $euro($a['scarto']) }} €, ma sono tutti dei soci e decommercializzati (art. 85 CTS): senza corrispettivi di terzi il test non ha effetto e non è violato.
+        @elseif ($a['stato'] === 'pareggio')
             I corrispettivi non superano i costi: ancora {{ $euro(-$a['scarto']) }} € di margine.
         @elseif ($a['stato'] === 'tolleranza')
-            I corrispettivi superano i costi di {{ $euro($a['scarto']) }} €, entro la tolleranza del 6% (fino a {{ $euro($a['limiteConTolleranza']) }} €): l’area A resta non commerciale, ma questo esercizio consuma uno dei tre della tolleranza.
+            I corrispettivi superano i costi di {{ $euro($a['scarto']) }} €, entro la tolleranza del {{ $perc }}% (fino a {{ $euro($a['limiteConTolleranza']) }} €): l’area A resta non commerciale, ma questo esercizio consuma uno dei {{ $esercizi }} della tolleranza.
         @else
-            I corrispettivi superano i costi di {{ $euro($a['scarto']) }} €{{ $t['disponibile'] ? ', oltre la tolleranza del 6% (fino a '.$euro($a['limiteConTolleranza']).' €)' : '' }}: il test non è rispettato.
+            I corrispettivi superano i costi di {{ $euro($a['scarto']) }} €{{ $t['disponibile'] ? ', oltre la tolleranza del '.$perc.'% (fino a '.$euro($a['limiteConTolleranza']).' €)' : '' }}: il test non è rispettato.
         @endif
     </p>
 
@@ -37,7 +41,7 @@
         </p>
     @endif
 
-    <p data-merlo="test-tolleranza"><strong>Tolleranza del 6%.</strong> {{ $t['motivo'] }}</p>
+    <p data-merlo="test-tolleranza"><strong>Tolleranza del {{ $perc }}%.</strong> {{ $t['motivo'] }}</p>
 
     <details data-merlo="test-area-a-formula">
         <summary>Il calcolo, con i numeri</summary>
@@ -51,7 +55,7 @@
                 <li>{{ $parte['etichetta'] }}: <a href="{{ $vai($parte['chiavi'], $parte['etichetta']) }}" class="link">{{ $euro($parte['importo']) }} €</a></li>
             @endforeach
             @php($q = $a['costi']['quota'])
-            <li>Spese generali {{ $euro($a['costi']['generali']['importo']) }} € per la quota dell’area A: {{ $euro($q['numeratore']) }} € ÷ {{ $euro($q['denominatore']) }} € ({{ $q['criterio'] === 'costi_diretti' ? 'costi diretti delle aree A–D' : 'ricavi delle aree A–D' }}, dai dati dell’esercizio) = {{ $euro($q['importo']) }} €, arrotondati per difetto.</li>
+            <li>Spese generali {{ $euro($a['costi']['generali']['importo']) }} € per la quota dell’area A: {{ $euro($q['numeratore']) }} € ÷ {{ $euro($q['denominatore']) }} € ({{ $q['criterio'] === 'costi_diretti' ? 'uscite dell’area A su uscite delle aree A–D' : 'corrispettivi dell’area A su entrate delle aree A–D' }}, criterio dei dati dell’esercizio) = {{ $euro($q['importo']) }} €, arrotondati per difetto.</li>
             <li>I costi figurativi non si contano. Sono soci e terzi insieme perché i costi si ripartiscono pro-rata sui proventi: il confronto dei soli terzi dà lo stesso esito.</li>
         </ul>
     </details>
@@ -59,7 +63,7 @@
     <details data-merlo="test-area-a-base">
         <summary>Base normativa e manuale</summary>
         <ul class="elenco">
-            <li>Art. 79 c. 2 e 2-bis D.Lgs. 117/2017: un’attività di interesse generale è non commerciale se i corrispettivi non superano i costi effettivi, compresi quelli generali, finanziari e tributari; è tollerato uno scarto fino al 6%, per al massimo tre periodi d’imposta consecutivi dal 2026. Un avanzo oltre il limite rende l’attività commerciale in quell’esercizio.</li>
+            <li>Art. 79 c. 2 e 2-bis D.Lgs. 117/2017: un’attività di interesse generale è non commerciale se i corrispettivi non superano i costi effettivi, compresi quelli generali, finanziari e tributari; è tollerato uno scarto fino al {{ $perc }}%, per al massimo {{ $esercizi }} periodi d’imposta consecutivi dal 2026. Un avanzo oltre il limite rende l’attività commerciale in quell’esercizio.</li>
             <li>Circolare AdE 1/E/2026 §§ 2.2.1 e 2.2.2: i costi figurativi non si contano; il triennio riparte dall’esercizio successivo a uno chiuso a pareggio, e dopo un esercizio commerciale serve il pareggio.</li>
             <li>Manuale: <a href="{{ route('manuale') }}#sezione-19" class="link">§ 19, I test dell’esercizio e le scelte di classificazione</a>.</li>
         </ul>

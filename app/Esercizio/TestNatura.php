@@ -9,7 +9,7 @@ namespace App\Esercizio;
  *  1. Art. 79 c. 2-bis sull'area A, aggregato (sotto i 300.000 euro tutte le attività di interesse generale sono una sola): i corrispettivi
  *     (A2, A3, A7, A9) contro i costi effettivi, cioè le uscite A più la quota delle spese generali (uscite E, oneri bancari D1 e imposte;
  *     figurativi esclusi). Si confrontano i corrispettivi di soci e terzi insieme: con il pro-rata della ricerca #7 (costi dei terzi =
- *     costi × terzi ÷ proventi) T ≤ C·T/P equivale a P ≤ C. Tolleranza del 6% per al massimo 3 esercizi consecutivi dal 2026.
+ *     costi × terzi ÷ proventi) T ≤ C·T/P equivale a P ≤ C (per T > 0: senza corrispettivi di terzi il test è vuoto e vale come rispettato, `soloSoci`). Tolleranza del 6% per al massimo 3 esercizi consecutivi dal 2026.
  *  2. La natura commerciale di ogni entrata: la forzatura se c'è, poi il calcolo di `Natura`, che per il corrispettivo di un terzo
  *     in area A (`dipendeDal2bis`) diventa commerciale se il 2-bis non è rispettato.
  *  3. Art. 79 c. 5, l'ente: proventi commerciali contro entrate non commerciali. Sponsorizzazioni neutre (proprietà della tipologia),
@@ -45,10 +45,8 @@ final class TestNatura
      */
     public static function calcola(int $anno, array $modelloD, array $imputazioni, array $figurativi, string $criterioRiparto, array $storico, int $sogliaVicino, bool $figurativiDichiarati): array
     {
-        $areaA = self::areaA($anno, $modelloD, $criterioRiparto, $storico, $sogliaVicino);
-        // Senza corrispettivi di terzi (solo soci, decommercializzati) il confronto pro-rata dei terzi è vuoto: non c'è niente da rendere commerciale.
-        $terzi = array_sum(array_map(fn (Imputata $i) => $i->lato === 'entrate' && $i->natura?->dipendeDal2bis ? $i->importo : 0, $imputazioni));
-        $nonRispettato = $areaA['stato'] === 'non_rispettato' && $terzi > 0;
+        $areaA = self::areaA($anno, $modelloD, $imputazioni, $criterioRiparto, $storico, $sogliaVicino);
+        $nonRispettato = $areaA['stato'] === 'non_rispettato';
 
         // Passo 2: il 2-bis non rispettato rende commerciali i corrispettivi dei terzi in area A, salvo forzatura.
         foreach ($imputazioni as $i) {
@@ -66,7 +64,7 @@ final class TestNatura
         ];
     }
 
-    private static function areaA(int $anno, array $modelloD, string $criterioRiparto, array $storico, int $sogliaVicino): array
+    private static function areaA(int $anno, array $modelloD, array $imputazioni, string $criterioRiparto, array $storico, int $sogliaVicino): array
     {
         $aree = $modelloD['aree'];
         $righe = array_values(array_filter($aree['A']['entrate']['righe'], fn (array $r) => in_array($r['voce'], Natura::CORRISPETTIVI, true)));
@@ -81,17 +79,20 @@ final class TestNatura
         ];
         $generali = array_sum(array_column($parti, 'importo'));
 
-        // La quota dell'area A: dei ricavi (A su A–D, le aree che producono ricavi) o dei costi diretti (A su A–D).
+        // La quota dell'area A, la più piccola tra le letture possibili (più costi andrebbero a favore): dei ricavi, cioè i corrispettivi
+        // dell'area A sul totale delle entrate delle aree A–D (ricerca #7: «ricavi dell'attività» sul «totale ricavi e proventi»), o dei costi diretti (uscite A su A–D).
         $lato = $criterioRiparto === 'costi_diretti' ? 'uscite' : 'entrate';
-        $numeratore = $aree['A'][$lato]['totale']['importo'];
+        $numeratore = $lato === 'uscite' ? $diretti['importo'] : $corrispettivi['importo'];
         $denominatore = array_sum(array_map(fn (string $area) => $aree[$area][$lato]['totale']['importo'], ['A', 'B', 'C', 'D']));
         $quota = $denominatore > 0 ? intdiv($generali * $numeratore, $denominatore) : 0;
 
         $costi = $diretti['importo'] + $quota;
         $scarto = $corrispettivi['importo'] - $costi;
+        // Senza corrispettivi di terzi (solo soci, decommercializzati dall'art. 85) il confronto pro-rata dei terzi è vuoto: T ≤ C·T/P vale per T = 0.
+        $soloSoci = $scarto > 0 && array_sum(array_map(fn (Imputata $i) => $i->lato === 'entrate' && $i->natura?->dipendeDal2bis ? $i->importo : 0, $imputazioni)) === 0;
         $tolleranza = self::tolleranza($anno, $storico);
         $stato = match (true) {
-            $scarto <= 0 => 'pareggio',
+            $scarto <= 0 || $soloSoci => 'pareggio',
             $tolleranza['disponibile'] && 100 * $corrispettivi['importo'] <= (100 + self::TOLLERANZA_PERCENTO) * $costi => 'tolleranza',
             default => 'non_rispettato',
         };
@@ -109,10 +110,11 @@ final class TestNatura
             'limiteConTolleranza' => intdiv((100 + self::TOLLERANZA_PERCENTO) * $costi, 100), // per difetto
             'stato' => $stato,
             'esito' => match ($stato) {
-                'pareggio' => 100 * $corrispettivi['importo'] > $sogliaVicino * $costi ? 'vicino' : 'rispettato',
+                'pareggio' => ! $soloSoci && 100 * $corrispettivi['importo'] > $sogliaVicino * $costi ? 'vicino' : 'rispettato',
                 'tolleranza' => 'vicino', // non commerciale, ma oltre la soglia piena: il triennio si consuma
                 default => 'non_rispettato',
             },
+            'soloSoci' => $soloSoci,
             'tolleranza' => $tolleranza,
             'reseCommerciali' => ['numero' => 0, 'importo' => 0],
         ];
