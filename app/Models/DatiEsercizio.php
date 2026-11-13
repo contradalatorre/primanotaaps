@@ -37,10 +37,24 @@ class DatiEsercizio extends Model
      */
     public static function sottoBlocco(User $utente, int $esercizio, Closure $scrittura, Permesso $permesso = Permesso::GestireEsercizio): mixed
     {
-        DB::table('dati_esercizio')->insertOrIgnore(['esercizio' => $esercizio, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'created_at' => now(), 'updated_at' => now()]);
+        return self::sottoBlocchi($utente, [$esercizio], fn (array $dati) => $scrittura($dati[$esercizio]), $permesso);
+    }
 
-        return DB::transaction(function () use ($utente, $esercizio, $scrittura, $permesso) {
-            $dati = self::where('esercizio', $esercizio)->lockForUpdate()->firstOrFail();
+    /**
+     * Come `sottoBlocco` per più esercizi insieme (anche nessuno: solo la transazione e il permesso): le righe si bloccano in un'unica
+     * lettura, in ordine di anno, e `$scrittura` riceve quelle bloccate per esercizio.
+     *
+     * @param  list<int>  $esercizi
+     * @param  Closure(array<int, DatiEsercizio>): mixed  $scrittura
+     */
+    public static function sottoBlocchi(User $utente, array $esercizi, Closure $scrittura, Permesso $permesso = Permesso::GestireEsercizio): mixed
+    {
+        foreach ($esercizi as $esercizio) {
+            DB::table('dati_esercizio')->insertOrIgnore(['esercizio' => $esercizio, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'created_at' => now(), 'updated_at' => now()]);
+        }
+
+        return DB::transaction(function () use ($utente, $esercizi, $scrittura, $permesso) {
+            $dati = $esercizi === [] ? [] : self::whereIn('esercizio', $esercizi)->orderBy('esercizio')->lockForUpdate()->get()->keyBy('esercizio')->all();
             $utente->unsetRelation('assegnazioniAttive');
             abort_unless($utente->puo($permesso), 403);
 

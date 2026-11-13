@@ -44,6 +44,64 @@ final class SaldiApertura
     }
 
     /**
+     * I saldi iniziali dei conti dell'apertura, sommati per riga del Modello D.
+     *
+     * @return array<string, int> riga → centesimi
+     */
+    public static function iniziali(int $anno, ?int $escludi = null): array
+    {
+        $somme = array_fill_keys(array_keys(Conto::RIGHE_MODELLO_D), 0);
+        foreach (self::conti($anno) as $conto) {
+            $conto->id === $escludi || $somme[$conto->riga_modello_d] = ($somme[$conto->riga_modello_d] ?? 0) + $conto->saldo_iniziale;
+        }
+
+        return $somme;
+    }
+
+    /**
+     * Dove i saldi iniziali non coincidono con i saldi finali dell'esercizio storico precedente, riga per riga. Vuoto se coincidono o se lo storico non c'è.
+     *
+     * @param  array<string, int>  $iniziali  riga → centesimi
+     * @return list<string>
+     */
+    public static function scostamenti(int $anno, array $iniziali): array
+    {
+        $errori = [];
+        foreach (self::chiusura($anno) ?? [] as $riga => $finale) {
+            if (($iniziali[$riga] ?? 0) !== $finale) {
+                $errori[] = Conto::RIGHE_MODELLO_D[$riga].': saldi iniziali '.Euro::formatta($iniziali[$riga] ?? 0).' €, chiusura '.($anno - 1).' '.Euro::formatta($finale).' €';
+            }
+        }
+
+        return $errori;
+    }
+
+    /** Il controllo con la chiusura rifatto sui saldi di oggi, per la pagina di apertura e per quando lo storico arriva o cambia. Vuoto prima dell'apertura. */
+    public static function scostamentiAttuali(int $anno): array
+    {
+        return self::fatta($anno) ? self::scostamenti($anno, self::iniziali($anno)) : [];
+    }
+
+    /**
+     * Un conto che nasce o arriva al 1/1 dopo l'apertura è un secondo inserimento di saldi: passa dal controllo con la chiusura come se fosse nell'apertura
+     * (senza storico, dove non c'è nulla con cui controllarlo, solo a saldo zero). Da chiamare a riga dei dati dell'esercizio bloccata.
+     *
+     * @throws ValidationException
+     */
+    public static function controllaConto(int $anno, string $riga, int $saldo, ?int $escludi = null): void
+    {
+        if (! self::fatta($anno)) {
+            return;
+        }
+        $iniziali = self::iniziali($anno, $escludi);
+        $iniziali[$riga] = ($iniziali[$riga] ?? 0) + $saldo;
+        $errori = self::chiusura($anno) === null ? ($saldo !== 0 ? ['senza l’esercizio storico '.($anno - 1).' un saldo diverso da zero non si può controllare'] : []) : self::scostamenti($anno, $iniziali);
+        if ($errori !== []) {
+            throw ValidationException::withMessages(['saldo_iniziale' => "I saldi di apertura del $anno sono già inseriti: un conto al 1/1 si aggiunge solo se i saldi tornano con la chiusura (".implode('; ', $errori).').']);
+        }
+    }
+
+    /**
      * Il saldo da proporre per ogni conto: quello dello storico se è l'unico conto della sua riga, altrimenti null (il saldo di oggi).
      *
      * @param  Collection<int, Conto>  $conti
@@ -87,17 +145,9 @@ final class SaldiApertura
                 throw ValidationException::withMessages(['saldi' => 'I conti da compilare sono cambiati: ricarica la pagina e riprova.']);
             }
 
-            if (($chiusura = self::chiusura($anno)) !== null) {
-                $errori = [];
-                foreach (Conto::RIGHE_MODELLO_D as $riga => $nome) {
-                    $inserito = $conti->where('riga_modello_d', $riga)->sum(fn (Conto $c) => $saldi[$c->id]);
-                    if ($inserito !== $chiusura[$riga]) {
-                        $errori[] = "$nome: saldi iniziali ".Euro::formatta($inserito).' €, chiusura '.($anno - 1).' '.Euro::formatta($chiusura[$riga]).' €';
-                    }
-                }
-                if ($errori !== []) {
-                    throw ValidationException::withMessages(['apertura' => 'I saldi iniziali del '.$anno.' devono coincidere con i saldi finali del '.($anno - 1).' ('.implode('; ', $errori).').']);
-                }
+            $errori = self::scostamenti($anno, $conti->groupBy('riga_modello_d')->map(fn (Collection $c) => $c->sum(fn (Conto $conto) => $saldi[$conto->id]))->all());
+            if ($errori !== []) {
+                throw ValidationException::withMessages(['apertura' => 'I saldi iniziali del '.$anno.' devono coincidere con i saldi finali del '.($anno - 1).' ('.implode('; ', $errori).').']);
             }
 
             foreach ($conti as $conto) {

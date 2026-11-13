@@ -10,6 +10,7 @@ use App\Models\ImportEstratto;
 use App\Models\RegistroModifica;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /** La procedura di apertura (#63, #19): i saldi dei conti al 1/1 inseriti una sola volta, precompilati dallo storico e controllati contro la sua chiusura. Dati inventati. */
@@ -119,5 +120,62 @@ class AperturaSaldiTest extends TestCase
         $this->tesoriere->assegnazioni()->delete();
         $this->actingAs($this->tesoriere)->post('/esercizi/2026/saldi-apertura', $this->saldi())->assertForbidden();
         $this->assertSame(0, $this->cassa->fresh()->saldo_iniziale);
+    }
+
+    private function nuovoConto(string $nome, string $saldo, string $apertoIl): array
+    {
+        return ['tipo' => 'cassa', 'nome' => $nome, 'formato_import' => 'manuale', 'riga_modello_d' => 'cassa', 'aperto_il' => $apertoIl, 'saldo_iniziale' => $saldo];
+    }
+
+    public function test_dopo_l_apertura_un_conto_al_primo_gennaio_nasce_o_arriva_solo_se_la_chiusura_del_2025_torna(): void
+    {
+        $this->storico2025();
+        $this->actingAs($this->tesoriere)->post('/esercizi/2026/saldi-apertura', $this->saldi())->assertSessionHas('ok');
+        $dopo = Conto::factory()->create(['nome' => 'Cassa Festa', 'aperto_il' => '2026-06-01']);
+
+        // Creato al 1/1 con un saldo che sposta la cassa da 120,00 a 125,00: la chiusura 2025 non torna.
+        $this->actingAs($this->tesoriere)->post('/conti', $this->nuovoConto('Cassa nuova', '5,00', '2026-01-01'))->assertSessionHasErrors('saldo_iniziale');
+        $this->assertSame(0, Conto::where('nome', 'Cassa nuova')->count());
+        // Spostato al 1/1 con un saldo: lo stesso.
+        $this->actingAs($this->tesoriere)->put('/conti/'.$dopo->id, $this->nuovoConto('Cassa Festa', '5,00', '2026-01-01'))->assertSessionHasErrors('saldo_iniziale');
+        $this->assertSame('2026-06-01', $dopo->fresh()->aperto_il->toDateString());
+        // A zero la chiusura torna, e un conto aperto dopo si crea come sempre.
+        $this->actingAs($this->tesoriere)->post('/conti', $this->nuovoConto('Cassa a zero', '0', '2026-01-01'))->assertSessionHasNoErrors();
+        $this->actingAs($this->tesoriere)->post('/conti', $this->nuovoConto('Cassa estate', '5,00', '2026-06-02'))->assertSessionHasNoErrors();
+        // Uno dell'apertura non cambia riga: sarebbe un altro modo di spostare il saldo.
+        $this->actingAs($this->tesoriere)->put('/conti/'.$this->banca->id, ['nome' => 'Conto corrente', 'formato_import' => 'credit_agricole_csv', 'riga_modello_d' => 'cassa', 'aperto_il' => '2026-01-01', 'saldo_iniziale' => '400,00'])->assertSessionHasErrors('saldo_iniziale');
+        $this->assertSame('depositi', $this->banca->fresh()->riga_modello_d);
+    }
+
+    public function test_senza_storico_un_conto_nuovo_al_primo_gennaio_dopo_l_apertura_ha_saldo_zero(): void
+    {
+        $this->actingAs($this->tesoriere)->post('/esercizi/2026/saldi-apertura', $this->saldi())->assertSessionHas('ok');
+
+        $this->actingAs($this->tesoriere)->post('/conti', $this->nuovoConto('Cassa nuova', '5,00', '2026-01-01'))->assertSessionHasErrors('saldo_iniziale');
+        $this->actingAs($this->tesoriere)->post('/conti', $this->nuovoConto('Cassa nuova', '0', '2026-01-01'))->assertSessionHasNoErrors();
+    }
+
+    public function test_creare_o_modificare_un_conto_al_primo_gennaio_blocca_prima_i_dati_dell_esercizio_e_poi_il_conto(): void
+    {
+        $query = [];
+        DB::listen(function ($q) use (&$query) {
+            $query[] = $q->sql;
+        });
+        $bloccanti = function () use (&$query) {
+            return array_values(array_filter($query, fn (string $sql) => str_contains($sql, 'for update')));
+        };
+
+        // Come la procedura di apertura (`inserisci`): prima `dati_esercizio`, poi i conti. Altrimenti, in REPEATABLE READ, i due si leggono a vicenda un'apertura vecchia.
+        $this->actingAs($this->tesoriere)->put('/conti/'.$this->cassa->id, ['nome' => 'Cassa contanti', 'formato_import' => 'manuale', 'riga_modello_d' => 'cassa', 'aperto_il' => '2026-01-01', 'saldo_iniziale' => '1,00'])->assertSessionHasNoErrors();
+        $this->assertStringContainsString('dati_esercizio', $bloccanti()[0]);
+        $this->assertStringContainsString('`conti`', $bloccanti()[1]);
+
+        $query = [];
+        $this->actingAs($this->tesoriere)->post('/conti', $this->nuovoConto('Cassa nuova', '0', '2026-01-01'))->assertSessionHasNoErrors();
+        $this->assertStringContainsString('dati_esercizio', $bloccanti()[0]);
+
+        // Il permesso si rilegge a riga bloccata, come nelle altre scritture.
+        $this->tesoriere->assegnazioni()->delete();
+        $this->actingAs($this->tesoriere)->post('/conti', $this->nuovoConto('Cassa altra', '0', '2026-01-01'))->assertForbidden();
     }
 }
