@@ -82,6 +82,7 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
     });
     Route::middleware('can:gestire_esercizio')->where(['anno' => '[1-9][0-9]{3}', 'riga' => '[0-9]+'])->group(function () {
         Route::post('/esercizi/{anno}/test/criterio', [VerificheController::class, 'confermaCriterio'])->name('test-esercizio.criterio');
+        Route::put('/esercizi/{anno}/test/annotazione', [VerificheController::class, 'annotazione'])->name('test-esercizio.annotazione'); // #54
         Route::get('/esercizi/{anno}/dati', [DatiEsercizioController::class, 'indice'])->name('dati-esercizio');
         Route::put('/esercizi/{anno}/dati', [DatiEsercizioController::class, 'salva'])->name('dati-esercizio.salva');
         Route::post('/esercizi/{anno}/dati/figurativi', [DatiEsercizioController::class, 'aggiungiFigurativo'])->name('dati-esercizio.figurativi.aggiungi');

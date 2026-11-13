@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Esercizio\Annotazione;
 use App\Esercizio\Secondarieta;
 use App\Esercizio\Verifiche;
 use App\Models\DatiEsercizio;
@@ -24,14 +25,41 @@ class VerificheController extends Controller
     public function mostra(Request $request, int $anno)
     {
         $proposte = $request->boolean('proposte');
+        $test = Verifiche::pagina($anno, $proposte);
+        $dati = $test['s']['dati'];
+        $proposta = Annotazione::testo($anno, $test['s'], $dati->criterio_riparto);
 
         return view('esercizio.test', [
             'anno' => $anno,
             'proposte' => $proposte,
-            's' => Verifiche::secondarieta($anno, $proposte),
+            's' => $test['s'],
+            'catena' => $test['catena'],
+            'annotazione' => ['proposta' => $proposta, 'salvata' => $dati->annotazione_in_calce, 'testo' => $dati->annotazione_in_calce ?? $proposta],
             'inAttesa' => Verifiche::inAttesa($anno),
             'aggiornatoAl' => now(),
         ]);
+    }
+
+    /**
+     * L'annotazione in calce (#54): il testo che il Tesoriere scrive al posto di quello precompilato dagli esiti. Il testo uguale al proposto
+     * (o vuoto, o «ripristina») non si fissa: l'annotazione segue i dati finché nessuno la corregge. I ritorni a capo del browser sono CRLF.
+     */
+    public function annotazione(Request $request, int $anno): RedirectResponse
+    {
+        $campi = $request->validate(['testo' => ['nullable', 'string', 'max:5000'], 'ripristina' => ['nullable', 'boolean']]);
+        $testo = $request->boolean('ripristina') ? '' : trim(str_replace(["\r\n", "\r"], "\n", $campi['testo'] ?? ''));
+
+        DatiEsercizio::sottoBlocco($request->user(), $anno, function (DatiEsercizio $dati) use ($request, $anno, $testo) {
+            $prima = $dati->istantanea();
+            // La proposta si calcola a riga bloccata, con i dati appena riletti.
+            $proposta = Annotazione::testo($anno, Verifiche::secondarieta($anno), $dati->criterio_riparto);
+            $dati->update(['annotazione_in_calce' => $testo === '' || $testo === $proposta ? null : $testo]);
+            if ($dati->istantanea() !== $prima) {
+                RegistroModifica::registra($request->user(), $dati, 'modificato', $prima, $dati->istantanea());
+            }
+        });
+
+        return redirect()->route('test-esercizio', $anno)->with('ok', 'Annotazione in calce salvata.');
     }
 
     public function confermaCriterio(Request $request, int $anno): RedirectResponse

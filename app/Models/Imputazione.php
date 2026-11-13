@@ -85,22 +85,28 @@ class Imputazione extends Model
 
     /**
      * I dati da cui dipende la natura commerciale calcolata (`Natura::calcola`). Si fotografano quando si forza: se oggi sono
-     * diversi, la forzatura va rivista. Con l'esito del test 2-bis (#54) entrerà anche quello.
+     * diversi, la forzatura va rivista. L'esito del test 2-bis (#54) non è tra questi: una forzatura vale a prescindere da esso (la catena in `TestNatura`).
      * shortcut: voce, tipologia e impostazioni si leggono a ogni chiamata (una query per imputazione, come `voce()`), senza cache.
      *
      * @return array{importo: int, lato: string, area: string, voce: ?string, tipologia_id: ?int, proprieta: list<string>, tipo_controparte: ?string, affiliazione_rete: bool}
      */
     public function ingressiNatura(): array
     {
+        return $this->ingressiCon($this->voce(), (bool) ImpostazioniAssociazione::per($this->movimento->data->year)?->affiliazione_rete);
+    }
+
+    /** Gli stessi ingressi con voce e affiliazione già note: chi calcola un intero esercizio (`Prospetto`) non fa due query per riga. */
+    public function ingressiCon(?string $voce, bool $affiliazioneRete): array
+    {
         return [
             'importo' => $this->importo, // non entra nel calcolo: serve a riconoscere la riga forzata quando si riclassifica
             'lato' => ($this->tipologia?->verso ?? $this->movimento->verso) === 'entrata' ? 'entrate' : 'uscite',
             'area' => $this->area->value,
-            'voce' => $this->voce(),
+            'voce' => $voce,
             'tipologia_id' => $this->tipologia_id,
             'proprieta' => collect($this->tipologia?->proprieta)->sort()->values()->all(),
             'tipo_controparte' => $this->movimento->tipo_controparte,
-            'affiliazione_rete' => (bool) ImpostazioniAssociazione::per($this->movimento->data->year)?->affiliazione_rete,
+            'affiliazione_rete' => $affiliazioneRete,
         ];
     }
 

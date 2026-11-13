@@ -65,8 +65,9 @@
                 <p class="nota">Scostamento = effettivo − preventivo, per l’esercizio {{ $anno }}: nelle uscite un valore positivo è una spesa oltre il preventivo.</p>
             @endif
 
-            @if ($scheda['inAreaA'] && Route::has('esercizio.test'))
-                <p class="nota">Indicatore di pareggio dell’area A (informativo, non è il test di legge): <a href="{{ route('esercizio.test', $anno) }}#pareggio-iniziativa-{{ $i->id }}" class="link">vedi nei test</a>.</p>
+            @if ($scheda['inAreaA'])
+                {{-- La pagina dei test (#54) ha l'ancora per ogni iniziativa in area A; con l'interruttore anche quelle che lo sono solo con le proposte. --}}
+                <p class="nota">Indicatore di pareggio dell’area A (informativo, non è il test di legge): <a href="{{ route('test-esercizio', ['anno' => $anno] + ($proposte ? ['proposte' => 1] : [])) }}#pareggio-iniziativa-{{ $i->id }}" class="link">vedi nei test</a>.</p>
             @endif
             @can('gestire_regole')
                 <p><a href="{{ route('esercizio.preventivo', [$anno, $i]) }}" class="link">{{ $c['conPreventivo'] ? 'Modifica' : 'Scrivi' }} il preventivo {{ $anno }} di {{ $i->nome }}</a></p>

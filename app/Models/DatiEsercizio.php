@@ -50,6 +50,6 @@ class DatiEsercizio extends Model
 
     public function istantanea(): array
     {
-        return $this->only(['esercizio', 'dipendenti_medi', 'attivo', 'criterio_riparto', 'criterio_secondarieta']) + ['figurativi_dichiarati' => $this->figurativi_dichiarati ? 'sì' : 'no'];
+        return $this->only(['esercizio', 'dipendenti_medi', 'attivo', 'criterio_riparto', 'criterio_secondarieta', 'annotazione_in_calce']) + ['figurativi_dichiarati' => $this->figurativi_dichiarati ? 'sì' : 'no'];
     }
 }

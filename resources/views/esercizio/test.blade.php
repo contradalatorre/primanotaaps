@@ -27,4 +27,5 @@
     </p>
 
     @include('esercizio.secondarieta')
+    @include('esercizio.test-natura')
 @endsection

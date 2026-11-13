@@ -140,10 +140,10 @@ final class TestNatura
             $y--;
         }
         if ($y >= self::PRIMO_ANNO_TOLLERANZA && ! isset($storico[$y])) {
-            return $risposta(false, $usati, "L'esercizio $y non ha un esito approvato: la tolleranza si conta dagli esiti approvati, quindi per ora non si applica.");
+            return $risposta(false, $usati, "L’esercizio $y non ha un esito approvato: la tolleranza si conta dagli esiti approvati, quindi per ora non si applica.");
         }
         if ($y >= self::PRIMO_ANNO_TOLLERANZA && $storico[$y] === 'non_rispettato') {
-            return $risposta(false, $usati, "L'esercizio $y non ha rispettato il test: quest'anno i corrispettivi non devono superare i costi, senza tolleranza.");
+            return $risposta(false, $usati, "L’esercizio $y non ha rispettato il test: quest’anno i corrispettivi non devono superare i costi, senza tolleranza.");
         }
         if ($usati >= self::TOLLERANZA_ESERCIZI) {
             return $risposta(false, $usati, 'Per '.self::TOLLERANZA_ESERCIZI.' esercizi consecutivi i corrispettivi hanno superato i costi entro il 6%: la tolleranza è finita e vale la soglia piena (corrispettivi non superiori ai costi).');

@@ -17,4 +17,8 @@
     @else
         Natura commerciale: {{ $parola($natura->commerciale) }} <span class="nota">({{ $natura->perche }})</span>
     @endif
+    @if ($natura->dipendeDal2bis)
+        {{-- Il valore calcolato qui è quello con il test rispettato: l'esito vero, con la catena dei test, è nella pagina dei test (#54). --}}
+        <a href="{{ route('test-esercizio', $imputazione->movimento->data->year) }}#test-area-a" class="link">Vedi l’esito del test dell’area A</a>
+    @endif
 </p>

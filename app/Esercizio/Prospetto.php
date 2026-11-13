@@ -48,13 +48,38 @@ final class Prospetto
             });
     }
 
-    /** Il Modello D dell'esercizio, calcolato dal vivo. */
-    public static function modelloD(int $anno, bool $proposte = false): array
+    /**
+     * Il Modello D dell'esercizio, calcolato dal vivo. Chi ha già letto le imputazioni (la pagina dei test, che ne vuole anche la catena)
+     * passa in `$imputate` quelle di `imputate()`: una lettura sola, e Modello D e test non possono divergere.
+     *
+     * @param  ?list<Imputata>  $imputate
+     */
+    public static function modelloD(int $anno, bool $proposte = false, ?array $imputate = null): array
     {
-        $imputate = self::imputazioni($anno, $proposte)->map(fn (array $r) => new Imputata($r['lato'], $r['voce'], abs($r['imputazione']->importo)))->all();
         $impostazioni = ImpostazioniAssociazione::per($anno);
+        $imputate ??= self::imputate(self::imputazioni($anno, $proposte), (bool) $impostazioni?->affiliazione_rete);
 
         return Calcolo::modelloD($imputate, self::saldi($anno), self::figurativi($anno), $impostazioni?->only(['denominazione', 'codice_fiscale', 'numero_runts', 'affiliazione_rete']) ?? []);
+    }
+
+    /**
+     * Le imputazioni come le vede il calcolo: per le entrate anche la natura commerciale calcolata (`Natura`), la forzatura e se la tipologia è neutra
+     * nel test dell'ente; la catena dei test (`TestNatura`, #54) parte da qui. La voce è già in `$righe`: nessuna query per riga.
+     *
+     * @param  Collection<int, array{imputazione: Imputazione, lato: string, voce: ?string, chiave: string}>  $righe
+     * @return list<Imputata>
+     */
+    public static function imputate(Collection $righe, bool $affiliazioneRete): array
+    {
+        return $righe->map(function (array $r) use ($affiliazioneRete) {
+            $i = $r['imputazione'];
+
+            return new Imputata(
+                $r['lato'], $r['voce'], abs($i->importo), $i->area->value, $i->iniziativa_id,
+                $r['lato'] === 'entrate' ? Natura::calcola($i->ingressiCon($r['voce'], $affiliazioneRete)) : null,
+                $i->natura_forzata, in_array('neutra_nel_test_dell_ente', $i->tipologia?->proprieta ?? [], true),
+            );
+        })->all();
     }
 
     /**
