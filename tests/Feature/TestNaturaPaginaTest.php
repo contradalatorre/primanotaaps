@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Conto;
 use App\Models\DatiEsercizio;
+use App\Models\ImpostazioniAssociazione;
 use App\Models\Imputazione;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
@@ -115,6 +116,30 @@ class TestNaturaPaginaTest extends TestCase
         $this->actingAs($this->tesoriere)->post('/imputazioni/natura', ['imputazioni' => [$corrispettivo->id], 'natura' => 'non_commerciale', 'motivazione' => 'Parere del commercialista del 3/3'])->assertSessionHasNoErrors();
 
         $this->pagina()->assertSeeText('Non rispettato')->assertDontSeeText('ha reso commerciali')->assertSeeText('proventi commerciali 0,00 €');
+    }
+
+    public function test_una_forzatura_da_rivedere_non_vale_a_favore_dell_ente_e_la_pagina_lo_dice(): void
+    {
+        $contributo = $this->imputa('entrata', 6000, 'Contributi da privati', 'B');
+        $this->imputa('entrata', 5000, 'Quote associative', 'A');
+        $this->actingAs($this->tesoriere)->post('/imputazioni/natura', ['imputazioni' => [$contributo->id], 'natura' => 'non_commerciale', 'motivazione' => 'Parere del commercialista del 3/3'])->assertSessionHasNoErrors();
+
+        $this->pagina()->assertSeeText('proventi commerciali 0,00 €')->assertSeeText('1 forzatura della natura commerciale')->assertDontSeeText('da rivedere');
+
+        // Cambia un dato da cui dipende il calcolo: la forzatura a favore non conta più, finché qualcuno non la rivede.
+        ImpostazioniAssociazione::where('dal_esercizio', 2026)->update(['affiliazione_rete' => true]);
+        $this->pagina()->assertSeeText('1 da rivedere')->assertSeeText('proventi commerciali 60,00 €');
+    }
+
+    public function test_una_forzatura_da_rivedere_che_peggiora_l_esito_dell_ente_vale_ancora(): void
+    {
+        $this->imputa('entrata', 6000, 'Contributi da privati', 'B');
+        $quota = $this->imputa('entrata', 5000, 'Quote associative', 'A');
+        $this->actingAs($this->tesoriere)->post('/imputazioni/natura', ['imputazioni' => [$quota->id], 'natura' => 'commerciale', 'motivazione' => 'Parere del commercialista del 3/3'])->assertSessionHasNoErrors();
+        $this->pagina()->assertSeeText('proventi commerciali 110,00 €');
+
+        ImpostazioniAssociazione::where('dal_esercizio', 2026)->update(['affiliazione_rete' => true]);
+        $this->pagina()->assertSeeText('1 da rivedere')->assertSeeText('proventi commerciali 110,00 €');
     }
 
     public function test_i_contributi_b2_sono_commerciali_nel_test_dell_ente(): void
