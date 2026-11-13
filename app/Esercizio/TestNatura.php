@@ -179,6 +179,12 @@ final class TestNatura
             if ($i->lato !== 'entrate' || $i->natura === null) {
                 continue;
             }
+            // Neutre: sponsorizzazioni e pubblicità (proprietà della tipologia), in qualunque area.
+            if ($i->neutra) {
+                $neutre += $i->importo;
+
+                continue;
+            }
             $commerciale = self::commerciale($i, $areaACommerciale);
             // D ed E non sono tra le non commerciali (fuori dal test), ma un'entrata commerciale per natura o forzata tale resta tra i proventi.
             if (! in_array($i->area, ['A', 'B', 'C'], true)) {
@@ -186,9 +192,9 @@ final class TestNatura
 
                 continue;
             }
-            // Neutre: sponsorizzazioni e pubblicità (proprietà della tipologia); le raccolte fondi abituali (C1) possono avere corrispettivo
-            // continuativo, e finché non si distingue dalle liberalità si tengono neutre, mai tra le non commerciali; una forzatura le sposta (prevale).
-            if ($i->neutra || ($i->area === 'C' && $i->voce === 'C1' && $i->forzata === null)) {
+            // Le raccolte fondi abituali (C1) possono avere corrispettivo continuativo, e finché non si distingue dalle liberalità
+            // si tengono neutre, mai tra le non commerciali; una forzatura le sposta (prevale).
+            if ($i->area === 'C' && $i->voce === 'C1' && $i->forzata === null) {
                 $neutre += $i->importo;
 
                 continue;

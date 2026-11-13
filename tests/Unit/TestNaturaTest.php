@@ -227,6 +227,10 @@ class TestNaturaTest extends TestCase
                 [self::e('A', 'A1', 1000), self::e('E', 'E1', 5000, ['proprieta' => ['commerciale_per_natura']]), self::e('D', 'D3', 5000, ['forzata' => true])],
                 ['ente.commerciali' => 10000, 'ente.nonCommerciali' => 1000, 'ente.fuoriDalTest' => 0, 'ente.esito' => 'non_rispettato'],
             ],
+            'una sponsorizzazione neutra imputata a E resta neutra, non diventa un provento' => [
+                [self::e('E', 'E1', 5000, ['proprieta' => ['commerciale_per_natura', 'neutra_nel_test_dell_ente']]), self::e('A', 'A1', 1000)],
+                ['ente.neutre' => 5000, 'ente.commerciali' => 0, 'ente.fuoriDalTest' => 0, 'ente.esito' => 'rispettato'],
+            ],
             'un\'entrata di D forzata non commerciale resta fuori dal test' => [
                 [self::e('D', 'D3', 5000, ['forzata' => false]), self::e('A', 'A1', 1000)],
                 ['ente.commerciali' => 0, 'ente.nonCommerciali' => 1000, 'ente.fuoriDalTest' => 5000, 'ente.esito' => 'rispettato'],
