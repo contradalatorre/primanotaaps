@@ -98,6 +98,37 @@ class EsercizioStoricoController extends Controller
         return redirect()->route('esercizio.storico', $anno)->with('ok', "Esercizio storico $anno caricato e bloccato.");
     }
 
+    public function modifica(int $anno)
+    {
+        $storico = EsercizioStorico::where('esercizio', $anno)->firstOrFail();
+
+        return view('esercizio.storico-modifica', ['anno' => $anno, 'storico' => $storico, 'voci' => ImportStorico::voci()]);
+    }
+
+    public function aggiorna(Request $request, int $anno): RedirectResponse
+    {
+        EsercizioStorico::where('esercizio', $anno)->firstOrFail();
+        $request->validate(['motivazione' => ['required', 'string', 'max:1000']], ['motivazione.required' => 'Scrivi la motivazione della modifica: va nel registro.']);
+        $importi = [];
+        foreach (array_filter((array) $request->input('importi', []), 'is_string') as $chiave => $valore) {
+            abort_unless(ImportStorico::voceValida((string) $chiave), 422);
+            $importo = self::euro($valore, 'importi.'.$chiave, 'l’importo di «'.$chiave.'»', vuotoZero: true, minimo: 0);
+            $importo === 0 || $importi[$chiave] = $importo;
+        }
+        $cassa = self::euro($request->input('saldo_cassa'), 'saldo_cassa', 'il saldo finale di cassa');
+        $depositi = self::euro($request->input('saldo_depositi'), 'saldo_depositi', 'il saldo finale dei depositi');
+        $figurativi = ['costi' => [], 'proventi' => []];
+        foreach (['costi', 'proventi'] as $tipo) {
+            foreach (['A', 'B'] as $area) {
+                $figurativi[$tipo][$area] = self::euro($request->input("figurativi.$tipo.$area"), "figurativi.$tipo.$area", 'l’importo figurativo', vuotoZero: true, minimo: 0);
+            }
+        }
+
+        ImportStorico::modifica($request->user(), $anno, $importi, $cassa, $depositi, $figurativi, trim($request->input('motivazione')));
+
+        return redirect()->route('esercizio.storico', $anno)->with('ok', "Esercizio storico $anno modificato: la modifica è nel registro.");
+    }
+
     /** @return array{abbinamenti: array<int|string, mixed>} */
     private function campi(array $input): array
     {

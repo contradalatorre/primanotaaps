@@ -8,6 +8,7 @@ use App\Models\EsercizioStorico;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
 use App\Models\User;
+use App\Permesso;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -156,5 +157,26 @@ final class ImportStorico
 
             return $storico;
         });
+    }
+
+    /**
+     * La modifica di un esercizio storico bloccato: solo chi può riaprire un esercizio (l'Amministratore), con motivazione, e finisce nel registro con
+     * il prima e il dopo. Come la conferma, a riga bloccata e con il permesso riletto lì.
+     *
+     * @param  array<string, int>  $importi
+     * @param  array{costi: array<string, int>, proventi: array<string, int>}  $figurativi
+     */
+    public static function modifica(User $utente, int $anno, array $importi, int $cassa, int $depositi, array $figurativi, string $motivazione): EsercizioStorico
+    {
+        return DatiEsercizio::sottoBlocco($utente, $anno, function () use ($utente, $anno, $importi, $cassa, $depositi, $figurativi, $motivazione) {
+            $storico = EsercizioStorico::where('esercizio', $anno)->lockForUpdate()->firstOrFail();
+            $prima = $storico->istantanea();
+            $storico->update(['importi' => $importi, 'saldo_cassa' => $cassa, 'saldo_depositi' => $depositi, 'figurativi' => $figurativi]);
+            $dopo = $storico->istantanea();
+            // Un importo tornato a zero sparisce dall'istantanea: nel registro compare con il valore di prima e «–» dopo.
+            RegistroModifica::registra($utente, $storico, 'modificato', $prima, $dopo + array_fill_keys(array_diff(array_keys($prima), array_keys($dopo)), null), $motivazione);
+
+            return $storico;
+        }, Permesso::RiaprireEsercizio);
     }
 }

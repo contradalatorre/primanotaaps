@@ -21,7 +21,7 @@
         'archiviato' => 'ha archiviato', 'ripristinato' => 'ha ripristinato', 'classificato' => 'ha classificato', 'confermato' => 'ha confermato',
         'importato' => 'ha importato', 'annullato' => 'ha annullato', 'conflitto_deciso' => 'ha deciso un conflitto di',
         'scritta' => 'ha scritto', 'modificata' => 'ha modificato', 'eliminata' => 'ha eliminato', 'oscurata' => 'ha oscurato', 'dubbio_chiuso' => 'ha chiuso il dubbio di', 'aperto' => 'ha aperto',
-        'creata' => 'ha creato', 'riordinata' => 'ha riordinato', 'giroconto_confermato' => 'ha confermato il giroconto di', 'giroconto_sciolto' => 'ha sciolto il giroconto di', 'conta' => 'ha fatto una conta di cassa:', 'saldo_dichiarato' => 'ha dichiarato il saldo di',
+        'caricato' => 'ha caricato', 'creata' => 'ha creato', 'riordinata' => 'ha riordinato', 'giroconto_confermato' => 'ha confermato il giroconto di', 'giroconto_sciolto' => 'ha sciolto il giroconto di', 'conta' => 'ha fatto una conta di cassa:', 'saldo_dichiarato' => 'ha dichiarato il saldo di',
         'natura_forzata' => 'ha forzato la natura commerciale del', 'forzatura_tolta' => 'ha tolto la forzatura della natura commerciale dal'];
     $oggetti = ['conto' => 'il conto', 'movimento' => 'il movimento', 'tipologia' => 'la tipologia', 'attivita' => 'l’attività', 'iniziativa' => 'l’iniziativa', 'tag' => 'il tag', 'import' => 'l’import', 'manuale' => 'la sezione del manuale', 'nota' => 'la nota', 'regola' => 'la regola', 'impostazioni' => 'le impostazioni dell’associazione dall’esercizio', 'esercizio' => 'l’esercizio', 'dati_esercizio' => 'i dati dell’esercizio', 'riga_figurativa' => 'una riga figurativa dell’esercizio', 'esercizio_storico' => 'l’esercizio storico'];
 @endphp

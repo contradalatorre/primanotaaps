@@ -103,6 +103,10 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::get('/esercizi/{anno}/storico/anteprima/{token}', [EsercizioStoricoController::class, 'anteprima'])->name('esercizio.storico.anteprima');
         Route::post('/esercizi/{anno}/storico/anteprima/{token}', [EsercizioStoricoController::class, 'conferma'])->name('esercizio.storico.conferma');
     });
+    Route::middleware('can:riaprire_esercizio')->where(['anno' => '[1-9][0-9]{3}'])->group(function () {
+        Route::get('/esercizi/{anno}/storico/modifica', [EsercizioStoricoController::class, 'modifica'])->name('esercizio.storico.modifica');
+        Route::put('/esercizi/{anno}/storico/modifica', [EsercizioStoricoController::class, 'aggiorna'])->name('esercizio.storico.aggiorna');
+    });
     // I dati di base (conti) sono di chi ha `gestire_regole`: #16 non ha un permesso a parte.
     Route::middleware('can:gestire_regole')->group(function () {
         Route::get('/conti/nuovo', [ContiController::class, 'nuovo'])->name('conti.nuovo');
