@@ -29,7 +29,7 @@ trait FogliInventati
                     $rif = chr(65 + $c).($r + 1);
                     $xml .= match (true) {
                         $valore === null => '',
-                        $valore instanceof DateTimeInterface => '<c r="'.$rif.'" s="1"><v>'.(int) floor(($valore->getTimestamp() + 2209161600) / 86400).'</v></c>',
+                        $valore instanceof DateTimeInterface => '<c r="'.$rif.'" s="1"><v>'.(int) floor((gmmktime(0, 0, 0, (int) $valore->format('n'), (int) $valore->format('j'), (int) $valore->format('Y')) + 2209161600) / 86400).'</v></c>',
                         is_string($valore) => '<c r="'.$rif.'" t="s"><v>'.$indice($valore).'</v></c>',
                         default => '<c r="'.$rif.'"><v>'.$valore.'</v></c>',
                     };

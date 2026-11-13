@@ -50,6 +50,20 @@ class FoglioTest extends TestCase
         $this->assertSame(['1) Materie prime', 1234.56], $fogli['RUNTS_Rendiconto'][2]);
     }
 
+    #[DataProvider('formati')]
+    public function test_la_data_del_foglio_non_dipende_dal_fuso_orario_della_macchina(string $formato): void
+    {
+        $fuso = date_default_timezone_get();
+        date_default_timezone_set('Europe/Rome'); // a mezzanotte di Roma, in UTC è ancora il giorno prima
+        try {
+            $fogli = $this->leggi($formato, ['F' => [[new DateTimeImmutable('2025-03-01 00:00')]]]);
+        } finally {
+            date_default_timezone_set($fuso);
+        }
+
+        $this->assertSame([['2025-03-01']], $fogli['F']);
+    }
+
     public function test_un_ods_con_celle_e_righe_ripetute_non_le_espande_senza_limite(): void
     {
         $xml = '<?xml version="1.0"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"><office:body><office:spreadsheet>'

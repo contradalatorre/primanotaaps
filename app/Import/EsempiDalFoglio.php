@@ -43,8 +43,7 @@ final class EsempiDalFoglio
                 }
                 $conv = $conversione[$causale] ?? null;
                 [$verso, $importo] = self::importo($riga, $c);
-                $senzaEmail = preg_replace(['/[\w.+-]+@[\w-]+\.[\w.-]+/u', '/[(\[<]\s*[)\]>]/u'], '', (string) ($riga[$c['descrizione'] ?? -1] ?? '')); // e le parentesi rimaste vuote
-                $descrizione = trim(preg_replace('/\s+/u', ' ', $senzaEmail));
+                $descrizione = self::senzaEmail($riga[$c['descrizione'] ?? -1] ?? '');
 
                 $motivo = match (true) {
                     $data === null => 'senza_data',
@@ -62,7 +61,7 @@ final class EsempiDalFoglio
 
                     continue;
                 }
-                $estratto = trim((string) ($riga[$c['causale'] ?? -1] ?? ''));
+                $estratto = self::senzaEmail($riga[$c['causale'] ?? -1] ?? ''); // anche la causale dell'estratto (PayPal) può avere un'email
                 $esempi[] = [
                     'verso' => $verso, 'causale' => $estratto === '' ? null : $estratto, 'descrizione' => $descrizione, 'importo' => $importo, 'data' => $data,
                     'tipologia_id' => $conv['tipologia_id'], 'area' => $conv['area'], 'attivita_id' => $conv['attivita_id'], 'iniziativa_id' => $conv['iniziativa_id'],
@@ -71,6 +70,12 @@ final class EsempiDalFoglio
         }
 
         return ['esempi' => $esempi, 'scartate' => $scartate, 'schede' => $schede];
+    }
+
+    /** Il testo di una cella senza le email (e le parentesi rimaste vuote), a spazi ridotti. */
+    private static function senzaEmail(mixed $cella): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', preg_replace(['/[\w.+-]+@[\w-]+\.[\w.-]+/u', '/[(\[<]\s*[)\]>]/u'], '', (string) $cella)));
     }
 
     /** La chiave con cui si cerca una causale nella tabella di conversione: senza il prefisso «->» o «→», in minuscolo, senza spazi ai lati. */

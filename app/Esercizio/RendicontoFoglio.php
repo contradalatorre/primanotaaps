@@ -46,7 +46,7 @@ final class RendicontoFoglio
                 } elseif (preg_match('/^(cassa|depositi)\b/', $testo, $m)) {
                     $saldi[$m[1]] ??= $importo;
                     $contesto[$k] = null; // «Cassa e banca» chiude gli investimenti: ciò che segue non ne eredita il contesto
-                } elseif (str_contains($testo, 'figurativ') && ! preg_match('/^\d+\)/', $testo)) { // il prospetto dei figurativi: shortcut: «1)» è A e «2)» è B come in SchemaModelloD::figurativi(), da riscontrare sul foglio vero
+                } elseif (str_contains($testo, 'figurativ') && ! preg_match('/^(\d+\)|totale)/', $testo)) { // il prospetto dei figurativi: shortcut: «1)» è A e «2)» è B come in SchemaModelloD::figurativi(), da riscontrare sul foglio vero
                     $contesto[$k] = ['lato' => 'figurativi', 'area' => 'F', 'tipo' => str_contains($testo, 'provent') ? (str_contains($testo, 'cost') ? null : 'proventi') : 'costi'];
                 } elseif (preg_match('/^(uscite|oneri e costi|costi e oneri)$/', $testo)) {
                     $macro[$k] = 'uscite';
@@ -65,14 +65,19 @@ final class RendicontoFoglio
                 } elseif (preg_match('/^imposte\b/', $testo)) {
                     $importo === null || $importo === 0 || $voci['uscite:Imposte'] = ($voci['uscite:Imposte'] ?? 0) + $importo;
                 } elseif ($importo === null) {
-                    preg_match('/^\d+\)/', $testo) || $contesto[$k] = null; // un titolo che non si riconosce chiude la sezione: la prossima non ne eredita il contesto
-                } elseif ($importo !== 0) {
-                    $numero = preg_match('/^(\d+)\)/', $testo, $m) ? $m[1] : null;
-                    $area = ($c['lato'] ?? null) === 'figurativi' ? [1 => 'A', 2 => 'B'][$numero] ?? null : null;
-                    $codice = $c !== null && $numero !== null && $c['lato'] !== 'figurativi' ? $c['area'].$numero : null;
+                    if (($c['lato'] ?? null) === 'figurativi' && preg_match('/^(costi|proventi)\b/', $testo, $m)) {
+                        $contesto[$k]['tipo'] = $m[1]; // il sottotitolo sotto «Costi e proventi figurativi»
+                    } elseif (! preg_match('/^\d+\)/', $testo)) {
+                        $contesto[$k] = null; // un titolo che non si riconosce chiude la sezione: la prossima non ne eredita il contesto
+                    }
+                } elseif (($c['lato'] ?? null) === 'figurativi') { // mai tra le voci: si contano una volta sola, nei campi dei figurativi; il resto lo corregge la persona
+                    $area = preg_match('/^(\d+)\)/', $testo, $m) ? [1 => 'A', 2 => 'B'][(int) $m[1]] ?? null : null;
                     if ($importo > 0 && $area !== null && $c['tipo'] !== null) {
                         $figurativi[$c['tipo']][$area] = ($figurativi[$c['tipo']][$area] ?? 0) + $importo;
-                    } elseif ($importo > 0 && $codice !== null && SchemaModelloD::conosce($c['lato'], $codice)) { // un importo negativo lo guarda una persona
+                    }
+                } elseif ($importo !== 0) {
+                    $codice = $c !== null && preg_match('/^(\d+)\)/', $testo, $m) ? $c['area'].$m[1] : null;
+                    if ($importo > 0 && $codice !== null && SchemaModelloD::conosce($c['lato'], $codice)) { // un importo negativo lo guarda una persona
                         $voci[$c['lato'].':'.$codice] = ($voci[$c['lato'].':'.$codice] ?? 0) + $importo;
                     } elseif ($c !== null || preg_match('/^\d+\)/', $testo)) { // fuori da ogni sezione le righe senza numero sono il contorno del foglio
                         $nonRiconosciute[] = ['riga' => $n + 1, 'etichetta' => trim($etichetta), 'importo' => $importo];

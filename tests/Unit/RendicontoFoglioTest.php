@@ -135,6 +135,22 @@ class RendicontoFoglioTest extends TestCase
         $this->assertSame(0, $esito['totali']['avanzo_complessivo']);
     }
 
+    public function test_un_solo_titolo_dei_figurativi_con_i_sottotitoli_costi_e_proventi_non_porta_righe_tra_le_voci_da_abbinare(): void
+    {
+        $righe = self::foglio(['uscite:I1' => 100]);
+        array_push($righe,
+            ['Costi e proventi figurativi'],
+            ['Costi'], ['1) Da attività di interesse generale', 50], ['Totale costi figurativi', 50],
+            ['Proventi'], ['2) Da attività diverse', 7], ['3) Una riga che non c’è', 9],
+        );
+
+        $esito = RendicontoFoglio::leggi($righe);
+
+        $this->assertSame(['uscite:I1' => 10000], $esito['voci']);
+        $this->assertSame(['costi' => ['A' => 5000], 'proventi' => ['B' => 700]], $esito['figurativi']);
+        $this->assertSame([], $esito['nonRiconosciute']); // ciò che resta dei figurativi lo guarda la persona nei campi dell'anteprima, non lo abbina a una voce
+    }
+
     public function test_i_figurativi_dopo_cassa_e_banca_non_diventano_voci_degli_investimenti(): void
     {
         $righe = self::foglio(['uscite:I1' => 100], extra: ['cassa' => 1, 'depositi' => 2]);

@@ -171,7 +171,7 @@ class EsercizioStoricoTest extends TestCase
             'Cassa' => [['Data', 'Descrizione', 'Nuova causale', 'Entrate', 'Uscite', 'Saldo'], [null, 'Saldo iniziale', null, null, null, 100],
                 ['2025-03-01', 'Bolletta luce di marzo', '-> Assicurazioni', null, 80.5, 19.5], ['2025-04-02', 'Rimborso a Giulia Bianchi', 'Causale che non esiste', null, 10, 9.5],
                 ['2025-04-03', 'Polizza volontari (rossi.mario@example.org)', '-> Assicurazioni', null, 30, 0]], // una causale valida: l'email non deve entrare, e la riga non si scarta prima
-            'Banca' => [['Data', 'Causale', 'Descrizione', 'Nuova causale', 'Importo'], ['2025-05-06', 'BONIFICO ENTRATA', 'Quota associativa 2025', 'Tesseramento ord', 20]],
+            'Banca' => [['Data', 'Causale', 'Descrizione', 'Nuova causale', 'Importo'], ['2025-05-06', 'BONIFICO ENTRATA (bianchi.g@example.org)', 'Quota associativa 2025', 'Tesseramento ord', 20]],
         ];
     }
 
