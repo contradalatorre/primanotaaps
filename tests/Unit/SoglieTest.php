@@ -50,6 +50,7 @@ class SoglieTest extends TestCase
             'sotto i limiti da un solo esercizio, dopo due oltre: l’obbligo non è ancora cessato, vicino' => [2026, [2025 => $ok, 2024 => $oltre], [
                 'art30.superati' => 0, 'art30.esito' => 'vicino', 'art30.consecutivi' => false, 'art30.inCessazione' => true, 'art31.esito' => 'rispettato', 'art31.inCessazione' => false,
             ]],
+            'sotto i limiti e l’esercizio prima non è nell’app: rispettato (non si inventa un obbligo che non si può dimostrare)' => [2026, [2025 => $ok, 2024 => null], ['art30.esito' => 'rispettato', 'art30.inCessazione' => false]],
             'sotto i limiti da due esercizi: l’obbligo è cessato' => [2026, [2025 => $ok, 2024 => $ok], ['art30.esito' => 'rispettato', 'art30.inCessazione' => false]],
             'un limite solo superato: non basta' => [2026, [2025 => self::m(100_000, 200_000, 3), 2024 => $ok], ['art30.superati' => 1, 'art30.esito' => 'rispettato']],
             'sette dipendenti non superano il limite (ma sono al limite), otto sì' => [2026, [2025 => self::m(100_000, 0, 7), 2024 => $ok], ['art30.superati' => 0, 'art30.parametri.dipendenti.stato' => 'vicino']],

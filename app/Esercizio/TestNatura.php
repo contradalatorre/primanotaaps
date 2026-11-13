@@ -253,8 +253,8 @@ final class TestNatura
                 continue;
             }
             $commerciale = self::commerciale($i, $areaACommerciale);
-            // Per prudenza le raccolte fondi abituali (C1) contano: possono avere una parte corrispettiva continuativa (ricerca #7 § d) e finché
-            // #61 non la distingue dalle liberalità non si sa quale. Una forzatura prevale, in entrambi i sensi.
+            // shortcut: C1 conta tutta tra i ricavi dell'art. 86 (ricerca #7 § d: parte corrispettiva continuativa), da rivedere quando #61 la distingue
+            // dalle liberalità. Una forzatura prevale, in entrambi i sensi.
             $c1 = $i->area === 'C' && $i->voce === 'C1' && $i->forzata === null;
             if ($c1) {
                 $commerciale = true;
