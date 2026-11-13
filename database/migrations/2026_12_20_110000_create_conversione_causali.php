@@ -20,11 +20,11 @@ return new class extends Migration
             $table->string('causale'); // com'è scritta nel foglio, senza il prefisso «->» o «→»
             $table->string('chiave')->unique(); // minuscola e senza spazi in testa e in coda: con questa si confronta la causale del foglio
             $table->string('verso'); // entrata | uscita | giroconto
-            $table->foreignId('tipologia_id')->nullable()->constrained('tipologie')->restrictOnDelete(); // vuota: la riga arriva come dubbio
+            $table->foreignId('tipologia_id')->nullable()->constrained('tipologie')->nullOnDelete(); // vuota: la riga arriva come dubbio; cancellando una voce mai usata la conversione la perde (#64 potrà fare altrimenti)
             $table->string('area', 1)->nullable();
-            $table->foreignId('attivita_id')->nullable()->constrained('attivita')->restrictOnDelete();
-            $table->foreignId('iniziativa_id')->nullable()->constrained('iniziative')->restrictOnDelete();
-            $table->foreignId('tag_id')->nullable()->constrained('tag')->restrictOnDelete();
+            $table->foreignId('attivita_id')->nullable()->constrained('attivita')->nullOnDelete();
+            $table->foreignId('iniziativa_id')->nullable()->constrained('iniziative')->nullOnDelete();
+            $table->foreignId('tag_id')->nullable()->constrained('tag')->nullOnDelete();
             $table->timestamps();
         });
 

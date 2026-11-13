@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Attivita;
+use App\Models\ConversioneCausale;
 use App\Models\EsempioClassificazione;
 use App\Models\Imputazione;
 use App\Models\Iniziativa;
@@ -203,6 +204,9 @@ class DatiDiBaseClassificazioneTest extends TestCase
         $this->assertNull($libri->fresh());
         $this->assertNull($casa->fresh());
         $this->assertNull($altro->fresh());
+        // La tabella di conversione delle causali (#63) li citava: non blocca la cancellazione, perde il riferimento (la riga arriva come dubbio).
+        $this->assertNull(ConversioneCausale::firstWhere('chiave', 'acquisto libri')->tipologia_id);
+        $this->assertNull(ConversioneCausale::firstWhere('chiave', 'utenze "la casa"')->iniziativa_id);
         $this->assertSame(0, \DB::table('voci_modello_d')->where('tipologia_id', $libri->id)->count());
         $this->assertSame(['eliminato'], RegistroModifica::where('oggetto_tipo', 'tag')->pluck('azione')->all());
     }
