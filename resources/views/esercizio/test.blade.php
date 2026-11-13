@@ -28,4 +28,5 @@
 
     @include('esercizio.secondarieta')
     @include('esercizio.test-natura')
+    @include('esercizio.test-soglie')
 @endsection

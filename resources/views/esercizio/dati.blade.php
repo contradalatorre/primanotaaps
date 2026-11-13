@@ -14,7 +14,7 @@
     <form method="POST" action="{{ route('dati-esercizio.salva', $anno) }}" class="modulo modulo-stretto" data-merlo="dati-esercizio-modulo">
         @csrf
         @method('PUT')
-        <label>Dipendenti medi <input type="number" name="dipendenti_medi" min="0" max="100000" value="{{ old('dipendenti_medi', $dati->dipendenti_medi) }}"></label>
+        <label>Dipendenti medi (con i decimali: si arrotonda per eccesso) <input type="number" name="dipendenti_medi" min="0" max="100000" step="any" value="{{ old('dipendenti_medi', $dati->dipendenti_medi) }}"></label>
         <label>Totale dell’attivo (€) <input type="text" name="attivo" inputmode="decimal" maxlength="30" value="{{ old('attivo', $dati->attivo === null ? '' : $euro($dati->attivo)) }}"></label>
         <label>Riparto dei costi promiscui
             <select name="criterio_riparto">

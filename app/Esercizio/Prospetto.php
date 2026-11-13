@@ -30,14 +30,15 @@ final class Prospetto
      * Le imputazioni dell'esercizio, ognuna con il lato del Modello D, la voce e la chiave («entrate:A1»).
      * Il lato è quello della tipologia, non del movimento: la commissione su un incasso è un'uscita (importo negativo) in un movimento in entrata.
      *
+     * @param  ?string  $fino  l'ultimo giorno contato («2025-11-13»), per il confronto con lo stesso periodo dell'anno prima (#55); null: tutto l'anno
      * @return Collection<int, array{imputazione: Imputazione, lato: string, voce: ?string, chiave: string}>
      */
-    public static function imputazioni(int $anno, bool $proposte = false): Collection
+    public static function imputazioni(int $anno, bool $proposte = false, ?string $fino = null): Collection
     {
         $voci = DB::table('voci_modello_d')->where('esercizio', $anno)->get()->mapWithKeys(fn ($v) => [$v->area.'|'.$v->tipologia_id => $v->voce]);
 
         return Imputazione::whereHas('movimento', fn (Builder $m) => $m->senzaGiroconto()
-            ->whereBetween('data', ["$anno-01-01", "$anno-12-31"])->whereIn('stato', $proposte ? ['confermato', 'proposto'] : ['confermato']))
+            ->whereBetween('data', ["$anno-01-01", $fino ?? "$anno-12-31"])->whereIn('stato', $proposte ? ['confermato', 'proposto'] : ['confermato']))
             ->with('movimento.conto', 'movimento.giustificativi', 'tipologia', 'attivita', 'iniziativa')
             ->get()->sortBy(fn (Imputazione $i) => [$i->movimento->data->toDateString(), $i->id])->values()
             ->map(function (Imputazione $i) use ($voci) {

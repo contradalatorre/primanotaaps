@@ -32,7 +32,7 @@ class DatiEsercizioController extends Controller
     public function salva(Request $request, int $anno): RedirectResponse
     {
         $campi = $request->validate([
-            'dipendenti_medi' => ['nullable', 'integer', 'min:0', 'max:100000'],
+            'dipendenti_medi' => ['nullable', 'numeric', 'min:0', 'max:100000'],
             'attivo' => ['nullable', 'string', 'max:30'],
             'criterio_riparto' => ['required', Rule::in(array_keys(DatiEsercizio::CRITERI_RIPARTO))],
         ]);
@@ -42,9 +42,9 @@ class DatiEsercizioController extends Controller
         }
 
         DatiEsercizio::sottoBlocco($request->user(), $anno, function (DatiEsercizio $dati) use ($request, $campi, $attivo) {
-            $prima = $dati->istantanea();
+            $prima = $dati->istantanea(); // dipendenti_medi: una media con decimali sale, mai a favore
             $dati->fill([
-                'dipendenti_medi' => $campi['dipendenti_medi'] ?? null, 'attivo' => $attivo, 'criterio_riparto' => $campi['criterio_riparto'],
+                'dipendenti_medi' => isset($campi['dipendenti_medi']) ? (int) ceil($campi['dipendenti_medi']) : null, 'attivo' => $attivo, 'criterio_riparto' => $campi['criterio_riparto'],
                 'figurativi_dichiarati' => $request->boolean('figurativi_dichiarati'),
             ])->save();
             if ($dati->istantanea() !== $prima) {

@@ -14,6 +14,8 @@ namespace App\Esercizio;
  *     in area A (`dipendeDal2bis`) diventa commerciale se il 2-bis non è rispettato.
  *  3. Art. 79 c. 5, l'ente: proventi commerciali contro entrate non commerciali. Sponsorizzazioni neutre (proprietà della tipologia),
  *     B2 e B4 commerciali (area B), valore normale delle prestazioni gratuite = proventi figurativi dell'area A.
+ *  4. Forfettario art. 86 (#55), in coda alla catena: i ricavi commerciali contro gli 85.000 euro, senza calcolo d'imposta. Stessa natura di ogni
+ *     entrata (`commerciale`), ma le sponsorizzazioni contano (sono neutre solo per l'ente, ricerca #7) e i contributi B2 e B4 contano per prudenza.
  *
  * Gli importi sono centesimi interi, i confronti si fanno per moltiplicazione in croce (le percentuali float servono solo a mostrare)
  * e dove un arrotondamento può aiutare chi è sotto test si arrotonda contro di lui (la quota delle spese generali, per difetto).
@@ -28,6 +30,11 @@ final class TestNatura
     public const TOLLERANZA_ESERCIZI = 3;
 
     public const PRIMO_ANNO_TOLLERANZA = 2026;
+
+    /** Art. 86 c. 1 CTS (D.Lgs. 186/2025): ricavi dell'esercizio precedente non superiori a 85.000 euro; coefficiente del 3% per le APS (c. 3). */
+    public const SOGLIA_FORFETTARIO = 8_500_000;
+
+    public const COEFFICIENTE_FORFETTARIO = 3;
 
     /** Per il 2026 e il 2027 il cambio di qualifica dell'ente vale dal periodo successivo (art. 79 c. 5-ter, Circ. 1/E § 2.3.4). */
     private const ULTIMO_ANNO_CON_EFFETTO_DIFFERITO = 2027;
@@ -61,6 +68,7 @@ final class TestNatura
             'areaA' => $areaA,
             'ente' => self::ente($anno, $imputazioni, $figurativi, $nonRispettato, $sogliaVicino, $figurativiDichiarati),
             'pareggi' => self::pareggi($imputazioni),
+            'forfettario' => self::forfettario($anno, $imputazioni, $nonRispettato, $sogliaVicino),
         ];
     }
 
@@ -227,6 +235,60 @@ final class TestNatura
             'esito' => $esito,
             'effettoDal' => $esito === 'non_rispettato' ? ($anno <= self::ULTIMO_ANNO_CON_EFFETTO_DIFFERITO ? $anno + 1 : $anno) : null,
             'datoMancante' => ! $figurativiDichiarati,
+        ];
+    }
+
+    /**
+     * Art. 86: i ricavi commerciali dell'esercizio (A: i corrispettivi resi commerciali dal 2-bis o per natura; B: tutte le attività diverse,
+     * sponsorizzazioni comprese; C, D ed E solo se la natura o una forzatura le fa commerciali, tranne le raccolte fondi abituali C1 che contano per prudenza: interessi, sopravvenienze e liberalità restano fuori).
+     * Un'entrata di cui non si sa la natura conta (prudenza, come nell'ente). Il 3% si arrotonda per eccesso. L'accesso al regime si misura sull'esercizio
+     * precedente (per il 2026 vale la previsione): qui si vedono i ricavi dell'esercizio, che sono quelli che contano dall'anno dopo.
+     */
+    private static function forfettario(int $anno, array $imputazioni, bool $areaACommerciale, int $sogliaVicino): array
+    {
+        $perArea = ['A' => 0, 'B' => 0, 'C' => 0, 'D' => 0, 'E' => 0];
+        $contributiB = $raccolteC1 = $senzaNatura = 0;
+        foreach ($imputazioni as $i) {
+            if ($i->lato !== 'entrate' || $i->natura === null) {
+                continue;
+            }
+            $commerciale = self::commerciale($i, $areaACommerciale);
+            // shortcut: C1 conta tutta tra i ricavi dell'art. 86 (ricerca #7 § d: parte corrispettiva continuativa), da rivedere quando #61 la distingue
+            // dalle liberalità. Una forzatura prevale, in entrambi i sensi.
+            $c1 = $i->area === 'C' && $i->voce === 'C1' && $i->forzata === null;
+            if ($c1) {
+                $commerciale = true;
+            }
+            if ($commerciale === null && in_array($i->area, ['A', 'B', 'C'], true)) {
+                $senzaNatura++;
+                $commerciale = true;
+            }
+            if ($commerciale !== true) {
+                continue;
+            }
+            $perArea[$i->area] = ($perArea[$i->area] ?? 0) + $i->importo;
+            $raccolteC1 += $c1 ? $i->importo : 0;
+            $contributiB += $i->area === 'B' && in_array($i->voce, ['B2', 'B4'], true) ? $i->importo : 0;
+        }
+        $ricavi = array_sum($perArea);
+        $margine = self::SOGLIA_FORFETTARIO - $ricavi;
+
+        return [
+            'ricavi' => $ricavi,
+            'perArea' => $perArea,
+            'contributiB' => $contributiB,
+            'raccolteC1' => $raccolteC1,
+            'senzaNatura' => $senzaNatura,
+            'soglia' => self::SOGLIA_FORFETTARIO,
+            'margine' => $margine, // negativo se la soglia è superata
+            'rapporto' => 100.0 * $ricavi / self::SOGLIA_FORFETTARIO,
+            'imponibile' => intdiv(self::COEFFICIENTE_FORFETTARIO * $ricavi + 99, 100), // per eccesso: stima, nessuna imposta
+            'esito' => match (true) {
+                $margine < 0 => 'non_rispettato',
+                100 * $ricavi > $sogliaVicino * self::SOGLIA_FORFETTARIO => 'vicino',
+                default => 'rispettato',
+            },
+            'uscitaDal' => $margine < 0 ? $anno + 1 : null, // art. 86 c. 14: dal periodo successivo a quello del superamento
         ];
     }
 
