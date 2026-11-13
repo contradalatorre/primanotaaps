@@ -19,7 +19,7 @@ class AperturaSaldiController extends Controller
         $chiusura = SaldiApertura::chiusura($anno);
 
         return view('esercizio.apertura', [
-            'anno' => $anno, 'conti' => $conti, 'chiusura' => $chiusura, 'fatta' => SaldiApertura::fatta($anno),
+            'anno' => $anno, 'conti' => $conti, 'chiusura' => $chiusura, 'fatta' => SaldiApertura::fatta($anno), 'scostamenti' => SaldiApertura::scostamentiAttuali($anno),
             'precompilati' => SaldiApertura::precompilati($conti, $chiusura),
             'riscontri' => $conti->mapWithKeys(fn ($c) => [$c->id => SaldiApertura::riscontri($c, $anno)])->all(),
         ]);

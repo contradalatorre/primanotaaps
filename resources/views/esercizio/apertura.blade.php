@@ -20,6 +20,14 @@
 
     @if ($fatta)
         <p class="nota" data-merlo="apertura-fatta">I saldi di apertura sono già inseriti: non si inseriscono due volte.</p>
+        @if ($scostamenti !== [])
+            <p class="avviso" role="status" data-merlo="apertura-non-torna">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l10 18H2zM12 10v5M12 18h.01"/></svg>
+                <span>Non tornano con la chiusura {{ $anno - 1 }}: {{ implode('; ', $scostamenti) }}. Il controllo si rifà ogni volta che lo storico arriva o cambia.</span>
+            </p>
+        @elseif ($chiusura)
+            <p class="nota" data-merlo="apertura-torna">Tornano con la chiusura {{ $anno - 1 }}: la somma dei saldi iniziali di ogni riga coincide con i saldi finali del foglio.</p>
+        @endif
         <div class="tabella-scorrevole">
             <table class="tabella">
                 <thead><tr><th scope="col">Conto</th><th scope="col">Riga del Modello D</th><th scope="col" class="text-right">Saldo al 1/1/{{ $anno }} (€)</th></tr></thead>

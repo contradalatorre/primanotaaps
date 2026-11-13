@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Esercizio\SaldiApertura;
 use App\Esercizio\Verifiche;
 use App\Import\EsempiDalFoglio;
 use App\Models\Attivita;
@@ -313,5 +314,22 @@ class EsercizioStoricoTest extends TestCase
         $this->assertSame([$amministratore->id, 'Quote corrette dal verbale'], [$r->user_id, $r->motivazione]);
         $this->assertSame([100000, 110000], [$r->prima['entrate:A1'], $r->dopo['entrate:A1']]);
         $this->actingAs($amministratore)->get('/registro')->assertOk()->assertSeeText('Quote corrette dal verbale');
+    }
+
+    public function test_se_l_apertura_e_gia_fatta_il_controllo_con_la_chiusura_si_rifa_quando_lo_storico_arriva_e_quando_cambia(): void
+    {
+        $cassa = Conto::factory()->create(['aperto_il' => '2026-01-01']);
+        SaldiApertura::inserisci($this->tesoriere, 2026, [$cassa->id => 12000]); // l'apertura prima dello storico: nulla da controllare
+        $url = $this->anteprimaUrl($this->carica());
+
+        // Lo storico dice cassa 120,00 e depositi 530,00: i depositi iniziali del 2026 sono 0,00.
+        $this->actingAs($this->tesoriere)->post($url, ['saldo_cassa' => '120,00', 'saldo_depositi' => '530,00'])->assertSessionHas('ok')
+            ->assertSessionHas('avviso', fn (string $m) => str_contains($m, 'Depositi: saldi iniziali 0,00 €, chiusura 2025 530,00 €') && ! str_contains($m, 'Cassa:'));
+        $this->actingAs($this->tesoriere)->get('/esercizi/2026/saldi-apertura')->assertSeeText('Non tornano con la chiusura 2025')->assertSeeText('Depositi: saldi iniziali 0,00 €');
+
+        // L'Amministratore corregge lo storico: ora tornano, e la pagina lo dice.
+        $campi = ['importi' => ['entrate:A1' => '1.000,00'], 'saldo_cassa' => '120,00', 'saldo_depositi' => '0', 'figurativi' => []];
+        $this->actingAs($this->utenteCon('Amministratore'))->put('/esercizi/2025/storico/modifica', $campi + ['motivazione' => 'Depositi del verbale'])->assertSessionMissing('avviso');
+        $this->actingAs($this->tesoriere)->get('/esercizi/2026/saldi-apertura')->assertSeeText('Tornano con la chiusura 2025')->assertDontSeeText('Non tornano');
     }
 }

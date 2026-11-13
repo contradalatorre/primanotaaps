@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Esercizio\ImportStorico;
+use App\Esercizio\SaldiApertura;
 use App\Euro;
 use App\Import\Foglio;
 use App\Import\FoglioNonValido;
@@ -95,7 +96,7 @@ class EsercizioStoricoController extends Controller
         ImportStorico::conferma($request->user(), $anno, $importi, $cassa, $depositi, $figurativi, $differenze, $anteprima['esempi']);
         Storage::disk('local')->delete($this->percorso($token));
 
-        return redirect()->route('esercizio.storico', $anno)->with('ok', "Esercizio storico $anno caricato e bloccato.");
+        return redirect()->route('esercizio.storico', $anno)->with('ok', "Esercizio storico $anno caricato e bloccato.")->with($this->avvisoApertura($anno));
     }
 
     public function modifica(int $anno)
@@ -126,7 +127,15 @@ class EsercizioStoricoController extends Controller
 
         ImportStorico::modifica($request->user(), $anno, $importi, $cassa, $depositi, $figurativi, trim($request->input('motivazione')));
 
-        return redirect()->route('esercizio.storico', $anno)->with('ok', "Esercizio storico $anno modificato: la modifica è nel registro.");
+        return redirect()->route('esercizio.storico', $anno)->with('ok', "Esercizio storico $anno modificato: la modifica è nel registro.")->with($this->avvisoApertura($anno));
+    }
+
+    /** Se l'apertura dell'anno dopo è già fatta, i suoi saldi iniziali si rifanno contro la chiusura appena caricata o cambiata: si mostra l'esito, senza bloccare (altrimenti non si potrebbe correggere lo storico). */
+    private function avvisoApertura(int $anno): array
+    {
+        $errori = SaldiApertura::scostamentiAttuali($anno + 1);
+
+        return $errori === [] ? [] : ['avviso' => 'I saldi iniziali del '.($anno + 1).' non tornano con la chiusura '.$anno.' ('.implode('; ', $errori).'): correggi lo storico o i saldi dell’apertura.'];
     }
 
     /** @return array{abbinamenti: array<int|string, mixed>} */
