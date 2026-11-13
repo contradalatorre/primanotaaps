@@ -69,7 +69,7 @@ class EsercizioStoricoController extends Controller
         return view('esercizio.storico-anteprima', [
             'anno' => $anno, 'token' => $token, 'anteprima' => $anteprima, 'm' => $m, 'voci' => ImportStorico::voci(),
             'differenze' => ImportStorico::differenze($anteprima['totali'], $m), 'saldoCassa' => $saldoCassa, 'saldoDepositi' => $saldoDepositi,
-            'abbinamenti' => $campi['abbinamenti'], 'figurativi' => old('figurativi', []),
+            'abbinamenti' => $campi['abbinamenti'], 'figurativi' => old('figurativi', array_map(fn ($aree) => array_map(Euro::formatta(...), $aree), $anteprima['figurativi'] ?? [])),
         ]);
     }
 

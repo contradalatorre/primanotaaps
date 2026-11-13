@@ -83,6 +83,18 @@ class EsercizioStoricoTest extends TestCase
         $this->carica(UploadedFile::fake()->createWithContent('x.ods', self::ods(['Cassa' => [['a']]])))->assertSessionHasErrors('foglio');
     }
 
+    public function test_i_figurativi_del_foglio_precompilano_l_anteprima_e_non_entrano_tra_le_voci(): void
+    {
+        $righe = RendicontoFoglioTest::foglio(['entrate:A1' => 1000], extra: ['cassa' => 1, 'depositi' => 2]);
+        array_push($righe, ['Cassa e banca'], ['Costi figurativi'], ['1) Da attività di interesse generale', 40], ['Proventi figurativi'], ['2) Da attività diverse', 5]);
+        $file = UploadedFile::fake()->createWithContent('foglio-2025.xlsx', self::xlsx(['RUNTS_Rendiconto' => $righe]));
+
+        $this->actingAs($this->tesoriere)->get($this->anteprimaUrl($this->carica($file)))
+            ->assertSee('name="figurativi[costi][A]" inputmode="decimal" maxlength="30" value="40,00"', false)
+            ->assertSee('name="figurativi[proventi][B]" inputmode="decimal" maxlength="30" value="5,00"', false)
+            ->assertSee('name="figurativi[costi][B]" inputmode="decimal" maxlength="30" value="0"', false);
+    }
+
     public function test_la_conferma_salva_con_l_abbinamento_manuale_i_figurativi_e_i_saldi_e_poi_blocca(): void
     {
         $url = $this->anteprimaUrl($this->carica());
