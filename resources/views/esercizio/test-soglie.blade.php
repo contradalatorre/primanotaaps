@@ -11,6 +11,7 @@
     $valore = fn (string $nome, ?int $v) => $v === null ? '—' : ($nome === 'dipendenti' ? $v : $euro($v).' €');
     $limite = fn (string $nome, int $v) => $nome === 'dipendenti' ? 'più di '.$v : 'più di '.$euro($v).' €';
     $dati = fn () => auth()->user()->can('gestire_esercizio');
+    $righeObbligo = ['art30' => 'Art. 30: organo di controllo delle associazioni', 'art31' => 'Art. 31: revisione legale'];
 @endphp
 
 <section data-merlo="test-forfettario" id="test-forfettario">
@@ -77,7 +78,7 @@
     @if ($a13['senzaDati'])
         <p class="avviso" role="status" data-merlo="test-soglie-senza-dati">
             {!! $icona !!}
-            <span>Dato mancante: l’esercizio {{ $r }} non ha movimenti confermati nell’app, quindi le soglie non si possono misurare e non si dice né che il rendiconto per cassa sia ammesso né che si possa redigere il Modello E.
+            <span>L’esercizio {{ $r }} non ha movimenti confermati nell’app, quindi le soglie non si possono misurare e non si dice né che il rendiconto per cassa sia ammesso né che si possa redigere il Modello E.
                 @if ($dati())
                     <a href="{{ route('dati-esercizio', $r) }}" class="link">Dati dell’esercizio {{ $r }}</a>
                 @endif
@@ -102,8 +103,10 @@
                         @endif
                     </td>
                 </tr>
-                @foreach (['art30' => 'Art. 30: organo di controllo (associazioni)', 'art31' => 'Art. 31: revisione legale'] as $chiave => $titolo)
-                    @php($o = $soglie[$chiave])
+                @foreach ($righeObbligo as $chiave => $titolo)
+                    @php
+                        $o = $soglie[$chiave];
+                    @endphp
                     <tr data-merlo="test-soglia-{{ substr($chiave, 3) }}">
                         <th scope="row">{{ $titolo }}<br><span class="nota">scatta con due limiti su tre superati per due esercizi consecutivi</span></th>
                         <td>
