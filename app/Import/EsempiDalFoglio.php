@@ -8,7 +8,7 @@ namespace App\Import;
  * Un modulo puro, che non conosce il database: la tabella di conversione la passa il chiamante.
  *
  * Si leggono solo le colonne in elenco esplicito, riconosciute dal nome dell'intestazione (data, causale, nuova causale, descrizione o dettaglio, entrate e uscite
- * o importo): le altre (nome, email, saldo…) non si guardano mai, e le email dentro la descrizione si tolgono. I nomi di persona scritti nella
+ * o importo): le altre (nome, email, saldo…) non si guardano mai, e le email dentro la descrizione e la causale dell'estratto si tolgono. I nomi di persona scritti nella
  * descrizione libera non si possono togliere qui.
  * shortcut: i nomi nella descrizione restano finché non c'è il mascheratore (#65); da rivedere con il primo foglio vero. Le intestazioni sono un'ipotesi sulle schede del foglio.
  */

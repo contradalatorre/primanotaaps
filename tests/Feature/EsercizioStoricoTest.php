@@ -177,7 +177,7 @@ class EsercizioStoricoTest extends TestCase
         $this->assertSame(0, EsercizioStorico::count());
     }
 
-    /** Le schede Cassa e Banca del foglio 2025: gli esempi di classificazione, con causali della tabella di conversione e un nome e un'email che non devono entrare. */
+    /** Le schede Cassa e Banca del foglio 2025: gli esempi di classificazione, con causali della tabella di conversione, un'email nella descrizione e una nella causale dell'estratto (da togliere) e una riga con un nome e una causale sconosciuta (scartata). */
     private function schede(): array
     {
         return [
@@ -203,7 +203,7 @@ class EsercizioStoricoTest extends TestCase
         $assicurazioni = Tipologia::where('nome', 'Assicurazioni')->value('id');
         $this->assertSame([$assicurazioni, $assicurazioni, Tipologia::where('nome', 'Quote associative')->value('id')], $esempi->pluck('tipologia_id')->all());
         $this->assertSame(['E', 'E', 'A'], $esempi->pluck('area')->all());
-        $this->assertStringNotContainsString('Giulia', json_encode(EsempioClassificazione::all()));
+        // I nomi di persona nella descrizione libera li toglie il mascheratore (#65), non questo import: la riga di Giulia Bianchi qui sopra è scartata per la causale, non per il nome.
         $this->assertStringNotContainsString('@', json_encode(EsempioClassificazione::all()));
         $this->assertSame(0, Movimento::count()); // nessun movimento: nessun rendiconto
         $this->assertSame(3, RegistroModifica::where('oggetto_tipo', 'esercizio_storico')->firstOrFail()->dopo['esempi']);
