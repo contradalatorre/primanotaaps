@@ -2,11 +2,19 @@
 
 namespace Tests\Feature;
 
+use App\Import\EsempiDalFoglio;
+use App\Models\Attivita;
 use App\Models\Conto;
+use App\Models\ConversioneCausale;
+use App\Models\EsempioClassificazione;
 use App\Models\EsercizioStorico;
+use App\Models\Iniziativa;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
+use App\Models\Tag;
+use App\Models\Tipologia;
 use App\Models\User;
+use App\Storico;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -141,6 +149,70 @@ class EsercizioStoricoTest extends TestCase
         $this->actingAs($this->tesoriere)->post($url, ['saldo_cassa' => '1', 'saldo_depositi' => '1', 'abbinamenti' => ['6' => 'uscite:Z9']])->assertSessionHasErrors('abbinamenti');
         $this->actingAs($this->tesoriere)->post($url, ['saldo_cassa' => '1', 'saldo_depositi' => '1', 'abbinamenti' => ['99' => 'uscite:E2']])->assertSessionHasErrors('abbinamenti');
         $this->assertSame(0, EsercizioStorico::count());
+    }
+
+    /** Le schede Cassa e Banca del foglio 2025: gli esempi di classificazione, con causali della tabella di conversione e un nome e un'email che non devono entrare. */
+    private function schede(): array
+    {
+        return [
+            'Cassa' => [['Data', 'Descrizione', 'Nuova causale', 'Entrate', 'Uscite', 'Saldo'], [null, 'Saldo iniziale', null, null, null, 100],
+                ['2025-03-01', 'Bolletta luce di marzo', '-> Assicurazioni', null, 80.5, 19.5], ['2025-04-02', 'Rimborso a Giulia Bianchi (giulia@example.org)', 'Causale che non esiste', null, 10, 9.5]],
+            'Banca' => [['Data', 'Causale', 'Descrizione', 'Nuova causale', 'Importo'], ['2025-05-06', 'BONIFICO ENTRATA', 'Quota associativa 2025', 'Tesseramento ord', 20]],
+        ];
+    }
+
+    public function test_dalle_schede_dei_conti_vengono_gli_esempi_di_classificazione_e_non_i_movimenti(): void
+    {
+        $url = $this->anteprimaUrl($this->carica($this->foglio('xlsx', $this->schede())));
+        $this->actingAs($this->tesoriere)->get($url)->assertSeeText('si ricavano 2 esempi di classificazione')->assertSeeText('1 riga scartata: con una causale che la tabella di conversione non conosce');
+
+        $this->actingAs($this->tesoriere)->post($url, ['saldo_cassa' => '120,00', 'saldo_depositi' => '530,00'])->assertSessionHas('ok');
+
+        $esempi = EsempioClassificazione::orderBy('data')->get();
+        $this->assertSame(['Bolletta luce di marzo', 'Quota associativa 2025'], $esempi->pluck('descrizione')->all());
+        $this->assertSame([null, 'BONIFICO ENTRATA'], $esempi->pluck('causale')->all());
+        $this->assertSame(['uscita', 'entrata'], $esempi->pluck('verso')->all());
+        $this->assertSame([8050, 2000], $esempi->pluck('importo')->all());
+        $this->assertSame([Tipologia::where('nome', 'Assicurazioni')->value('id'), Tipologia::where('nome', 'Quote associative')->value('id')], $esempi->pluck('tipologia_id')->all());
+        $this->assertSame(['E', 'A'], $esempi->pluck('area')->all());
+        $this->assertStringNotContainsString('Giulia', json_encode(EsempioClassificazione::all()));
+        $this->assertStringNotContainsString('@', json_encode(EsempioClassificazione::all()));
+        $this->assertSame(0, Movimento::count()); // nessun movimento: nessun rendiconto
+        $this->assertSame(2, RegistroModifica::where('oggetto_tipo', 'esercizio_storico')->firstOrFail()->dopo['esempi']);
+    }
+
+    public function test_gli_esempi_alimentano_lo_storico_delle_proposte_su_un_movimento_del_2026(): void
+    {
+        $url = $this->anteprimaUrl($this->carica($this->foglio('xlsx', $this->schede())));
+        $this->actingAs($this->tesoriere)->post($url, ['saldo_cassa' => '120,00', 'saldo_depositi' => '530,00']);
+        $cassa = Conto::factory()->create(['aperto_il' => '2026-01-01', 'saldo_iniziale' => 0]);
+        $movimento = Movimento::factory()->create(['conto_id' => $cassa->id, 'verso' => 'uscita', 'importo' => 9000, 'data' => '2026-03-02', 'descrizione' => 'Bolletta luce di marzo', 'causale' => null, 'stato' => 'da_classificare']);
+
+        $precedente = Storico::migliore(Storico::archivio(), $movimento);
+
+        $this->assertNotNull($precedente?->esempio);
+        $this->assertSame(Tipologia::where('nome', 'Assicurazioni')->value('id'), $precedente->riga['tipologia_id']);
+    }
+
+    public function test_la_tabella_di_conversione_e_quella_del_repo(): void
+    {
+        $file = fopen(base_path('docs/import-foglio/conversione-causali.csv'), 'r');
+        $intestazioni = fgetcsv($file, escape: '');
+        $csv = [];
+        while (($riga = fgetcsv($file, escape: '')) !== false) {
+            $csv[] = array_combine($intestazioni, $riga);
+        }
+        fclose($file);
+
+        $this->assertSame(count($csv), ConversioneCausale::count());
+        foreach ($csv as $r) {
+            $c = ConversioneCausale::where('chiave', EsempiDalFoglio::chiave($r['causale']))->firstOrFail();
+            $this->assertSame(
+                [$r['verso'], $r['tipologia'] ?: null, $r['area'] ?: null, $r['attivita'] === 'i' ? 'Lettera i (art. 5 CTS)' : ($r['attivita'] ?: null), $r['iniziativa'] ?: null, $r['tag'] ?: null],
+                [$c->verso, Tipologia::find($c->tipologia_id)?->nome, $c->area, Attivita::find($c->attivita_id)?->nome, Iniziativa::find($c->iniziativa_id)?->nome, Tag::find($c->tag_id)?->nome],
+                $r['causale'],
+            );
+        }
     }
 
     private function storico(array $importi, array $extra = []): EsercizioStorico

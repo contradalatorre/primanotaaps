@@ -41,7 +41,7 @@ class EsercizioStoricoController extends Controller
         }
 
         try {
-            $anteprima = ImportStorico::anteprima(Foglio::leggi($request->file('foglio')->get()));
+            $anteprima = ImportStorico::anteprima(Foglio::leggi($request->file('foglio')->get()), $anno);
         } catch (FoglioNonValido $errore) {
             throw ValidationException::withMessages(['foglio' => $errore->getMessage()]);
         }
@@ -92,7 +92,7 @@ class EsercizioStoricoController extends Controller
         }
         $differenze = ImportStorico::differenze($anteprima['totali'], EsercizioStorico::calcola($importi, $cassa, $depositi, $figurativi));
 
-        ImportStorico::conferma($request->user(), $anno, $importi, $cassa, $depositi, $figurativi, $differenze);
+        ImportStorico::conferma($request->user(), $anno, $importi, $cassa, $depositi, $figurativi, $differenze, $anteprima['esempi']);
         Storage::disk('local')->delete($this->percorso($token));
 
         return redirect()->route('esercizio.storico', $anno)->with('ok', "Esercizio storico $anno caricato e bloccato.");

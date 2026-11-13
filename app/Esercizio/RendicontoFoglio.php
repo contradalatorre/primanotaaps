@@ -2,7 +2,7 @@
 
 namespace App\Esercizio;
 
-use App\Euro;
+use App\Import\Foglio;
 
 /**
  * Riconosce le voci del Modello D nel foglio `RUNTS_Rendiconto` del 2025 (#63, #18). Un modulo puro: legge le righe già lette da `Foglio`,
@@ -78,7 +78,7 @@ final class RendicontoFoglio
     {
         $blocchi = [];
         foreach ($celle as $cella) {
-            $importo = self::importo($cella);
+            $importo = Foglio::centesimi($cella);
             if ($importo !== null) {
                 if ($blocchi !== [] && end($blocchi)[1] === null) {
                     $blocchi[array_key_last($blocchi)][1] = $importo;
@@ -89,15 +89,6 @@ final class RendicontoFoglio
         }
 
         return $blocchi;
-    }
-
-    private static function importo(mixed $cella): ?int
-    {
-        if (is_int($cella) || is_float($cella)) {
-            return (int) round($cella * 100);
-        }
-
-        return is_string($cella) && preg_match('/^[-\d.,\s€]+$/', $cella) && preg_match('/\d/', $cella) ? Euro::daTesto($cella) : null;
     }
 
     private static function normalizza(string $etichetta): string

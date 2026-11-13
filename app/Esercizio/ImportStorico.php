@@ -2,8 +2,11 @@
 
 namespace App\Esercizio;
 
+use App\Import\EsempiDalFoglio;
 use App\Import\FoglioNonValido;
+use App\Models\ConversioneCausale;
 use App\Models\DatiEsercizio;
+use App\Models\EsempioClassificazione;
 use App\Models\EsercizioStorico;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
@@ -30,13 +33,16 @@ final class ImportStorico
 
     /**
      * @param  array<string, list<list<mixed>>>  $fogli  quelli di `Foglio::leggi`
-     * @return array{voci: array<string, int>, nonRiconosciute: list<array{riga: int, etichetta: string, importo: int}>, saldi: array{cassa: ?int, depositi: ?int}, totali: array<string, int>}
+     * @return array{voci: array<string, int>, nonRiconosciute: list<array{riga: int, etichetta: string, importo: int}>, saldi: array{cassa: ?int, depositi: ?int}, totali: array<string, int>, esempi: list<array<string, mixed>>, scartate: array<string, int>, schede: list<string>}
      *
      * @throws FoglioNonValido
      */
-    public static function anteprima(array $fogli): array
+    public static function anteprima(array $fogli, int $anno): array
     {
-        return RendicontoFoglio::leggi($fogli[self::FOGLIO] ?? throw new FoglioNonValido('Nel file non c’è il foglio «'.self::FOGLIO.'».'));
+        $rendiconto = RendicontoFoglio::leggi($fogli[self::FOGLIO] ?? throw new FoglioNonValido('Nel file non c’è il foglio «'.self::FOGLIO.'».'));
+
+        // Dalle schede dei conti, nello stesso file, gli esempi di classificazione: non sono movimenti e non entrano in nessun rendiconto.
+        return $rendiconto + EsempiDalFoglio::leggi($fogli, $anno, ConversioneCausale::perChiave());
     }
 
     /**
@@ -139,10 +145,11 @@ final class ImportStorico
      * @param  array<string, int>  $importi
      * @param  array{costi: array<string, int>, proventi: array<string, int>}  $figurativi
      * @param  list<array<string, mixed>>  $differenze
+     * @param  list<array<string, mixed>>  $esempi  quelli di `anteprima`: si caricano solo qui, con l'esercizio, così non si ricaricano e non lasciano proposte orfane (#43)
      */
-    public static function conferma(User $utente, int $anno, array $importi, int $cassa, int $depositi, array $figurativi, array $differenze): EsercizioStorico
+    public static function conferma(User $utente, int $anno, array $importi, int $cassa, int $depositi, array $figurativi, array $differenze, array $esempi = []): EsercizioStorico
     {
-        return DatiEsercizio::sottoBlocco($utente, $anno, function () use ($utente, $anno, $importi, $cassa, $depositi, $figurativi, $differenze) {
+        return DatiEsercizio::sottoBlocco($utente, $anno, function () use ($utente, $anno, $importi, $cassa, $depositi, $figurativi, $differenze, $esempi) {
             if (EsercizioStorico::where('esercizio', $anno)->exists()) {
                 throw ValidationException::withMessages(['esercizio' => "L'esercizio storico $anno è già caricato ed è bloccato: lo modifica solo un Amministratore, con motivazione."]);
             }
@@ -153,7 +160,10 @@ final class ImportStorico
                 'esercizio' => $anno, 'importi' => $importi, 'saldo_cassa' => $cassa, 'saldo_depositi' => $depositi,
                 'figurativi' => $figurativi, 'differenze' => $differenze, 'caricato_da' => $utente->id,
             ]);
-            RegistroModifica::registra($utente, $storico, 'caricato', null, $storico->istantanea());
+            foreach (array_chunk($esempi, 200) as $blocco) {
+                EsempioClassificazione::insert(array_map(fn (array $e) => $e + ['created_at' => now(), 'updated_at' => now()], $blocco));
+            }
+            RegistroModifica::registra($utente, $storico, 'caricato', null, $storico->istantanea() + ['esempi' => count($esempi)]);
 
             return $storico;
         });

@@ -2,6 +2,7 @@
 
 namespace App\Import;
 
+use App\Euro;
 use DOMDocument;
 use DOMElement;
 use DOMNode;
@@ -275,6 +276,16 @@ final class Foglio
         }
 
         return $date;
+    }
+
+    /** Un importo di una cella (numero, o testo come «1.234,56») in centesimi interi; null se la cella è vuota o non è un importo. Mai un cast dei float: si arrotonda. */
+    public static function centesimi(mixed $cella): ?int
+    {
+        if (is_int($cella) || is_float($cella)) {
+            return (int) round($cella * 100);
+        }
+
+        return is_string($cella) && preg_match('/^[-\d.,\s€]+$/', $cella) && preg_match('/\d/', $cella) ? Euro::daTesto($cella) : null;
     }
 
     // ---- comune -----------------------------------------------------------------------------------------------------------------
