@@ -204,6 +204,7 @@ class NaturaCommercialeTest extends TestCase
     public function test_il_corrispettivo_dell_area_a_si_forza_anche_al_valore_calcolato_per_tenerlo_fermo_dal_2_bis(): void
     {
         $corrispettivo = $this->entrata('Corrispettivi da terzi', 'A');
+        $costi = $this->uscita('Utenze', 'A', 20000); // il 2-bis regge: costi sopra i corrispettivi
         $this->assertFalse($corrispettivo->natura()->commerciale);
         $this->assertTrue($corrispettivo->natura()->dipendeDal2bis);
 
@@ -211,6 +212,12 @@ class NaturaCommercialeTest extends TestCase
 
         $this->assertFalse($corrispettivo->refresh()->naturaEffettiva());
         $this->assertTrue($corrispettivo->forzata());
+
+        // Se il 2-bis non regge il calcolato diventa commerciale (#54), e la forzatura tiene fermo il valore non commerciale.
+        $costi->movimento->delete();
+        $this->actingAs($this->tesoriere)->get('/esercizi/2026/test'); // una richiesta nuova: l'esito del 2-bis si calcola una volta per richiesta
+        $this->assertTrue($corrispettivo->refresh()->natura()->commerciale);
+        $this->assertFalse($corrispettivo->naturaEffettiva());
     }
 
     public function test_togliere_la_forzatura_riporta_il_calcolato_e_si_scrive_nel_registro(): void

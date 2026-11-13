@@ -14,7 +14,6 @@ use App\Models\Tipologia;
 use App\Models\User;
 use App\Permesso;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -126,14 +125,10 @@ class ContiIniziativaTest extends TestCase
         $this->actingAs($this->tesoriere)->get('/esercizi/2026/iniziative')->assertSeeText('Festa della Torre')->assertSeeText('700,00');
     }
 
-    public function test_il_link_al_pareggio_dell_area_a_c_e_solo_se_la_pagina_dei_test_esiste(): void
+    public function test_il_link_al_pareggio_dell_area_a_porta_alla_pagina_dei_test_e_alla_sua_ancora(): void
     {
+        // L'ancora c'è davvero nella pagina dei test: lo verifica TestNaturaPaginaTest.
         $this->imputa($this->cassa, 'entrata', 80000, '2026-06-01', 'Somministrazione');
-        $this->actingAs($this->tesoriere)->get('/esercizi/2026/iniziative')->assertOk()->assertDontSeeText('pareggio');
-
-        // La pagina dei test (#54) non c'è ancora: quando ci sarà, la rotta si chiamerà così e la scheda la raggiunge.
-        Route::get('/esercizi/{anno}/test', fn () => 'test')->name('esercizio.test');
-        app('router')->getRoutes()->refreshNameLookups();
 
         $this->actingAs($this->tesoriere)->get('/esercizi/2026/iniziative')->assertOk()
             ->assertSeeText('pareggio')->assertSee('/esercizi/2026/test#pareggio-iniziativa-'.$this->festa->id, false);
