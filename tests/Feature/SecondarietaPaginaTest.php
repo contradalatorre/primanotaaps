@@ -198,6 +198,9 @@ class SecondarietaPaginaTest extends TestCase
         $this->actingAs($this->tesoriere)->put('/esercizi/2026/dati', ['dipendenti_medi' => 3, 'attivo' => '12.345,67', 'criterio_riparto' => 'costi_diretti', 'figurativi_dichiarati' => '1']);
         $this->assertSame(1, RegistroModifica::where('oggetto_tipo', 'dati_esercizio')->count());
 
+        // Una media con i decimali si arrotonda per eccesso: 7,4 dipendenti non devono diventare 7, «sotto il limite».
+        $this->actingAs($this->tesoriere)->put('/esercizi/2026/dati', ['dipendenti_medi' => '7.4', 'attivo' => '12.345,67', 'criterio_riparto' => 'costi_diretti', 'figurativi_dichiarati' => '1'])->assertSessionHasNoErrors();
+        $this->assertSame(8, DatiEsercizio::per(2026)->dipendenti_medi);
         $this->actingAs($this->tesoriere)->put('/esercizi/2026/dati', ['criterio_riparto' => 'a caso'])->assertSessionHasErrors('criterio_riparto');
         $this->actingAs($this->tesoriere)->put('/esercizi/2026/dati', ['criterio_riparto' => 'ricavi', 'attivo' => 'tanto'])->assertSessionHasErrors('attivo');
         $this->actingAs($this->lettore())->get('/esercizi/2026/dati')->assertForbidden();

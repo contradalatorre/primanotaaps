@@ -240,19 +240,25 @@ final class TestNatura
 
     /**
      * Art. 86: i ricavi commerciali dell'esercizio (A: i corrispettivi resi commerciali dal 2-bis o per natura; B: tutte le attività diverse,
-     * sponsorizzazioni comprese; C, D ed E solo se la natura o una forzatura le fa commerciali: interessi, sopravvenienze e liberalità restano fuori).
+     * sponsorizzazioni comprese; C, D ed E solo se la natura o una forzatura le fa commerciali, tranne le raccolte fondi abituali C1 che contano per prudenza: interessi, sopravvenienze e liberalità restano fuori).
      * Un'entrata di cui non si sa la natura conta (prudenza, come nell'ente). Il 3% si arrotonda per eccesso. L'accesso al regime si misura sull'esercizio
      * precedente (per il 2026 vale la previsione): qui si vedono i ricavi dell'esercizio, che sono quelli che contano dall'anno dopo.
      */
     private static function forfettario(int $anno, array $imputazioni, bool $areaACommerciale, int $sogliaVicino): array
     {
         $perArea = ['A' => 0, 'B' => 0, 'C' => 0, 'D' => 0, 'E' => 0];
-        $contributiB = $senzaNatura = 0;
+        $contributiB = $raccolteC1 = $senzaNatura = 0;
         foreach ($imputazioni as $i) {
             if ($i->lato !== 'entrate' || $i->natura === null) {
                 continue;
             }
             $commerciale = self::commerciale($i, $areaACommerciale);
+            // Per prudenza le raccolte fondi abituali (C1) contano: possono avere una parte corrispettiva continuativa (ricerca #7 § d) e finché
+            // #61 non la distingue dalle liberalità non si sa quale. Una forzatura prevale, in entrambi i sensi.
+            $c1 = $i->area === 'C' && $i->voce === 'C1' && $i->forzata === null;
+            if ($c1) {
+                $commerciale = true;
+            }
             if ($commerciale === null && in_array($i->area, ['A', 'B', 'C'], true)) {
                 $senzaNatura++;
                 $commerciale = true;
@@ -261,6 +267,7 @@ final class TestNatura
                 continue;
             }
             $perArea[$i->area] = ($perArea[$i->area] ?? 0) + $i->importo;
+            $raccolteC1 += $c1 ? $i->importo : 0;
             $contributiB += $i->area === 'B' && in_array($i->voce, ['B2', 'B4'], true) ? $i->importo : 0;
         }
         $ricavi = array_sum($perArea);
@@ -270,6 +277,7 @@ final class TestNatura
             'ricavi' => $ricavi,
             'perArea' => $perArea,
             'contributiB' => $contributiB,
+            'raccolteC1' => $raccolteC1,
             'senzaNatura' => $senzaNatura,
             'soglia' => self::SOGLIA_FORFETTARIO,
             'margine' => $margine, // negativo se la soglia è superata

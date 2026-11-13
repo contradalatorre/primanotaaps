@@ -340,9 +340,9 @@ class TestNaturaTest extends TestCase
                 [self::e('B', 'B3', 5000, ['forzata' => false]), self::e('B', 'B3', 1000)],
                 ['forfettario.ricavi' => 1000],
             ],
-            'una raccolta fondi abituale (C1) non è un ricavo, forzata sì' => [
-                [self::e('C', 'C1', 4000), self::e('C', 'C1', 600, ['forzata' => true])],
-                ['forfettario.ricavi' => 600, 'forfettario.perArea.C' => 600],
+            'una raccolta fondi abituale (C1) conta tra i ricavi per prudenza e si vede a parte, forzata a non commerciale no' => [
+                [self::e('C', 'C1', 4000), self::e('C', 'C1', 600, ['forzata' => true]), self::e('C', 'C1', 900, ['forzata' => false])],
+                ['forfettario.ricavi' => 4600, 'forfettario.perArea.C' => 4600, 'forfettario.raccolteC1' => 4000],
             ],
             'un’entrata senza tipologia non si sa se è commerciale: per prudenza conta' => [
                 [self::e('B', 'B3', 700, ['senzaTipologia' => true])],

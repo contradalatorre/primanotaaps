@@ -49,9 +49,9 @@
         <ul class="elenco">
             <li>Area A, corrispettivi commerciali (per natura o resi tali dal 2-bis): {{ $euro($f['perArea']['A']) }} €</li>
             <li>Area B, attività diverse, sponsorizzazioni comprese: {{ $euro($f['perArea']['B']) }} €, di cui contributi B2 e B4 {{ $euro($f['contributiB']) }} € (contano per prudenza)</li>
-            <li>Aree C, D ed E, solo se commerciali per natura o forzate tali: {{ $euro($f['perArea']['C'] + $f['perArea']['D'] + $f['perArea']['E']) }} €</li>
+            <li>Aree C, D ed E, solo se commerciali per natura o forzate tali: {{ $euro($f['perArea']['C'] + $f['perArea']['D'] + $f['perArea']['E']) }} €, di cui raccolte fondi abituali C1 {{ $euro($f['raccolteC1']) }} € (contano per prudenza, finché non si distingue la parte corrispettiva dalle liberalità)</li>
         </ul>
-        <p class="nota">Restano fuori quote, liberalità, 5 per mille, corrispettivi dei soci decommercializzati (art. 85), raccolte fondi, interessi e sopravvenienze. Una forzatura prevale. L’accesso al regime si misura sui ricavi dell’esercizio precedente (per il 2026 basta la previsione): questi sono i ricavi che contano dall’anno dopo.</p>
+        <p class="nota">Restano fuori quote, liberalità, 5 per mille, corrispettivi dei soci decommercializzati (art. 85), raccolte fondi occasionali, interessi e sopravvenienze. Una forzatura prevale. L’accesso al regime si misura sui ricavi dell’esercizio precedente (per il 2026 basta la previsione): questi sono i ricavi che contano dall’anno dopo.</p>
     </details>
 
     <details data-merlo="test-forfettario-base">
@@ -126,6 +126,7 @@
                                     {{ $o['superati'] }} {{ $o['superati'] === 1 ? 'limite superato' : 'limiti superati' }} su 3{{ $o['mancanti'] > 0 ? ', di cui '.$o['mancanti'].' per dato mancante' : '' }}.
                                     @if ($o['consecutivi'] === true) Superati anche nell’esercizio prima: l’obbligo c’è.
                                     @elseif ($o['consecutivi'] === null) L’esercizio prima non è nell’app: per prudenza vale come superato.
+                                    @elseif ($o['inCessazione']) Superati due esercizi fa, sotto l’ultimo: l’obbligo, se c’è, cessa solo dopo due esercizi consecutivi sotto i limiti.
                                     @elseif ($o['superati'] >= 2) Non superati nell’esercizio prima: l’obbligo nascerebbe se lo fossero anche quest’anno. @endif
                                 </span>
                             @endif

@@ -47,6 +47,10 @@ class SoglieTest extends TestCase
             ]],
             'due limiti superati solo nell’ultimo esercizio: vicino, il secondo consecutivo farebbe nascere l’obbligo' => [2026, [2025 => $oltre, 2024 => $ok], ['art30.esito' => 'vicino', 'art30.superati' => 2, 'art30.consecutivi' => false]],
             'due limiti superati e l’esercizio prima non è nell’app: per prudenza non rispettato, consecutivi ignoto' => [2026, [2025 => $oltre, 2024 => null], ['art30.esito' => 'non_rispettato', 'art30.consecutivi' => null]],
+            'sotto i limiti da un solo esercizio, dopo due oltre: l’obbligo non è ancora cessato, vicino' => [2026, [2025 => $ok, 2024 => $oltre], [
+                'art30.superati' => 0, 'art30.esito' => 'vicino', 'art30.consecutivi' => false, 'art30.inCessazione' => true, 'art31.esito' => 'rispettato', 'art31.inCessazione' => false,
+            ]],
+            'sotto i limiti da due esercizi: l’obbligo è cessato' => [2026, [2025 => $ok, 2024 => $ok], ['art30.esito' => 'rispettato', 'art30.inCessazione' => false]],
             'un limite solo superato: non basta' => [2026, [2025 => self::m(100_000, 200_000, 3), 2024 => $ok], ['art30.superati' => 1, 'art30.esito' => 'rispettato']],
             'sette dipendenti non superano il limite (ma sono al limite), otto sì' => [2026, [2025 => self::m(100_000, 0, 7), 2024 => $ok], ['art30.superati' => 0, 'art30.parametri.dipendenti.stato' => 'vicino']],
             'otto dipendenti e le entrate oltre 300.000: due limiti' => [2026, [2025 => self::m(300_001, 0, 8), 2024 => $ok], ['art30.superati' => 2, 'art30.parametri.dipendenti.stato' => 'superato', 'art30.parametri.entrate.stato' => 'superato']],

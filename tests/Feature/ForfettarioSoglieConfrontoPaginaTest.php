@@ -114,6 +114,17 @@ class ForfettarioSoglieConfrontoPaginaTest extends TestCase
             ->assertDontSeeText('Dato mancante: l’attivo');
     }
 
+    public function test_con_un_solo_esercizio_sotto_i_limiti_l_obbligo_non_e_ancora_cessato(): void
+    {
+        foreach (['2025-04-01', '2024-04-01'] as $data) {
+            $this->imputa('entrata', 1_000_000, 'Quote associative', 'A', $data);
+        }
+        DatiEsercizio::create(['esercizio' => 2025, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'attivo' => 1_000_000, 'dipendenti_medi' => 2]);
+        DatiEsercizio::create(['esercizio' => 2024, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'attivo' => 20_000_000, 'dipendenti_medi' => 9]);
+
+        $this->pagina()->assertSeeText('cessa solo dopo due esercizi consecutivi sotto i limiti');
+    }
+
     public function test_un_attivo_non_scritto_conta_come_superato_e_si_segnala_col_link_ai_dati(): void
     {
         $this->imputa('entrata', 10_000_000, 'Quote associative', 'A', '2025-04-01');

@@ -8,7 +8,7 @@ namespace App\Esercizio;
  * (`Verifiche::misura`), mai il database né la data di oggi.
  *
  * Le entrate sono il totale entrate della gestione (senza disinvestimenti e finanziamenti, che nel Modello D stanno a parte). Gli artt. 30 e 31
- * scattano se due limiti su tre sono superati per due esercizi consecutivi: qui l'esercizio precedente e quello prima.
+ * scattano se due limiti su tre sono superati per due esercizi consecutivi (qui l'esercizio precedente e quello prima) e cessano solo dopo due esercizi consecutivi sotto i limiti.
  * Il rendiconto per cassa vale solo per un ente senza personalità giuridica: l'app non lo sa e lo dice nel testo.
  *
  * Mai a favore: un attivo o dei dipendenti non dichiarati contano come limite superato (con l'avviso «dato mancante»); un esercizio che
@@ -75,10 +75,13 @@ final class Soglie
     private static function obbligo(array $limiti, ?array $prima, ?array $primaDiPrima, int $sogliaVicino): array
     {
         if ($prima === null) {
-            return ['senzaDati' => true, 'parametri' => [], 'superati' => null, 'mancanti' => null, 'consecutivi' => null, 'esito' => null];
+            return ['senzaDati' => true, 'parametri' => [], 'superati' => null, 'mancanti' => null, 'consecutivi' => null, 'inCessazione' => null, 'esito' => null];
         }
         $ora = self::misura($limiti, $prima, $sogliaVicino);
-        $consecutivi = $ora['superati'] < 2 ? false : ($primaDiPrima === null ? null : self::misura($limiti, $primaDiPrima, $sogliaVicino)['superati'] >= 2);
+        $primaDiPrimaOltre = $primaDiPrima === null ? null : self::misura($limiti, $primaDiPrima, $sogliaVicino)['superati'] >= 2;
+        $consecutivi = $ora['superati'] < 2 ? false : $primaDiPrimaOltre;
+        // Art. 30 c. 3 e art. 31: l'obbligo cessa solo dopo due esercizi consecutivi sotto i limiti; con uno solo sotto, dopo uno oltre, non è ancora cessato.
+        $inCessazione = $ora['superati'] < 2 && $primaDiPrimaOltre === true;
 
         return [
             'senzaDati' => false,
@@ -87,9 +90,10 @@ final class Soglie
             'mancanti' => $ora['mancanti'],
             // null: l'esercizio prima non è nell'app e non si può dire; per prudenza vale come due esercizi consecutivi.
             'consecutivi' => $consecutivi,
+            'inCessazione' => $inCessazione,
             'esito' => match (true) {
                 $ora['superati'] >= 2 => $consecutivi === false ? 'vicino' : 'non_rispettato',
-                $ora['vicini'] >= 2 => 'vicino',
+                $inCessazione, $ora['vicini'] >= 2 => 'vicino',
                 default => 'rispettato',
             },
         ];
