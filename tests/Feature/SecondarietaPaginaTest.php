@@ -244,6 +244,14 @@ class SecondarietaPaginaTest extends TestCase
         $this->actingAs($this->lettore())->post('/esercizi/2026/dati/figurativi', ['tipo' => 'provento', 'area' => 'A', 'descrizione' => 'x', 'importo' => '10'])->assertForbidden();
     }
 
+    public function test_il_costo_figurativo_da_ore_e_tariffa_si_arrotonda_per_difetto(): void
+    {
+        // 0,03 ore × 12,50 €/h = 0,375 €: 37 centesimi, non 38 (un costo figurativo in più va a favore dell'ente).
+        $this->actingAs($this->tesoriere)->post('/esercizi/2026/dati/figurativi', ['tipo' => 'costo', 'area' => 'A', 'descrizione' => 'Gruppo', 'ore' => '0,03', 'tariffa' => '12,50'])->assertSessionHasNoErrors();
+
+        $this->assertSame(37, RigaFigurativa::sole()->importo);
+    }
+
     public function test_ore_e_tariffa_fuori_misura_sono_rifiutate_senza_un_errore_500(): void
     {
         foreach ([['ore' => '9999999999', 'tariffa' => '9999999999'], ['ore' => '100.001', 'tariffa' => '10'], ['ore' => '10', 'tariffa' => '1.000,01']] as $caso) {
