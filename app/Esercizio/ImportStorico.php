@@ -69,6 +69,11 @@ final class ImportStorico
         return $importi;
     }
 
+    public static function nonCaricabile(int $anno): string
+    {
+        return "Il $anno non può essere un esercizio storico: si carica solo un anno precedente al primo esercizio con movimenti nell'app.";
+    }
+
     /** «uscite:A1», «entrate:I4», «uscite:Imposte»: una riga dello schema. */
     public static function voceValida(string $chiave): bool
     {
@@ -153,8 +158,8 @@ final class ImportStorico
             if (EsercizioStorico::where('esercizio', $anno)->exists()) {
                 throw ValidationException::withMessages(['esercizio' => "L'esercizio storico $anno è già caricato ed è bloccato: lo modifica solo un Amministratore, con motivazione."]);
             }
-            if (Movimento::whereBetween('data', ["$anno-01-01", "$anno-12-31"])->exists()) {
-                throw ValidationException::withMessages(['esercizio' => "Nel $anno ci sono già dei movimenti nell'app: non può essere un esercizio storico."]);
+            if (! EsercizioStorico::caricabile($anno)) {
+                throw ValidationException::withMessages(['esercizio' => self::nonCaricabile($anno)]);
             }
             $storico = EsercizioStorico::create([
                 'esercizio' => $anno, 'importi' => $importi, 'saldo_cassa' => $cassa, 'saldo_depositi' => $depositi,

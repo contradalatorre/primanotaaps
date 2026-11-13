@@ -23,6 +23,17 @@ class EsercizioStorico extends Model
         return ['esercizio' => 'integer', 'importi' => 'array', 'saldo_cassa' => 'integer', 'saldo_depositi' => 'integer', 'figurativi' => 'array', 'differenze' => 'array'];
     }
 
+    /**
+     * Si carica come storico solo un anno precedente al primo esercizio con movimenti nell'app (senza movimenti: precedente all'anno in corso):
+     * un anno dopo il primo movimento ha i suoi movimenti, e l'esercizio in corso non è «storia».
+     */
+    public static function caricabile(int $anno): bool
+    {
+        $primo = Movimento::min('data');
+
+        return $anno < ($primo ? (int) substr($primo, 0, 4) : today()->year);
+    }
+
     /** Il Modello D di quell'esercizio storico, o null se non è stato caricato. La `quadratura` non vale: non ci sono i saldi iniziali. */
     public static function modelloD(int $anno): ?array
     {

@@ -36,8 +36,8 @@ class EsercizioStoricoController extends Controller
         if (EsercizioStorico::where('esercizio', $anno)->exists()) {
             throw ValidationException::withMessages(['esercizio' => "L'esercizio storico $anno è già caricato ed è bloccato: lo modifica solo un Amministratore, con motivazione."]);
         }
-        if (Movimento::whereBetween('data', ["$anno-01-01", "$anno-12-31"])->exists()) {
-            throw ValidationException::withMessages(['esercizio' => "Nel $anno ci sono già dei movimenti nell'app: non può essere un esercizio storico."]);
+        if (! EsercizioStorico::caricabile($anno)) {
+            throw ValidationException::withMessages(['esercizio' => ImportStorico::nonCaricabile($anno)]);
         }
 
         try {

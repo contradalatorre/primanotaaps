@@ -34,8 +34,8 @@ class EsercizioController extends Controller
             'storico' => $proprio !== null,
             'm' => $proprio?->prospetto() ?? Prospetto::modelloD($anno, $proposte),
             'precedente' => $precedente,
-            // Si può caricare l'esercizio precedente dal foglio solo se nell'app non ha movimenti (contarebbe due volte).
-            'storicoCaricabile' => $precedente === null && ! Movimento::whereBetween('data', [($anno - 1).'-01-01', ($anno - 1).'-12-31'])->exists(),
+            // Si può caricare l'esercizio precedente dal foglio solo se è prima del primo esercizio con movimenti (altrimenti si conterebbe due volte).
+            'storicoCaricabile' => $precedente === null && EsercizioStorico::caricabile($anno - 1),
             'impedimenti' => $proprio ? [] : Prospetto::impedimenti($anno),
             'aggiornatoAl' => now(),
             'vociCaricate' => DB::table('voci_modello_d')->where('esercizio', $anno)->exists(),

@@ -153,6 +153,18 @@ class EsercizioStoricoTest extends TestCase
         $this->carica()->assertSessionHasErrors('esercizio');
     }
 
+    public function test_storico_solo_un_anno_precedente_al_primo_esercizio_con_movimenti(): void
+    {
+        // Oggi è il 20/12/2026 e nell'app non ci sono movimenti: il 2026 è l'esercizio in corso, non uno storico.
+        $this->actingAs($this->tesoriere)->post('/esercizi/2026/storico', ['foglio' => $this->foglio()])->assertSessionHasErrors('esercizio');
+
+        $url = $this->anteprimaUrl($this->carica());
+        $cassa = Conto::factory()->create(['aperto_il' => '2024-01-01', 'saldo_iniziale' => 0]);
+        Movimento::factory()->create(['conto_id' => $cassa->id, 'data' => '2024-06-01', 'importo' => 100, 'verso' => 'entrata']); // dopo l'anteprima: il 2025 viene dopo il primo movimento
+        $this->actingAs($this->tesoriere)->post($url, ['saldo_cassa' => '1', 'saldo_depositi' => '1'])->assertSessionHasErrors('esercizio');
+        $this->assertSame(0, EsercizioStorico::count());
+    }
+
     public function test_saldi_e_figurativi_scritti_male_si_rifiutano_alla_conferma(): void
     {
         $url = $this->anteprimaUrl($this->carica());
