@@ -10,7 +10,6 @@
     $nomi = ['attivo' => 'Totale dell’attivo', 'entrate' => 'Entrate della gestione', 'dipendenti' => 'Dipendenti medi'];
     $valore = fn (string $nome, ?int $v) => $v === null ? '—' : ($nome === 'dipendenti' ? $v : $euro($v).' €');
     $limite = fn (string $nome, int $v) => $nome === 'dipendenti' ? 'più di '.$v : 'più di '.$euro($v).' €';
-    $dati = fn () => auth()->user()->can('gestire_esercizio');
     $righeObbligo = ['art30' => 'Art. 30: organo di controllo delle associazioni', 'art31' => 'Art. 31: revisione legale'];
 @endphp
 
@@ -79,9 +78,9 @@
         <p class="avviso" role="status" data-merlo="test-soglie-senza-dati">
             {!! $icona !!}
             <span>L’esercizio {{ $r }} non ha movimenti confermati nell’app, quindi le soglie non si possono misurare e non si dice né che il rendiconto per cassa sia ammesso né che si possa redigere il Modello E.
-                @if ($dati())
+                @can('gestire_esercizio')
                     <a href="{{ route('dati-esercizio', $r) }}" class="link">Dati dell’esercizio {{ $r }}</a>
-                @endif
+                @endcan
             </span>
         </p>
     @endif
@@ -141,11 +140,11 @@
         <p class="avviso" role="status" data-merlo="test-soglie-dato-mancante">
             {!! $icona !!}
             <span>Dato mancante: l’attivo o i dipendenti medi dell’esercizio {{ $r }} non sono stati scritti e per prudenza contano come limite superato. L’esito potrebbe essere migliore.
-                @if ($dati())
+                @can('gestire_esercizio')
                     <a href="{{ route('dati-esercizio', $r) }}" class="link">Inserisci i dati dell’esercizio {{ $r }}</a>
                 @else
                     Chi gestisce i dati dell’esercizio può inserirli.
-                @endif
+                @endcan
             </span>
         </p>
     @endif

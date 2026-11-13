@@ -123,6 +123,15 @@ class ForfettarioSoglieConfrontoPaginaTest extends TestCase
             ->assertSee('/esercizi/2025/dati');
     }
 
+    public function test_chi_non_gestisce_i_dati_dell_esercizio_non_vede_il_link_ma_il_perche(): void
+    {
+        $this->imputa('entrata', 10_000_000, 'Quote associative', 'A', '2025-04-01');
+        $lettore = $this->utenteCon('Lettore esterno', ['scade_il' => now()->addMonth()], ['email' => 'revisore@esterno.example']);
+
+        $this->actingAs($lettore)->get('/esercizi/2026/test')->assertOk()
+            ->assertSeeText('Chi gestisce i dati dell’esercizio può inserirli.')->assertDontSee('/esercizi/2025/dati');
+    }
+
     public function test_il_confronto_affianca_tre_esercizi_e_durante_l_anno_lo_stesso_periodo_dell_anno_prima(): void
     {
         $this->imputa('entrata', 1000, 'Quote associative', 'A', '2024-05-01');
