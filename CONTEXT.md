@@ -142,6 +142,10 @@ _Avoid_: raccolta pubblica, evento di raccolta
 Il risultato di un test previsto dal Codice del Terzo Settore in un esercizio: rispettato, vicino alla soglia o non rispettato, con il margine rispetto alla soglia; "superata" si dice solo della soglia.
 _Avoid_: test superato, test non superato, test passato
 
+**Annotazione in calce**:
+Il testo in calce al rendiconto con le dichiarazioni dovute (criterio di secondarietà, strumentalità, criterio di riparto dei costi promiscui), precompilato dagli esiti dei test (segue i dati finché il Tesoriere non lo corregge); non va confusa con la nota di un movimento.
+_Avoid_: nota, commento
+
 **Approvazione**:
 La delibera dell'assemblea che approva il rendiconto di un esercizio.
 _Avoid_: chiusura
