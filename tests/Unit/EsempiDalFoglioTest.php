@@ -26,7 +26,7 @@ class EsempiDalFoglioTest extends TestCase
         $esito = EsempiDalFoglio::leggi(self::cassa(
             ['2025-03-01', 'Bolletta luce di marzo', '-> Utenze', null, 80.5, 419.5],
             ['02/04/2025', 'Quota anno 2025', 'Tesseramento ord ', 20, null, 439.5],
-            ['2025-05-10', 'Cena', "→ Festa della Torre, servizi", null, 1234.56, 0],
+            ['2025-05-10', 'Cena', '→ Festa della Torre, servizi', null, 1234.56, 0],
         ), 2025, self::CONVERSIONE);
 
         $this->assertSame([
