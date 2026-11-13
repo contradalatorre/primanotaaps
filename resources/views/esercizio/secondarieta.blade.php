@@ -70,7 +70,7 @@
     </div>
 
     <div data-merlo="test-criterio">
-        <p>Il criterio proposto è il <strong>{{ $p }}</strong> ({{ $c['soglia'] }}%): è quello con più margine.
+        <p>Il criterio proposto è il <strong>{{ $p }}</strong> ({{ $c['soglia'] }}%): è quello con l’esito migliore e, a pari esito, con più margine.
             @if ($s['confermato'])
                 Criterio confermato dal Tesoriere: <strong>{{ $s['confermato'] }}</strong> ({{ $criteri[$s['confermato']]['soglia'] }}%).
             @else
