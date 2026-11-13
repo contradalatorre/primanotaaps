@@ -3,6 +3,7 @@
 namespace App\Esercizio;
 
 use App\Models\DatiEsercizio;
+use App\Models\EsercizioStorico;
 use App\Models\ImpostazioniAssociazione;
 use App\Models\Iniziativa;
 
@@ -100,13 +101,13 @@ final class Verifiche
     /**
      * Le misure con cui si giudicano le soglie dell'esercizio successivo: entrate della gestione, attivo e dipendenti medi dei dati dell'esercizio.
      * Un esercizio senza nessuna entrata né uscita confermata non ha dati: null (`Soglie` non ne ricava né un esito né il Modello E).
-     * shortcut: l'esercizio storico 2025 (#63) non esiste ancora, quindi il 2025 è «senza dati» finché non arriva; da leggere qui.
+     * Un esercizio storico (#63) non ha movimenti: le sue entrate vengono dagli importi caricati dal foglio; attivo e dipendenti medi dai dati dell'esercizio, come sempre.
      *
      * @return ?array{entrate: int, attivo: ?int, dipendenti: ?int}
      */
     private static function misura(int $anno, array $modelloD): ?array
     {
-        $gestione = $modelloD['gestione'];
+        $gestione = (EsercizioStorico::modelloD($anno) ?? $modelloD)['gestione'];
         if ($gestione['entrate']['importo'] === 0 && $gestione['uscite']['importo'] === 0) {
             return null;
         }

@@ -143,6 +143,43 @@ class EsercizioStoricoTest extends TestCase
         $this->assertSame(0, EsercizioStorico::count());
     }
 
+    private function storico(array $importi, array $extra = []): EsercizioStorico
+    {
+        return EsercizioStorico::create($extra + ['esercizio' => 2025, 'importi' => $importi, 'saldo_cassa' => 0, 'saldo_depositi' => 0, 'figurativi' => ['costi' => [], 'proventi' => []], 'differenze' => []]);
+    }
+
+    public function test_il_modello_d_2026_mostra_la_colonna_2025_riga_per_riga_e_senza_storico_non_la_mostra(): void
+    {
+        $this->actingAs($this->tesoriere)->get('/esercizi/2026/modello-d')->assertDontSeeText('Esercizio 2025 (€)')->assertSeeText('Esercizio storico 2025 non caricato');
+
+        $this->storico(['entrate:A1' => 123456, 'uscite:E2' => 4000, 'uscite:Imposte' => 700], ['saldo_cassa' => 80000, 'saldo_depositi' => 250000, 'figurativi' => ['costi' => ['A' => 9900], 'proventi' => []]]);
+        $pagina = $this->actingAs($this->tesoriere)->get('/esercizi/2026/modello-d')->assertOk();
+
+        $pagina->assertSeeText('Esercizio 2025 (€)')
+            ->assertSeeText('1.234,56')->assertSeeText('Cassa e banca')->assertSeeText('800,00')->assertSeeText('2.500,00')->assertSeeText('3.300,00')
+            ->assertSeeText('99,00') // il costo figurativo del 2025
+            ->assertSeeText('1.194,56'); // avanzo complessivo 2025: 1.234,56 − 40,00 − 7,00
+    }
+
+    public function test_la_pagina_dell_esercizio_storico_mostra_i_suoi_importi_e_non_il_quadro_dei_movimenti(): void
+    {
+        $this->storico(['entrate:A1' => 123456]);
+
+        $this->actingAs($this->tesoriere)->get('/esercizi/2025/modello-d')->assertOk()->assertSeeText('Esercizio storico')->assertSeeText('1.234,56')
+            ->assertDontSeeText('Impedimenti')->assertDontSeeText('Non quadra');
+    }
+
+    public function test_le_soglie_del_2026_leggono_le_entrate_dell_esercizio_storico_2025(): void
+    {
+        $this->actingAs($this->tesoriere)->get('/esercizi/2026/test')->assertSeeText('L’esercizio 2025 non ha movimenti confermati nell’app');
+
+        $this->storico(['entrate:A1' => 500000]); // 5.000,00 € di entrate
+
+        $this->actingAs($this->tesoriere)->get('/esercizi/2026/test')
+            ->assertSeeText('L’esercizio 2025 è sotto i 60.000 euro (entrate 5.000,00 €): potete redigere il Modello E')
+            ->assertDontSeeText('non ha movimenti confermati nell’app');
+    }
+
     public function test_dopo_il_blocco_lo_modifica_solo_l_amministratore_con_motivazione_e_resta_nel_registro(): void
     {
         $storico = $this->storicoCaricato();

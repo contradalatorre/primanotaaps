@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Esercizio\Apertura;
 use App\Esercizio\Prospetto;
+use App\Models\EsercizioStorico;
+use App\Models\Movimento;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,12 +24,19 @@ class EsercizioController extends Controller
     public function modelloD(Request $request, int $anno)
     {
         $proposte = $request->boolean('proposte');
+        // Un esercizio storico (#63) non ha movimenti: il suo Modello D è ricalcolato dagli importi caricati dal foglio.
+        $proprio = EsercizioStorico::where('esercizio', $anno)->first();
+        $precedente = EsercizioStorico::modelloD($anno - 1);
 
         return view('esercizio.modello-d', [
             'anno' => $anno,
             'proposte' => $proposte,
-            'm' => Prospetto::modelloD($anno, $proposte),
-            'impedimenti' => Prospetto::impedimenti($anno),
+            'storico' => $proprio !== null,
+            'm' => $proprio?->prospetto() ?? Prospetto::modelloD($anno, $proposte),
+            'precedente' => $precedente,
+            // Si può caricare l'esercizio precedente dal foglio solo se nell'app non ha movimenti (contarebbe due volte).
+            'storicoCaricabile' => $precedente === null && ! Movimento::whereBetween('data', [($anno - 1).'-01-01', ($anno - 1).'-12-31'])->exists(),
+            'impedimenti' => $proprio ? [] : Prospetto::impedimenti($anno),
             'aggiornatoAl' => now(),
             'vociCaricate' => DB::table('voci_modello_d')->where('esercizio', $anno)->exists(),
             'sorgenteApertura' => Apertura::sorgente($anno),
