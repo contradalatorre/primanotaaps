@@ -106,4 +106,49 @@ class RendicontoFoglioTest extends TestCase
         $this->assertNull($esito['saldi']['depositi']);
         $this->assertSame(['uscite:A1' => 500], $esito['voci']);
     }
+
+    public function test_una_cella_2025_vuota_vale_zero_e_non_prende_l_importo_della_colonna_accanto(): void
+    {
+        $esito = RendicontoFoglio::leggi([
+            ['A) Uscite da attività di interesse generale'],
+            ['1) Materie prime', null, 999], // 2025 vuoto, anno precedente pieno
+            ['2) Servizi', 20, 999],
+            ['Totale', null, 888],
+            ['Cassa', null, 777],
+        ]);
+
+        $this->assertSame(['uscite:A2' => 2000], $esito['voci']);
+        $this->assertSame(0, $esito['totali']['uscite:A']);
+        $this->assertSame([], $esito['nonRiconosciute']);
+        $this->assertSame(0, $esito['saldi']['cassa']);
+    }
+
+    public function test_un_area_intera_vuota_nel_2025_non_riporta_l_anno_precedente(): void
+    {
+        $righe = array_map(fn ($riga) => count($riga) > 1 && is_numeric($riga[1]) ? [$riga[0], null, $riga[1]] : $riga, self::foglio(['uscite:A1' => 10, 'entrate:A4' => 30, 'uscite:I1' => 5]));
+
+        $esito = RendicontoFoglio::leggi($righe);
+
+        $this->assertSame([], $esito['voci']);
+        $this->assertSame([], $esito['nonRiconosciute']);
+        $this->assertSame(0, $esito['totali']['gestione:entrate']);
+        $this->assertSame(0, $esito['totali']['avanzo_complessivo']);
+    }
+
+    public function test_i_figurativi_dopo_cassa_e_banca_non_diventano_voci_degli_investimenti(): void
+    {
+        $righe = self::foglio(['uscite:I1' => 100], extra: ['cassa' => 1, 'depositi' => 2]);
+        array_push($righe,
+            ['Cassa e banca'],
+            ['Costi figurativi'], ['1) Da attività di interesse generale', 50], ['2) Da attività diverse', 7],
+            ['Proventi figurativi'], ['1) Da attività di interesse generale', 60], ['Totale', 60],
+        );
+
+        $esito = RendicontoFoglio::leggi($righe);
+
+        $this->assertSame(['uscite:I1' => 10000], $esito['voci']);
+        $this->assertSame(['costi' => ['A' => 5000, 'B' => 700], 'proventi' => ['A' => 6000]], $esito['figurativi']);
+        $this->assertSame([], $esito['nonRiconosciute']);
+        $this->assertSame(10000, $esito['totali']['investimenti:uscite']); // il «Totale» dei figurativi non sovrascrive quello degli investimenti
+    }
 }
