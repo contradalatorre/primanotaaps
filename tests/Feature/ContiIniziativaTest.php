@@ -180,6 +180,7 @@ class ContiIniziativaTest extends TestCase
             'importo zero' => [['tipologia_id' => $somministrazione, 'importo' => '0']],
             'importo negativo' => [['tipologia_id' => $somministrazione, 'importo' => '-5']],
             'importo non numerico' => [['tipologia_id' => $somministrazione, 'importo' => 'tanto']],
+            'importo che è un array' => [['tipologia_id' => $somministrazione, 'importo' => ['5']]],
             'importo senza tipologia' => [['tipologia_id' => '', 'importo' => '5']],
             'tipologia inesistente' => [['tipologia_id' => 999999, 'importo' => '5']],
             'tipologia archiviata nuova' => [['tipologia_id' => $archiviata, 'importo' => '5']],

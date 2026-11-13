@@ -51,12 +51,13 @@ class IniziativeController extends Controller
         $dati = Validator::make(['righe' => $righe], [
             'righe' => ['array', 'max:200'],
             'righe.*.tipologia_id' => ['required', 'integer', 'distinct', Rule::exists('tipologie', 'id')->where(fn ($q) => $q->whereNull('archiviata_il')->orWhereIn('id', $usate))],
-            'righe.*.importo' => ['required', 'string', fn ($campo, $valore, $fallisci) => ($c = Euro::daTesto($valore)) === null || $c <= 0
+            'righe.*.importo' => ['bail', 'required', 'string', fn ($campo, $valore, $fallisci) => ($c = Euro::daTesto($valore)) === null || $c <= 0
                 ? $fallisci('L’importo deve essere maggiore di zero, in euro e al più con due decimali.') : null],
         ], [
             'righe.*.tipologia_id.distinct' => 'Una tipologia può comparire una sola volta nel preventivo.',
             'righe.*.tipologia_id.required' => 'Ogni importo ha bisogno della sua tipologia.',
             'righe.*.importo.required' => 'Ogni tipologia ha bisogno del suo importo.',
+            'righe.*.importo.string' => 'L’importo deve essere un numero in euro, al più con due decimali.',
         ])->validate();
 
         Preventivo::salva($request->user(), $iniziativa->id, $anno, array_map(

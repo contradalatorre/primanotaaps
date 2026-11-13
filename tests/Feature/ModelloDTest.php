@@ -285,6 +285,18 @@ class ModelloDTest extends TestCase
         $this->assertSame(0, RegistroModifica::where('oggetto_tipo', 'impostazioni')->count());
     }
 
+    public function test_il_registro_si_filtra_per_dati_dell_esercizio_e_per_riga_figurativa(): void
+    {
+        $admin = $this->utenteCon('Amministratore');
+        foreach (['dati_esercizio' => 'Dati di prova', 'riga_figurativa' => 'Riga di prova'] as $tipo => $segno) {
+            RegistroModifica::create(['user_id' => $admin->id, 'oggetto_tipo' => $tipo, 'oggetto_id' => 1, 'azione' => 'modificato', 'prima' => null, 'dopo' => ['esercizio' => 2026, 'descrizione' => $segno]]);
+        }
+
+        $this->actingAs($admin)->get('/registro?oggetto=dati_esercizio')->assertOk()->assertSee('Dati di prova')->assertDontSee('Riga di prova');
+        $this->actingAs($admin)->get('/registro?oggetto=riga_figurativa')->assertOk()->assertSee('Riga di prova')->assertDontSee('Dati di prova');
+        $this->actingAs($admin)->get('/registro')->assertOk()->assertSee('value="dati_esercizio"', false)->assertSee('value="riga_figurativa"', false);
+    }
+
     public function test_chi_puo_vedere_legge_il_modello_d_ma_solo_chi_gestisce_le_impostazioni_le_cambia(): void
     {
         $lettore = $this->utenteCon('Lettore esterno', ['scade_il' => now()->addMonth()], ['email' => 'revisore@esterno.example']);
