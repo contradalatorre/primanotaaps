@@ -27,14 +27,19 @@ class ImpostazioniController extends Controller
             'denominazione' => ['required', 'string', 'max:255'],
             'codice_fiscale' => ['nullable', 'string', 'max:16'],
             'numero_runts' => ['nullable', 'string', 'max:255'],
+            'soglia_vicino' => ['nullable', 'integer', 'between:1,99'], // oltre questa percentuale del limite un test è «vicino alla soglia» (#53)
         ]);
         $dati['affiliazione_rete'] = $request->boolean('affiliazione_rete');
+        if (($dati['soglia_vicino'] ?? null) === null) {
+            unset($dati['soglia_vicino']); // non indicata: resta quella che c'è (o l'80% di partenza)
+        }
 
         DB::transaction(function () use ($dati, $request) {
             $riga = ImpostazioniAssociazione::where('dal_esercizio', $dati['dal_esercizio'])->lockForUpdate()->first();
             $prima = $riga?->istantanea();
             $riga ??= new ImpostazioniAssociazione;
             $riga->fill($dati)->save();
+            $riga->refresh(); // il valore di partenza della soglia lo dà il database
             RegistroModifica::registra($request->user(), $riga, $prima === null ? 'creato' : 'modificato', $prima, $riga->istantanea());
         });
 

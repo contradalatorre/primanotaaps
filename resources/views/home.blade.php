@@ -5,6 +5,20 @@
 @section('contenuto')
     <h1 data-merlo="saluto">Ciao, {{ auth()->user()->name }}</h1>
 
+    {{-- Il test di secondarietà (#53, #17): in home solo se vicino alla soglia o non rispettato; lo stato lo porta testo e icona, mai il rosso. --}}
+    @if ($secondarieta)
+        @php($criterio = $secondarieta['criteri'][$secondarieta['proposto']])
+        <section class="da-vedere" aria-label="Test di secondarietà" data-merlo="home-test-secondarieta">
+            <h2>Test di secondarietà</h2>
+            <p>@include('esercizio.stato-esito', ['esito' => $secondarieta['esito']])
+                — criterio {{ $secondarieta['proposto'] }} ({{ $criterio['soglia'] }}%), con i dati di oggi:
+                {{ $secondarieta['esito'] === 'non_rispettato' ? 'soglia superata di '.\App\Euro::formatta(-$criterio['margine']).' €' : 'ancora '.\App\Euro::formatta($criterio['margine']).' € sotto il limite' }}.
+                @if ($secondarieta['datoMancante']) Dato mancante: i costi figurativi non sono dichiarati, l’esito potrebbe essere migliore. @endif
+            </p>
+            <p><a href="{{ route('test-esercizio', today()->year) }}" class="link">Apri il test dell’esercizio</a></p>
+        </section>
+    @endif
+
     {{-- Una metà di giroconto senza corrispondenza dopo alcuni giorni si segnala qui (#47): un trasferimento perso emerge. --}}
     @if ($orfane->isNotEmpty())
         <section class="da-vedere" aria-label="Giroconti senza corrispondenza" data-orfane>

@@ -6,6 +6,7 @@ use App\Http\Controllers\ConteDiCassaController;
 use App\Http\Controllers\ContiController;
 use App\Http\Controllers\CronController;
 use App\Http\Controllers\DatiDiClassificazioneController;
+use App\Http\Controllers\DatiEsercizioController;
 use App\Http\Controllers\EmergenzaController;
 use App\Http\Controllers\EsercizioController;
 use App\Http\Controllers\ForzatureController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\RuoliController;
 use App\Http\Controllers\SatispayController;
 use App\Http\Controllers\StatoSistemaController;
 use App\Http\Controllers\UtentiController;
+use App\Http\Controllers\VerificheController;
 use App\Http\Middleware\ProvaMiddleware;
 use App\Http\Middleware\VerificaAccountGoogle;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -69,6 +71,19 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
     // Forzare la natura commerciale (#52) è di chi classifica; App\Forzature rilegge il permesso a riga bloccata.
     Route::post('/imputazioni/natura', [ForzatureController::class, 'forza'])->middleware('can:importare_e_confermare')->name('natura.forza');
     Route::post('/imputazioni/natura/toglie', [ForzatureController::class, 'togli'])->middleware('can:importare_e_confermare')->name('natura.togli');
+    // Test dell'esercizio (#53): provvisori, dal vivo. Confermare il criterio e scrivere i dati dell'esercizio sono di `gestire_esercizio` (#16);
+    // la pagina dei dati lo richiede anche per leggere: le descrizioni dei figurativi possono nominare persone (storia 143).
+    Route::middleware('can:vedere')->group(function () {
+        Route::get('/test', [VerificheController::class, 'indice'])->name('test-esercizio.indice');
+        Route::get('/esercizi/{anno}/test', [VerificheController::class, 'mostra'])->where('anno', '[1-9][0-9]{3}')->name('test-esercizio');
+    });
+    Route::middleware('can:gestire_esercizio')->where(['anno' => '[1-9][0-9]{3}', 'riga' => '[0-9]+'])->group(function () {
+        Route::post('/esercizi/{anno}/test/criterio', [VerificheController::class, 'confermaCriterio'])->name('test-esercizio.criterio');
+        Route::get('/esercizi/{anno}/dati', [DatiEsercizioController::class, 'indice'])->name('dati-esercizio');
+        Route::put('/esercizi/{anno}/dati', [DatiEsercizioController::class, 'salva'])->name('dati-esercizio.salva');
+        Route::post('/esercizi/{anno}/dati/figurativi', [DatiEsercizioController::class, 'aggiungiFigurativo'])->name('dati-esercizio.figurativi.aggiungi');
+        Route::delete('/esercizi/{anno}/dati/figurativi/{riga}', [DatiEsercizioController::class, 'eliminaFigurativo'])->name('dati-esercizio.figurativi.elimina');
+    });
     // Aprire un esercizio nuovo copia voci e predefiniti: è «modificare la tabella delle voci» (#16).
     Route::post('/esercizi/{anno}/apertura', [EsercizioController::class, 'apri'])->where('anno', '[1-9][0-9]{3}')->middleware('can:riclassificare_in_blocco')->name('esercizio.apri');
     // I dati di base (conti) sono di chi ha `gestire_regole`: #16 non ha un permesso a parte.
