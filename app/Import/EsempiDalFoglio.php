@@ -43,7 +43,8 @@ final class EsempiDalFoglio
                 }
                 $conv = $conversione[$causale] ?? null;
                 [$verso, $importo] = self::importo($riga, $c);
-                $descrizione = trim(preg_replace('/\s+/u', ' ', preg_replace('/[\w.+-]+@[\w-]+\.[\w.-]+/u', '', (string) ($riga[$c['descrizione'] ?? -1] ?? ''))));
+                $senzaEmail = preg_replace(['/[\w.+-]+@[\w-]+\.[\w.-]+/u', '/[(\[<]\s*[)\]>]/u'], '', (string) ($riga[$c['descrizione'] ?? -1] ?? '')); // e le parentesi rimaste vuote
+                $descrizione = trim(preg_replace('/\s+/u', ' ', $senzaEmail));
 
                 $motivo = match (true) {
                     $data === null => 'senza_data',

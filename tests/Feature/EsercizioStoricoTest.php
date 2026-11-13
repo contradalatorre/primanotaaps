@@ -168,7 +168,8 @@ class EsercizioStoricoTest extends TestCase
     {
         return [
             'Cassa' => [['Data', 'Descrizione', 'Nuova causale', 'Entrate', 'Uscite', 'Saldo'], [null, 'Saldo iniziale', null, null, null, 100],
-                ['2025-03-01', 'Bolletta luce di marzo', '-> Assicurazioni', null, 80.5, 19.5], ['2025-04-02', 'Rimborso a Giulia Bianchi (giulia@example.org)', 'Causale che non esiste', null, 10, 9.5]],
+                ['2025-03-01', 'Bolletta luce di marzo', '-> Assicurazioni', null, 80.5, 19.5], ['2025-04-02', 'Rimborso a Giulia Bianchi', 'Causale che non esiste', null, 10, 9.5],
+                ['2025-04-03', 'Polizza volontari (rossi.mario@example.org)', '-> Assicurazioni', null, 30, 0]], // una causale valida: l'email non deve entrare, e la riga non si scarta prima
             'Banca' => [['Data', 'Causale', 'Descrizione', 'Nuova causale', 'Importo'], ['2025-05-06', 'BONIFICO ENTRATA', 'Quota associativa 2025', 'Tesseramento ord', 20]],
         ];
     }
@@ -176,21 +177,22 @@ class EsercizioStoricoTest extends TestCase
     public function test_dalle_schede_dei_conti_vengono_gli_esempi_di_classificazione_e_non_i_movimenti(): void
     {
         $url = $this->anteprimaUrl($this->carica($this->foglio('xlsx', $this->schede())));
-        $this->actingAs($this->tesoriere)->get($url)->assertSeeText('si ricavano 2 esempi di classificazione')->assertSeeText('1 riga scartata: con una causale che la tabella di conversione non conosce');
+        $this->actingAs($this->tesoriere)->get($url)->assertSeeText('si ricavano 3 esempi di classificazione')->assertDontSeeText('senza nomi')->assertSeeText('i nomi di persona li toglierà il mascheratore')->assertSeeText('1 riga scartata: con una causale che la tabella di conversione non conosce');
 
         $this->actingAs($this->tesoriere)->post($url, ['saldo_cassa' => '120,00', 'saldo_depositi' => '530,00'])->assertSessionHas('ok');
 
         $esempi = EsempioClassificazione::orderBy('data')->get();
-        $this->assertSame(['Bolletta luce di marzo', 'Quota associativa 2025'], $esempi->pluck('descrizione')->all());
-        $this->assertSame([null, 'BONIFICO ENTRATA'], $esempi->pluck('causale')->all());
-        $this->assertSame(['uscita', 'entrata'], $esempi->pluck('verso')->all());
-        $this->assertSame([8050, 2000], $esempi->pluck('importo')->all());
-        $this->assertSame([Tipologia::where('nome', 'Assicurazioni')->value('id'), Tipologia::where('nome', 'Quote associative')->value('id')], $esempi->pluck('tipologia_id')->all());
-        $this->assertSame(['E', 'A'], $esempi->pluck('area')->all());
+        $this->assertSame(['Bolletta luce di marzo', 'Polizza volontari', 'Quota associativa 2025'], $esempi->pluck('descrizione')->all()); // l'email è tolta, e con lei le parentesi rimaste vuote
+        $this->assertSame([null, null, 'BONIFICO ENTRATA'], $esempi->pluck('causale')->all());
+        $this->assertSame(['uscita', 'uscita', 'entrata'], $esempi->pluck('verso')->all());
+        $this->assertSame([8050, 3000, 2000], $esempi->pluck('importo')->all());
+        $assicurazioni = Tipologia::where('nome', 'Assicurazioni')->value('id');
+        $this->assertSame([$assicurazioni, $assicurazioni, Tipologia::where('nome', 'Quote associative')->value('id')], $esempi->pluck('tipologia_id')->all());
+        $this->assertSame(['E', 'E', 'A'], $esempi->pluck('area')->all());
         $this->assertStringNotContainsString('Giulia', json_encode(EsempioClassificazione::all()));
         $this->assertStringNotContainsString('@', json_encode(EsempioClassificazione::all()));
         $this->assertSame(0, Movimento::count()); // nessun movimento: nessun rendiconto
-        $this->assertSame(2, RegistroModifica::where('oggetto_tipo', 'esercizio_storico')->firstOrFail()->dopo['esempi']);
+        $this->assertSame(3, RegistroModifica::where('oggetto_tipo', 'esercizio_storico')->firstOrFail()->dopo['esempi']);
     }
 
     public function test_gli_esempi_alimentano_lo_storico_delle_proposte_su_un_movimento_del_2026(): void

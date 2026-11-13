@@ -30,7 +30,7 @@
 
         <h2>Esempi di classificazione</h2>
         @php($motivi = ['senza_data' => 'senza data', 'fuori_anno' => 'di un altro anno', 'senza_causale' => 'senza «Nuova causale»', 'non_convertita' => 'con una causale che la tabella di conversione non conosce', 'senza_tipologia' => 'la cui causale non ha una tipologia (giroconti e simili)', 'senza_importo' => 'senza importo', 'verso_diverso' => 'con un segno diverso da quello della causale', 'senza_descrizione' => 'senza descrizione'])
-        <p data-merlo="storico-esempi">Dalle schede dei conti ({{ implode(', ', $anteprima['schede']) ?: 'nessuna scheda riconosciuta' }}) si ricavano <strong>{{ count($anteprima['esempi']) }}</strong> esempi di classificazione, ognuno con descrizione, causale dell’estratto, segno, importo e classificazione convertita, senza nomi né email. Non sono movimenti e non entrano in nessun rendiconto: servono allo storico delle proposte.
+        <p data-merlo="storico-esempi">Dalle schede dei conti ({{ implode(', ', $anteprima['schede']) ?: 'nessuna scheda riconosciuta' }}) si ricavano <strong>{{ count($anteprima['esempi']) }}</strong> esempi di classificazione, ognuno con descrizione, causale dell’estratto, segno, importo e classificazione convertita. Le email sono tolte; i nomi di persona li toglierà il mascheratore dei dati personali quando arriverà, fino ad allora possono restare nella descrizione. Non sono movimenti e non entrano in nessun rendiconto: servono allo storico delle proposte.
             @foreach ($anteprima['scartate'] as $motivo => $numero) <br>{{ $numero }} {{ $numero === 1 ? 'riga scartata' : 'righe scartate' }}: {{ $motivi[$motivo] ?? $motivo }}. @endforeach
         </p>
 
