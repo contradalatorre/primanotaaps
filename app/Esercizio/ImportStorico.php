@@ -8,7 +8,6 @@ use App\Models\ConversioneCausale;
 use App\Models\DatiEsercizio;
 use App\Models\EsempioClassificazione;
 use App\Models\EsercizioStorico;
-use App\Models\Movimento;
 use App\Models\RegistroModifica;
 use App\Models\User;
 use App\Permesso;

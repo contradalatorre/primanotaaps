@@ -8,7 +8,6 @@ use App\Euro;
 use App\Import\Foglio;
 use App\Import\FoglioNonValido;
 use App\Models\EsercizioStorico;
-use App\Models\Movimento;
 use App\Onboarding\Prova;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;

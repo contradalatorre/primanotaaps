@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Esercizio\Apertura;
 use App\Esercizio\Prospetto;
 use App\Models\EsercizioStorico;
-use App\Models\Movimento;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
