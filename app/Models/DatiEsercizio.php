@@ -19,7 +19,7 @@ class DatiEsercizio extends Model
 
     protected function casts(): array
     {
-        return ['esercizio' => 'integer', 'dipendenti_medi' => 'integer', 'attivo' => 'integer', 'figurativi_dichiarati' => 'boolean'];
+        return ['esercizio' => 'integer', 'dipendenti_medi' => 'integer', 'attivo' => 'integer', 'figurativi_dichiarati' => 'boolean', 'saldi_apertura_il' => 'datetime'];
     }
 
     /** I dati dell'esercizio, o quelli di partenza (non salvati) se nessuno li ha ancora scritti. */

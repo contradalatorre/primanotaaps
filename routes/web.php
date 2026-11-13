@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccessoController;
+use App\Http\Controllers\AperturaSaldiController;
 use App\Http\Controllers\ClassificazioneController;
 use App\Http\Controllers\ConteDiCassaController;
 use App\Http\Controllers\ContiController;
@@ -84,6 +85,9 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
     Route::middleware('can:gestire_esercizio')->where(['anno' => '[1-9][0-9]{3}', 'riga' => '[0-9]+'])->group(function () {
         Route::post('/esercizi/{anno}/test/criterio', [VerificheController::class, 'confermaCriterio'])->name('test-esercizio.criterio');
         Route::put('/esercizi/{anno}/test/annotazione', [VerificheController::class, 'annotazione'])->name('test-esercizio.annotazione'); // #54
+        // La procedura di apertura (#63): i saldi dei conti al 1/1, una sola volta. L'URL non è «apertura»: quello è la copia delle voci (#51).
+        Route::get('/esercizi/{anno}/saldi-apertura', [AperturaSaldiController::class, 'indice'])->name('esercizio.saldi');
+        Route::post('/esercizi/{anno}/saldi-apertura', [AperturaSaldiController::class, 'inserisci'])->name('esercizio.saldi.inserisci');
         Route::get('/esercizi/{anno}/dati', [DatiEsercizioController::class, 'indice'])->name('dati-esercizio');
         Route::put('/esercizi/{anno}/dati', [DatiEsercizioController::class, 'salva'])->name('dati-esercizio.salva');
         Route::post('/esercizi/{anno}/dati/figurativi', [DatiEsercizioController::class, 'aggiungiFigurativo'])->name('dati-esercizio.figurativi.aggiungi');

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\ConteDiCassa;
 use App\Euro;
 use App\Models\Conto;
+use App\Models\DatiEsercizio;
 use App\Models\RegistroModifica;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -55,6 +56,11 @@ class ContiController extends Controller
         $dati = $this->dati($request, $conto->tipo, $conto);
 
         DB::transaction(function () use ($conto, $dati, $request) {
+            // Dopo la procedura di apertura (#63) il saldo di partenza dei conti del 1/1 non si cambia da qui: sarebbe un secondo inserimento.
+            if ($conto->aperto_il->format('m-d') === '01-01' && DatiEsercizio::per($conto->aperto_il->year)->saldi_apertura_il !== null
+                && ($dati['saldo_iniziale'] !== $conto->saldo_iniziale || $dati['aperto_il'] !== $conto->aperto_il->toDateString())) {
+                throw ValidationException::withMessages(['saldo_iniziale' => 'I saldi di apertura del '.$conto->aperto_il->year.' sono già inseriti: il saldo di partenza e la data di apertura non si cambiano più.']);
+            }
             $prima = $conto->istantanea();
             $conto->update($dati);
             RegistroModifica::registra($request->user(), $conto, 'modificato', $prima, $conto->istantanea());
