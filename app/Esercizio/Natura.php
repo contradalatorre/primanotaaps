@@ -15,7 +15,7 @@ namespace App\Esercizio;
 final readonly class Natura
 {
     /** Le voci di entrata dell'area A che sono corrispettivi (A2 e A3 degli associati, A7 e A9 di terzi ed enti pubblici). */
-    private const CORRISPETTIVI = ['A2', 'A3', 'A7', 'A9'];
+    public const CORRISPETTIVI = ['A2', 'A3', 'A7', 'A9'];
 
     private const VOCI_DEGLI_ASSOCIATI = ['A2', 'A3'];
 

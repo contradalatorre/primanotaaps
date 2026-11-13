@@ -1,0 +1,245 @@
+<?php
+
+namespace App\Esercizio;
+
+/**
+ * La catena dei test sulla natura commerciale (#54; #17: «Ordine: test 2-bis → natura commerciale calcolata → test dell'ente»).
+ * Un modulo puro come `Secondarieta`: legge il Modello D già calcolato e le imputazioni, mai il database.
+ *
+ *  1. Art. 79 c. 2-bis sull'area A, aggregato (sotto i 300.000 euro tutte le attività di interesse generale sono una sola): i corrispettivi
+ *     (A2, A3, A7, A9) contro i costi effettivi, cioè le uscite A più la quota delle spese generali (uscite E, oneri bancari D1 e imposte;
+ *     figurativi esclusi). Si confrontano i corrispettivi di soci e terzi insieme: con il pro-rata della ricerca #7 (costi dei terzi =
+ *     costi × terzi ÷ proventi) T ≤ C·T/P equivale a P ≤ C. Tolleranza del 6% per al massimo 3 esercizi consecutivi dal 2026.
+ *  2. La natura commerciale di ogni entrata: la forzatura se c'è, poi il calcolo di `Natura`, che per il corrispettivo di un terzo
+ *     in area A (`dipendeDal2bis`) diventa commerciale se il 2-bis non è rispettato.
+ *  3. Art. 79 c. 5, l'ente: proventi commerciali contro entrate non commerciali. Sponsorizzazioni neutre (proprietà della tipologia),
+ *     B2 e B4 commerciali (area B), valore normale delle prestazioni gratuite = proventi figurativi dell'area A.
+ *
+ * Gli importi sono centesimi interi, i confronti si fanno per moltiplicazione in croce (le percentuali float servono solo a mostrare)
+ * e dove un arrotondamento può aiutare chi è sotto test si arrotonda contro di lui (la quota delle spese generali, per difetto).
+ *
+ * shortcut: i prodotti sono interi da 64 bit, senza controllo di overflow: bastano per un'associazione sotto i 300.000 euro (a 3 milioni di
+ * euro la quota delle spese generali supererebbe il limite). Da passare a una moltiplicazione sicura se l'ente cresce.
+ */
+final class TestNatura
+{
+    public const TOLLERANZA_PERCENTO = 6;
+
+    public const TOLLERANZA_ESERCIZI = 3;
+
+    public const PRIMO_ANNO_TOLLERANZA = 2026;
+
+    /** Per il 2026 e il 2027 il cambio di qualifica dell'ente vale dal periodo successivo (art. 79 c. 5-ter, Circ. 1/E § 2.3.4). */
+    private const ULTIMO_ANNO_CON_EFFETTO_DIFFERITO = 2027;
+
+    public const STATI = ['pareggio' => 'Corrispettivi non superiori ai costi', 'tolleranza' => 'Entro la tolleranza del 6%', 'non_rispettato' => 'Non rispettato'];
+
+    /**
+     * @param  array<string, mixed>  $modelloD  il risultato di `Calcolo::modelloD`
+     * @param  list<Imputata>  $imputazioni  con area, natura, forzatura e neutralità (le entrate); le uscite bastano con area e iniziativa
+     * @param  list<Figurativo>  $figurativi
+     * @param  string  $criterioRiparto  «ricavi» o «costi_diretti» (dati dell'esercizio): come si ripartiscono le spese generali
+     * @param  array<int, string>  $storico  lo stato del 2-bis degli esercizi approvati (anno → «pareggio», «tolleranza», «non_rispettato»)
+     * @param  int  $sogliaVicino  percentuale del limite oltre la quale l'esito è «vicino alla soglia»
+     * @param  bool  $figurativiDichiarati  i dati dell'esercizio sono dichiarati completi: senza, il valore normale mancante potrebbe migliorare l'esito
+     */
+    public static function calcola(int $anno, array $modelloD, array $imputazioni, array $figurativi, string $criterioRiparto, array $storico, int $sogliaVicino, bool $figurativiDichiarati): array
+    {
+        $areaA = self::areaA($anno, $modelloD, $criterioRiparto, $storico, $sogliaVicino);
+        $nonRispettato = $areaA['stato'] === 'non_rispettato';
+
+        // Passo 2: il 2-bis non rispettato rende commerciali i corrispettivi dei terzi in area A, salvo forzatura.
+        foreach ($imputazioni as $i) {
+            if ($nonRispettato && $i->lato === 'entrate' && $i->forzata === null && $i->natura?->dipendeDal2bis) {
+                $areaA['reseCommerciali']['numero']++;
+                $areaA['reseCommerciali']['importo'] += $i->importo;
+            }
+        }
+
+        return [
+            'anno' => $anno,
+            'areaA' => $areaA,
+            'ente' => self::ente($anno, $imputazioni, $figurativi, $nonRispettato, $sogliaVicino, $figurativiDichiarati),
+            'pareggi' => self::pareggi($imputazioni),
+        ];
+    }
+
+    private static function areaA(int $anno, array $modelloD, string $criterioRiparto, array $storico, int $sogliaVicino): array
+    {
+        $aree = $modelloD['aree'];
+        $righe = array_values(array_filter($aree['A']['entrate']['righe'], fn (array $r) => in_array($r['voce'], Natura::CORRISPETTIVI, true)));
+        $corrispettivi = ['importo' => array_sum(array_column($righe, 'importo')), 'chiavi' => array_merge(...array_column($righe, 'chiavi'))];
+
+        $diretti = $aree['A']['uscite']['totale'];
+        $oneri = current(array_filter($aree['D']['uscite']['righe'], fn (array $r) => $r['voce'] === 'D1'));
+        $parti = [
+            ['etichetta' => 'Uscite di supporto generale (area E)', 'importo' => $aree['E']['uscite']['totale']['importo'], 'chiavi' => $aree['E']['uscite']['totale']['chiavi']],
+            ['etichetta' => 'Oneri bancari e finanziari (D1)', 'importo' => $oneri['importo'], 'chiavi' => $oneri['chiavi']],
+            ['etichetta' => 'Imposte', 'importo' => $modelloD['imposte']['importo'], 'chiavi' => $modelloD['imposte']['chiavi']],
+        ];
+        $generali = array_sum(array_column($parti, 'importo'));
+
+        // La quota dell'area A: dei ricavi (A su A–D, le aree che producono ricavi) o dei costi diretti (A su A–D).
+        $lato = $criterioRiparto === 'costi_diretti' ? 'uscite' : 'entrate';
+        $numeratore = $aree['A'][$lato]['totale']['importo'];
+        $denominatore = array_sum(array_map(fn (string $area) => $aree[$area][$lato]['totale']['importo'], ['A', 'B', 'C', 'D']));
+        $quota = $denominatore > 0 ? intdiv($generali * $numeratore, $denominatore) : 0;
+
+        $costi = $diretti['importo'] + $quota;
+        $scarto = $corrispettivi['importo'] - $costi;
+        $tolleranza = self::tolleranza($anno, $storico);
+        $stato = match (true) {
+            $scarto <= 0 => 'pareggio',
+            $tolleranza['disponibile'] && 100 * $corrispettivi['importo'] <= (100 + self::TOLLERANZA_PERCENTO) * $costi => 'tolleranza',
+            default => 'non_rispettato',
+        };
+
+        return [
+            'corrispettivi' => $corrispettivi,
+            'costi' => [
+                'diretti' => $diretti,
+                'generali' => ['importo' => $generali, 'parti' => $parti],
+                'quota' => ['importo' => $quota, 'numeratore' => $numeratore, 'denominatore' => $denominatore, 'criterio' => $criterioRiparto === 'costi_diretti' ? 'costi_diretti' : 'ricavi'],
+                'importo' => $costi,
+            ],
+            'rapporto' => $costi > 0 ? 100.0 * $corrispettivi['importo'] / $costi : ($corrispettivi['importo'] === 0 ? 0.0 : null),
+            'scarto' => $scarto, // corrispettivi meno costi: positivo se li superano
+            'limiteConTolleranza' => intdiv((100 + self::TOLLERANZA_PERCENTO) * $costi, 100), // per difetto
+            'stato' => $stato,
+            'esito' => match ($stato) {
+                'pareggio' => 100 * $corrispettivi['importo'] > $sogliaVicino * $costi ? 'vicino' : 'rispettato',
+                'tolleranza' => 'vicino', // non commerciale, ma oltre la soglia piena: il triennio si consuma
+                default => 'non_rispettato',
+            },
+            'tolleranza' => $tolleranza,
+            'reseCommerciali' => ['numero' => 0, 'importo' => 0],
+        ];
+    }
+
+    /**
+     * Gli esercizi consecutivi già chiusi con un avanzo entro il 6%, dagli esiti approvati. Il triennio riparte dopo un pareggio; dopo
+     * un esercizio non rispettato serve il pareggio. Un esercizio dal 2026 senza esito approvato non si può contare: per prudenza
+     * la tolleranza non c'è (il suo uso, ignoto, potrebbe averla già consumata).
+     *
+     * @param  array<int, string>  $storico
+     * @return array{disponibile: bool, usati: int, massimo: int, percento: int, motivo: string}
+     */
+    private static function tolleranza(int $anno, array $storico): array
+    {
+        $risposta = fn (bool $disponibile, int $usati, string $motivo) => [
+            'disponibile' => $disponibile, 'usati' => $usati, 'massimo' => self::TOLLERANZA_ESERCIZI, 'percento' => self::TOLLERANZA_PERCENTO, 'motivo' => $motivo,
+        ];
+        if ($anno < self::PRIMO_ANNO_TOLLERANZA) {
+            return $risposta(false, 0, 'La tolleranza del 6% vale dal '.self::PRIMO_ANNO_TOLLERANZA.'.');
+        }
+
+        $usati = 0;
+        $y = $anno - 1;
+        while ($y >= self::PRIMO_ANNO_TOLLERANZA && ($storico[$y] ?? null) === 'tolleranza') {
+            $usati++;
+            $y--;
+        }
+        if ($y >= self::PRIMO_ANNO_TOLLERANZA && ! isset($storico[$y])) {
+            return $risposta(false, $usati, "L'esercizio $y non ha un esito approvato: la tolleranza si conta dagli esiti approvati, quindi per ora non si applica.");
+        }
+        if ($y >= self::PRIMO_ANNO_TOLLERANZA && $storico[$y] === 'non_rispettato') {
+            return $risposta(false, $usati, "L'esercizio $y non ha rispettato il test: quest'anno i corrispettivi non devono superare i costi, senza tolleranza.");
+        }
+        if ($usati >= self::TOLLERANZA_ESERCIZI) {
+            return $risposta(false, $usati, 'Per '.self::TOLLERANZA_ESERCIZI.' esercizi consecutivi i corrispettivi hanno superato i costi entro il 6%: la tolleranza è finita e vale la soglia piena (corrispettivi non superiori ai costi).');
+        }
+
+        return $risposta(true, $usati, 'La tolleranza del 6% vale per al massimo '.self::TOLLERANZA_ESERCIZI.' esercizi consecutivi dal '.self::PRIMO_ANNO_TOLLERANZA.': negli esiti approvati ne sono stati usati '.$usati.', ne restano '.(self::TOLLERANZA_ESERCIZI - $usati).'.');
+    }
+
+    /** La natura che vale per un'entrata: la forzatura, poi il calcolo (con il 2-bis); null se non si può dire. */
+    private static function commerciale(Imputata $i, bool $areaACommerciale): ?bool
+    {
+        if ($i->forzata !== null) {
+            return $i->forzata;
+        }
+
+        return $areaACommerciale && $i->natura?->dipendeDal2bis ? true : $i->natura?->commerciale;
+    }
+
+    /**
+     * Art. 79 c. 5: l'ente è commerciale se i proventi commerciali superano le entrate non commerciali. Contano solo le aree A, B e C
+     * (D ed E sono fuori dai test) e il valore normale delle prestazioni gratuite dell'area A, finché l'area A è non commerciale.
+     */
+    private static function ente(int $anno, array $imputazioni, array $figurativi, bool $areaACommerciale, int $sogliaVicino, bool $figurativiDichiarati): array
+    {
+        $commerciali = $nonCommerciali = $neutre = $fuori = $senzaNatura = 0;
+        foreach ($imputazioni as $i) {
+            if ($i->lato !== 'entrate' || $i->natura === null) {
+                continue;
+            }
+            if (! in_array($i->area, ['A', 'B', 'C'], true)) {
+                $fuori += $i->importo;
+
+                continue;
+            }
+            // Neutre: sponsorizzazioni e pubblicità (proprietà della tipologia); le raccolte fondi abituali (C1) possono avere corrispettivo
+            // continuativo, e finché non si distingue dalle liberalità si tengono neutre, mai tra le non commerciali.
+            if ($i->neutra || ($i->area === 'C' && $i->voce === 'C1')) {
+                $neutre += $i->importo;
+
+                continue;
+            }
+            $commerciale = self::commerciale($i, $areaACommerciale);
+            if ($commerciale === null) {
+                $senzaNatura++;
+                $commerciale = true; // prudente
+            }
+            $commerciale ? $commerciali += $i->importo : $nonCommerciali += $i->importo;
+        }
+
+        $valoreNormale = $areaACommerciale ? 0 : array_sum(array_map(fn (Figurativo $f) => $f->tipo === 'provento' && $f->area === 'A' ? $f->importo : 0, $figurativi));
+        $nonCommerciali += $valoreNormale;
+
+        $esito = match (true) {
+            $commerciali > $nonCommerciali => 'non_rispettato',
+            100 * $commerciali > $sogliaVicino * $nonCommerciali => 'vicino',
+            default => 'rispettato',
+        };
+
+        return [
+            'commerciali' => $commerciali,
+            'nonCommerciali' => $nonCommerciali,
+            'neutre' => $neutre,
+            'valoreNormale' => $valoreNormale,
+            'fuoriDalTest' => $fuori,
+            'senzaNatura' => $senzaNatura,
+            'rapporto' => $nonCommerciali > 0 ? 100.0 * $commerciali / $nonCommerciali : ($commerciali === 0 ? 0.0 : null),
+            'margine' => $nonCommerciali - $commerciali, // negativo se i proventi commerciali prevalgono
+            'esito' => $esito,
+            'effettoDal' => $esito === 'non_rispettato' ? ($anno <= self::ULTIMO_ANNO_CON_EFFETTO_DIFFERITO ? $anno + 1 : $anno) : null,
+            'datoMancante' => ! $figurativiDichiarati,
+        ];
+    }
+
+    /**
+     * L'indicatore di pareggio per iniziativa in area A: corrispettivi contro costi diretti dell'iniziativa. Informativo, non è il test di
+     * legge (che è aggregato e conta anche una quota delle spese generali): documenta una scelta come la Festa della Torre in A7.
+     *
+     * @return array<int, array{iniziativa: int, corrispettivi: int, costi: int, differenza: int}> per id dell'iniziativa
+     */
+    private static function pareggi(array $imputazioni): array
+    {
+        $pareggi = [];
+        foreach ($imputazioni as $i) {
+            if ($i->area !== 'A' || $i->iniziativa === null) {
+                continue;
+            }
+            $pareggi[$i->iniziativa] ??= ['iniziativa' => $i->iniziativa, 'corrispettivi' => 0, 'costi' => 0, 'differenza' => 0];
+            if ($i->lato === 'uscite') {
+                $pareggi[$i->iniziativa]['costi'] += $i->importo;
+            } elseif (in_array($i->voce, Natura::CORRISPETTIVI, true)) {
+                $pareggi[$i->iniziativa]['corrispettivi'] += $i->importo;
+            }
+        }
+        $pareggi = array_map(fn (array $p) => ['differenza' => $p['corrispettivi'] - $p['costi']] + $p, $pareggi);
+        ksort($pareggi);
+
+        return $pareggi;
+    }
+}
