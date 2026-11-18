@@ -264,7 +264,7 @@ final class Regole
     private static function candidati(): Builder
     {
         return Movimento::where(fn (Builder $q) => $q->where('stato', 'da_classificare')->orWhere(fn (Builder $q) => $q->where('stato', 'proposto')
-            ->whereNull('proposto_da'))) // di regola o storico, o rimasta senza origine (esempio cancellato): quelle di una persona hanno `proposto_da`
+            ->whereNull('proposto_da')->whereNull('conversione_causale_id'))) // di regola o storico, o rimasta senza origine (esempio cancellato): quelle di una persona hanno `proposto_da`, quelle della tabella del foglio (#64) `conversione_causale_id`
             ->orderBy('id');
     }
 

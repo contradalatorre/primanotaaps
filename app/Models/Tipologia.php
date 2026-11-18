@@ -35,6 +35,7 @@ class Tipologia extends Model
     {
         return Imputazione::where('tipologia_id', $this->id)->exists()
             || PreventivoIniziativa::where('tipologia_id', $this->id)->exists()
-            || Regola::where('tipologia_id', $this->id)->exists() || EsempioClassificazione::where('tipologia_id', $this->id)->exists();
+            || Regola::where('tipologia_id', $this->id)->exists() || EsempioClassificazione::where('tipologia_id', $this->id)->exists()
+            || ConversioneCausale::where('tipologia_id', $this->id)->exists();
     }
 }

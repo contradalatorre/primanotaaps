@@ -87,7 +87,9 @@ final class Giroconti
     /** I conti su cui si può scrivere la metà che manca: del tipo giusto, già aperti alla data del movimento e non chiusi (su un conto chiuso non si scrive, come a mano). */
     public static function contiPerLaMeta(Movimento $movimento, array $regola): Collection
     {
-        return Conto::where('tipo', $regola['con'])->where('aperto_il', '<=', $movimento->data->toDateString())->whereNull('chiuso_il')->orderBy('nome')->get();
+        // La cassa che si importa dal foglio non si completa da qui finché il foglio è in uso: la metà c'è già nel foglio, e scriverla due volte raddoppierebbe la cassa (#64).
+        return Conto::where('tipo', $regola['con'])->where('aperto_il', '<=', $movimento->data->toDateString())->whereNull('chiuso_il')->orderBy('nome')->get()
+            ->reject(fn (Conto $c) => $c->importaDalFoglio() && ! $c->foglioChiuso())->values();
     }
 
     /**
@@ -308,7 +310,7 @@ final class Giroconti
             $movimento->imputazioni()->delete();
             $movimento->forceFill([
                 'stato' => 'confermato', 'confermato_da' => $utente->id, 'confermato_il' => now(),
-                'proposto_da' => null, 'regola_id' => null, 'storico_movimento_id' => null, 'storico_esempio_id' => null,
+                'proposto_da' => null, 'regola_id' => null, 'storico_movimento_id' => null, 'storico_esempio_id' => null, 'conversione_causale_id' => null,
             ])->save();
             RegistroModifica::registra($utente, $movimento, 'giroconto_confermato', $prima, $movimento->istantanea(), 'Giroconto n. '.$giroconto->id.' con «'.$altro->conto->nome.'», movimento n. '.$altro->id);
             Note::chiudiDubbi($utente, $movimento, $dubbiVisti); // confermare scioglie il dubbio (#16), ma solo quello che la scheda mostrava

@@ -39,6 +39,7 @@ class Iniziativa extends Model
     {
         return Imputazione::where('iniziativa_id', $this->id)->exists()
             || PreventivoIniziativa::where('iniziativa_id', $this->id)->exists()
-            || Regola::where('iniziativa_id', $this->id)->exists() || EsempioClassificazione::where('iniziativa_id', $this->id)->exists();
+            || Regola::where('iniziativa_id', $this->id)->exists() || EsempioClassificazione::where('iniziativa_id', $this->id)->exists()
+            || ConversioneCausale::where('iniziativa_id', $this->id)->exists();
     }
 }

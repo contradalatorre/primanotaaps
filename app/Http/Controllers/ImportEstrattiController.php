@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Conversioni;
 use App\Euro;
 use App\Giroconti;
 use App\Import\Estratto;
@@ -150,9 +151,12 @@ class ImportEstrattiController extends Controller
             $nuovi = $import->movimenti()->get();
             $this->registraMovimenti($request->user(), $nuovi, 'importato', null);
             // Le regole subito, a conto bloccato: un salvataggio di regole (che blocca tutti i conti) aspetta e poi rifà le proposte.
-            Regole::applicaAiNuovi($request->user(), $nuovi);
+            // Il foglio ha la sua tabella di conversione al posto delle regole (#64).
             if ($controlli !== null) {
+                Conversioni::applicaAiNuovi($request->user(), $nuovi);
                 ImportFoglio::segnalaDubbi($request->user(), $conto, $controlli);
+            } else {
+                Regole::applicaAiNuovi($request->user(), $nuovi);
             }
 
             $prima = $import->istantanea();
