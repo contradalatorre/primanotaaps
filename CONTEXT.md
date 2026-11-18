@@ -31,7 +31,7 @@ Il testo libero che accompagna un movimento: nell'estratto conto lo scrive il fo
 _Avoid_: dettaglio
 
 **Import**:
-Un caricamento di un estratto conto: prima un'anteprima, poi la conferma, dopo la quale i suoi movimenti entrano da classificare; si annulla per intero, e solo se nessun suo movimento è confermato. Un movimento già presente nell'app (stessa chiave) si salta e si conta.
+Un caricamento di un estratto conto: prima un'anteprima, poi la conferma, dopo la quale i suoi movimenti entrano da classificare; si annulla per intero, e solo se nessun suo movimento è confermato. Un movimento già presente nell'app (stessa chiave) si salta e si conta. Anche la cassa contanti si importa, dal foglio di calcolo e quante volte si vuole fino alla data di passaggio: le righe sparite dal foglio si segnalano e non si cancellano mai.
 _Avoid_: caricamento, upload
 
 **Conflitto**:
@@ -107,6 +107,14 @@ _Avoid_: etichetta, parola chiave
 **Regola**:
 Una condizione sul movimento (conto, verso, causale, testo della descrizione, importo o intervallo, periodo; tutte da soddisfare, senza espressioni regolari) con una classificazione da proporre (tipologia, iniziativa o area e attività, socio o terzo, tag; mai la natura commerciale). Le regole sono in un elenco ordinato e vince la prima che corrisponde. Una regola propone soltanto sui movimenti *da classificare* o già *proposti da una regola*: non tocca mai i confermati né le scelte a mano.
 _Avoid_: automatismo, filtro
+
+**Tabella di conversione**:
+La tabella che traduce ogni «Nuova causale» del foglio di calcolo della cassa in tipologia, area, attività, iniziativa e tag; parte da `docs/import-foglio` e il Tesoriere la modifica in una pagina dell'app finché il foglio è in uso. Una riga cambiata si riapplica ai movimenti da classificare o proposti dalla tabella; i confermati restano come sono e si elencano da correggere. Una causale assente o senza tipologia lascia il movimento da classificare, in dubbio.
+_Avoid_: mappatura, conversione delle categorie
+
+**Data di passaggio**:
+L'ultimo giorno che il foglio di calcolo copre per la cassa contanti, scelto dal Tesoriere: l'import del foglio rifiuta le righe successive, così non ci sono mai due fonti per lo stesso periodo, e passata la data import e tabella di conversione si chiudono.
+_Avoid_: data di migrazione, cut-off
 
 **Manuale di classificazione**:
 Il testo, nell'app, che spiega come si classificano i movimenti; diviso in sezioni dal numero stabile, che si cita come «manuale § 9», lo legge chiunque e lo modifica chi gestisce le regole, e ogni modifica lascia una versione nel registro delle modifiche. Il manuale è anche ciò che l'AI riceve quando propone una classificazione.
