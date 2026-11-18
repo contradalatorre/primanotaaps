@@ -38,6 +38,7 @@ class DatiEsercizio extends Model
      */
     public static function sottoBlocco(User $utente, int $esercizio, Closure $scrittura, Permesso $permesso = Permesso::GestireEsercizio): mixed
     {
+        $utente->unsetRelation('assegnazioniAttive'); // quelle in cache sono del controllo della rotta, forse di prima di una revoca
         abort_unless($utente->puo($permesso), 403); // prima di inserire: chi è stato revocato non crea la riga (si rilegge poi a riga bloccata)
         DB::table('dati_esercizio')->insertOrIgnore(['esercizio' => $esercizio, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'created_at' => now(), 'updated_at' => now()]);
 

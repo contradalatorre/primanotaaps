@@ -59,6 +59,7 @@ class SoglieTest extends TestCase
             ]],
             'sotto, oltre, sotto, oltre: l’obbligo non è mai nato, vicino' => [2026, [2025 => $oltre, 2024 => $ok, 2023 => $oltre, 2022 => $ok], ['art30.esito' => 'vicino', 'art30.persiste' => false]],
             'oltre, sotto, oltre e prima non si sa: per prudenza l’obbligo può essere nato, non rispettato' => [2026, [2025 => $oltre, 2024 => $ok, 2023 => $oltre, 2022 => null], ['art30.esito' => 'non_rispettato', 'art30.persiste' => true]],
+            'oltre, sotto, il terzo esercizio non è nell’app e il quarto è oltre: per prudenza l’obbligo può essere nato, non rispettato' => [2026, [2025 => $oltre, 2024 => $ok, 2023 => null, 2022 => $oltre], ['art30.esito' => 'non_rispettato', 'art30.persiste' => true]],
             'sotto i limiti e l’esercizio prima non è nell’app: rispettato (non si inventa un obbligo che non si può dimostrare)' => [2026, [2025 => $ok, 2024 => null], ['art30.esito' => 'rispettato', 'art30.inCessazione' => false]],
             'sotto i limiti da due esercizi: l’obbligo è cessato' => [2026, [2025 => $ok, 2024 => $ok], ['art30.esito' => 'rispettato', 'art30.inCessazione' => false]],
             'un limite solo superato: non basta' => [2026, [2025 => self::m(100_000, 200_000, 3), 2024 => $ok], ['art30.superati' => 1, 'art30.esito' => 'rispettato']],

@@ -61,7 +61,7 @@ final class Soglie
             'margine' => $entrate === null ? null : self::LIMITE_CASSA - $entrate, // negativo se superata
             'inAttesa' => $prima['inAttesa'] ?? 0,
             'cassa' => $entrate !== null && $entrate <= self::LIMITE_CASSA,
-            'modelloE' => $entrate !== null && $anno >= self::PRIMO_ANNO_MODELLO_E && $entrate <= self::LIMITE_MODELLO_E,
+            'modelloE' => $entrate !== null && ! ($prima['inAttesa'] ?? 0) && $anno >= self::PRIMO_ANNO_MODELLO_E && $entrate <= self::LIMITE_MODELLO_E,
             'limiteModelloE' => self::LIMITE_MODELLO_E,
             'esito' => match ($stato) {
                 null => null,
@@ -84,9 +84,9 @@ final class Soglie
         $ora = self::misura($limiti, $prima, $sogliaVicino);
         $primaDiPrimaOltre = $primaDiPrima === null ? null : self::misura($limiti, $primaDiPrima, $sogliaVicino)['superati'] >= 2;
         $consecutivi = $ora['superati'] < 2 ? false : $primaDiPrimaOltre;
-        // Oltre, sotto, oltre, oltre (dal più vecchio): l'obbligo nato dai due oltre non è cessato con un solo esercizio sotto. Con il quarto ignoto, per prudenza, può esserci.
+        // Oltre, sotto, oltre, oltre (dal più vecchio): l'obbligo nato dai due oltre non è cessato con un solo esercizio sotto. Con uno dei due ignoto, per prudenza, può esserci, purché l'altro non dica il contrario; con tutti e due ignoti non lo si presume.
         [$terzo, $quarto] = array_map(fn (?array $m) => $m === null ? null : self::misura($limiti, $m, $sogliaVicino)['superati'] >= 2, $piuVecchi);
-        $persiste = $ora['superati'] >= 2 && $primaDiPrimaOltre === false && $terzo === true && $quarto !== false;
+        $persiste = $ora['superati'] >= 2 && $primaDiPrimaOltre === false && $terzo !== false && $quarto !== false && ($terzo === true || $quarto === true);
         // Art. 30 c. 3 e art. 31: l'obbligo cessa solo dopo due esercizi consecutivi sotto i limiti; con uno solo sotto, dopo uno oltre, non è ancora cessato.
         $inCessazione = $ora['superati'] < 2 && $primaDiPrimaOltre === true;
 

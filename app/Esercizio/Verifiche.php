@@ -5,6 +5,7 @@ namespace App\Esercizio;
 use App\Models\DatiEsercizio;
 use App\Models\ImpostazioniAssociazione;
 use App\Models\Iniziativa;
+use App\Models\Movimento;
 
 /**
  * Porta i dati dell'esercizio dal database ai test CTS (`Secondarieta` e `TestNatura`, che non li conoscono). Le imputazioni sono scelte
@@ -184,16 +185,20 @@ final class Verifiche
     }
 
     /**
-     * Le entrate e le uscite che attendono conferma (movimenti proposti): quanti movimenti e per quanti centesimi. Lo chiede
-     * solo la pagina dei test, non la home.
+     * Le entrate e le uscite che attendono conferma: i movimenti proposti (il lato è quello della tipologia) e quelli ancora da classificare
+     * (il verso; un movimento importato nasce così, senza imputazioni). Quanti movimenti e per quanti centesimi. Lo chiede solo la pagina dei test, non la home.
      *
      * @return array{entrate: array{numero: int, importo: int}, uscite: array{numero: int, importo: int}}
      */
     public static function inAttesa(int $anno): array
     {
         $attese = Prospetto::imputazioni($anno, true)->filter(fn (array $r) => $r['imputazione']->movimento->stato === 'proposto');
-        $per = fn (string $lato) => ['numero' => $attese->where('lato', $lato)->pluck('imputazione.movimento_id')->unique()->count(), 'importo' => $attese->where('lato', $lato)->sum(fn (array $r) => abs($r['imputazione']->importo))];
+        $nonClassificati = Movimento::senzaGiroconto()->whereBetween('data', ["$anno-01-01", "$anno-12-31"])->where('stato', 'da_classificare')->get();
+        $per = fn (string $lato, string $verso) => [
+            'numero' => $attese->where('lato', $lato)->pluck('imputazione.movimento_id')->unique()->count() + $nonClassificati->where('verso', $verso)->count(),
+            'importo' => $attese->where('lato', $lato)->sum(fn (array $r) => abs($r['imputazione']->importo)) + $nonClassificati->where('verso', $verso)->sum('importo'),
+        ];
 
-        return ['entrate' => $per('entrate'), 'uscite' => $per('uscite')];
+        return ['entrate' => $per('entrate', 'entrata'), 'uscite' => $per('uscite', 'uscita')];
     }
 }
