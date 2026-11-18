@@ -37,13 +37,13 @@ final class EsempiDalFoglio
 
             foreach (array_slice($righe, $intestazione + 1) as $riga) {
                 $causale = self::chiave($riga[$c['nuova']] ?? null);
-                $data = self::data($riga[$c['data']] ?? null);
+                $data = Foglio::data($riga[$c['data']] ?? null);
                 if ($causale === '' && $data === null) { // il saldo iniziale, i totali, le righe vuote: non sono movimenti
                     continue;
                 }
                 $conv = $conversione[$causale] ?? null;
                 [$verso, $importo] = self::importo($riga, $c);
-                $descrizione = self::senzaEmail($riga[$c['descrizione'] ?? -1] ?? '');
+                $descrizione = Foglio::senzaEmail($riga[$c['descrizione'] ?? -1] ?? '');
 
                 $motivo = match (true) {
                     $data === null => 'senza_data',
@@ -61,7 +61,7 @@ final class EsempiDalFoglio
 
                     continue;
                 }
-                $estratto = self::senzaEmail($riga[$c['causale'] ?? -1] ?? ''); // anche la causale dell'estratto (PayPal) può avere un'email
+                $estratto = Foglio::senzaEmail($riga[$c['causale'] ?? -1] ?? ''); // anche la causale dell'estratto (PayPal) può avere un'email
                 $esempi[] = [
                     'verso' => $verso, 'causale' => $estratto === '' ? null : $estratto, 'descrizione' => $descrizione, 'importo' => $importo, 'data' => $data,
                     'tipologia_id' => $conv['tipologia_id'], 'area' => $conv['area'], 'attivita_id' => $conv['attivita_id'], 'iniziativa_id' => $conv['iniziativa_id'],
@@ -70,12 +70,6 @@ final class EsempiDalFoglio
         }
 
         return ['esempi' => $esempi, 'scartate' => $scartate, 'schede' => $schede];
-    }
-
-    /** Il testo di una cella senza le email (e le parentesi rimaste vuote), a spazi ridotti. */
-    private static function senzaEmail(mixed $cella): string
-    {
-        return trim(preg_replace('/\s+/u', ' ', preg_replace(['/[\w.+-]+@[\w-]+\.[\w.-]+/u', '/[(\[<]\s*[)\]>]/u'], '', (string) $cella)));
     }
 
     /** La chiave con cui si cerca una causale nella tabella di conversione: senza il prefisso «->» o «→», in minuscolo, senza spazi ai lati. */
@@ -123,19 +117,5 @@ final class EsempiDalFoglio
         $netto = $firmato ?? (($entrata ?? 0) - ($uscita ?? 0));
 
         return $netto === 0 ? [null, null] : [$netto > 0 ? 'entrata' : 'uscita', abs($netto)];
-    }
-
-    /** «AAAA-MM-GG» da una data del foglio o da un testo «g/m/aaaa». */
-    private static function data(mixed $cella): ?string
-    {
-        $testo = trim((string) $cella);
-        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $testo, $m)) {
-            return checkdate((int) $m[2], (int) $m[3], (int) $m[1]) ? $testo : null;
-        }
-        if (preg_match('#^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$#', $testo, $m) && checkdate((int) $m[2], (int) $m[1], (int) $m[3])) {
-            return sprintf('%04d-%02d-%02d', $m[3], $m[2], $m[1]);
-        }
-
-        return null;
     }
 }
