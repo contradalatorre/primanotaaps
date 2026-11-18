@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Esercizio\Prospetto;
 use App\Esercizio\Verifiche;
+use App\Models\Assegnazione;
 use App\Models\Conto;
 use App\Models\DatiEsercizio;
 use App\Models\ImpostazioniAssociazione;
@@ -14,6 +15,7 @@ use App\Models\RigaFigurativa;
 use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 /** Dati dell'esercizio e test di secondarietà a schermo (#53): pagine, permessi, registro, home. Dati inventati. */
@@ -296,12 +298,12 @@ class SecondarietaPaginaTest extends TestCase
     public function test_chi_e_stato_revocato_dopo_il_controllo_della_rotta_non_crea_la_riga_dei_dati_dell_esercizio(): void
     {
         $this->assertTrue($this->tesoriere->can('gestire_esercizio')); // il controllo della rotta carica le assegnazioni
-        \App\Models\Assegnazione::where('user_id', $this->tesoriere->id)->delete(); // revoca nel frattempo
+        Assegnazione::where('user_id', $this->tesoriere->id)->delete(); // revoca nel frattempo
 
         try {
             DatiEsercizio::sottoBlocco($this->tesoriere, 2031, fn () => $this->fail('La scrittura non doveva partire.'));
             $this->fail('La scrittura doveva essere rifiutata.');
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             $this->assertSame(403, $e->getStatusCode());
         }
         $this->assertFalse(DatiEsercizio::where('esercizio', 2031)->exists());
