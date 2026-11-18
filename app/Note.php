@@ -94,6 +94,21 @@ final class Note
     }
 
     /**
+     * Un dubbio che scrive l'app (l'import del foglio, #64) a nome di chi importa, su un movimento che chi chiama ha già bloccato: niente
+     * permessi di nota né menzioni. Non ne scrive un altro finché c'è un dubbio aperto che inizia con le stesse parole (`$inizio`).
+     */
+    public static function segnalaDubbio(User $utente, Movimento $movimento, string $testo, string $inizio): ?Nota
+    {
+        if ($movimento->note()->dubbioAperto()->where('testo', 'like', str_replace(['%', '_'], ['\%', '\_'], $inizio).'%')->exists()) {
+            return null;
+        }
+        $nota = $movimento->note()->create(['user_id' => $utente->id, 'testo' => $testo, 'dubbio' => true]);
+        RegistroModifica::registra($utente, $nota, 'scritta', null, $nota->istantanea());
+
+        return $nota;
+    }
+
+    /**
      * Chiude i dubbi aperti del movimento. Da chiamare a riga del movimento già bloccata: lo fa la conferma
      * (`Classificazione::conferma`), dopo i suoi controlli. Con `$soloQuesti` (id di note) chiude solo quelli.
      *

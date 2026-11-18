@@ -38,7 +38,7 @@ class ImportEstratto extends Model
     {
         return [
             'periodo_dal' => 'date', 'periodo_al' => 'date', 'saldo_iniziale' => 'integer', 'saldo_finale' => 'integer',
-            'confermato_il' => 'datetime', 'annullato_il' => 'datetime',
+            'confermato_il' => 'datetime', 'annullato_il' => 'datetime', 'controlli' => 'array',
         ];
     }
 

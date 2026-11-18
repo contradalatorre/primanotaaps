@@ -2,8 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Euro;
 use App\Giroconti;
+use App\Import\Estratto;
 use App\Import\EstrattoNonValido;
+use App\Import\FoglioCassa;
+use App\ImportFoglio;
 use App\Models\Conto;
 use App\Models\ImportConflitto;
 use App\Models\ImportEstratto;
@@ -51,14 +55,20 @@ class ImportEstrattiController extends Controller
         if ($conto->chiuso()) {
             $this->rifiuta('Il conto è chiuso: non si importano nuovi movimenti.');
         }
+        $foglio = $lettore instanceof FoglioCassa;
+        if ($foglio && $conto->foglioChiuso()) {
+            $this->rifiuta('La data di passaggio è passata ('.$conto->passaggio_il->format('d/m/Y').'): da lì la cassa si registra solo nell’app e il foglio non si importa più.');
+        }
         // Il controllo sul contenuto vuole l'estensione fileinfo; senza, al posto di un errore 500 un messaggio che dice cosa fare.
         if (! extension_loaded('fileinfo')) {
             $this->rifiuta('Sul server manca l’estensione PHP «fileinfo», che serve a controllare il file: va attivata dal pannello dell’hosting (docs/pubblicazione.md).');
         }
-        // Si valuta il contenuto, non il nome che il browser dichiara; 2 MB bastano a un anno di movimenti.
-        $messaggio = 'Carica il file CSV dell’estratto (testo, al massimo 2 MB).';
+        // Si valuta il contenuto, non il nome che il browser dichiara; 2 MB bastano a un anno di movimenti, 4 a un foglio di calcolo (un .ods si riconosce come zip o come tipo suo).
+        $messaggio = $foglio ? 'Carica il foglio di calcolo della cassa (.xlsx o .ods, al massimo 4 MB).' : 'Carica il file CSV dell’estratto (testo, al massimo 2 MB).';
         $request->validate(
-            ['estratto' => ['required', 'file', 'max:2048', 'mimetypes:text/*,application/csv']],
+            ['estratto' => $foglio
+                ? ['required', 'file', 'max:4096', 'mimetypes:application/zip,application/x-zip-compressed,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.oasis.opendocument.spreadsheet']
+                : ['required', 'file', 'max:2048', 'mimetypes:text/*,application/csv']],
             ['estratto.required' => $messaggio, 'estratto.file' => $messaggio, 'estratto.max' => $messaggio, 'estratto.mimetypes' => $messaggio],
         );
 
@@ -73,6 +83,7 @@ class ImportEstrattiController extends Controller
         if ($conto->chiuso_il && $estratto->al() > $conto->chiuso_il->toDateString()) {
             $this->rifiuta('Il file ha movimenti dopo la chiusura del conto ('.$conto->chiuso_il->format('d/m/Y').').');
         }
+        $this->controllaPassaggio($conto, $estratto);
 
         $this->scartaAnteprimeVecchie();
         // Un nome casuale: quello del file caricato non entra mai in un percorso.
@@ -96,9 +107,11 @@ class ImportEstrattiController extends Controller
             $atteso = $conto->saldoAl($import->periodo_dal->toDateString(), false);
             // I giroconti proposti (#47): le righe nuove che una regola riconosce, da abbinare nel passo Giroconti dopo la conferma.
             $dati += ['giroconti' => collect($classi['nuove'])->filter(fn ($r) => Giroconti::regolaPer($conto, $r->verso(), $r->causale.' '.$r->descrizione) !== null)->count()];
-            $dati += ['classi' => $classi, 'saldoApp' => $atteso, 'buco' => $import->saldo_iniziale === null || $atteso === $import->saldo_iniziale ? null : $this->buco($conto, $import)];
+            // Il foglio non ha un «buco» da segnalare: ha i suoi controlli, mese per mese, e il confronto del saldo iniziale con l'apertura.
+            $foglio = $conto->importaDalFoglio() ? ImportFoglio::controlli($conto, $import->estratto(), $classi['nuove']) : null;
+            $dati += ['classi' => $classi, 'saldoApp' => $atteso, 'foglio' => $foglio, 'buco' => $foglio !== null || $import->saldo_iniziale === null || $atteso === $import->saldo_iniziale ? null : $this->buco($conto, $import)];
         } else {
-            $dati += ['conflitti' => $import->conflitti()->with('movimento')->get(), 'movimenti' => $import->movimenti()->count()];
+            $dati += ['conflitti' => $import->conflitti()->with('movimento')->get(), 'movimenti' => $import->movimenti()->count(), 'foglio' => $import->controlli];
         }
 
         return view('import.mostra', $dati);
@@ -118,7 +131,16 @@ class ImportEstrattiController extends Controller
                 $this->rifiuta('Il conto è stato chiuso: non si importano nuovi movimenti.');
             }
 
-            $classi = $conto->classifica($import->estratto());
+            $estratto = $import->estratto();
+            $classi = $conto->classifica($estratto);
+            $controlli = null;
+            if ($conto->importaDalFoglio()) {
+                $this->controllaPassaggio($conto, $estratto);
+                $controlli = ImportFoglio::controlli($conto, $estratto, $classi['nuove']);
+                if (! $controlli['finale']['ok']) {
+                    $this->rifiuta('Il saldo finale del foglio ('.Euro::formatta($controlli['finale']['foglio']).' €) non torna con quello dell’app ('.Euro::formatta($controlli['finale']['app']).' €): l’import non si conferma. Controlla il foglio e ricaricalo.');
+                }
+            }
             foreach (array_chunk($classi['nuove'], 200) as $blocco) {
                 Movimento::insert(array_map(fn ($riga) => $import->attributiMovimento($riga, $request->user()->id), $blocco));
             }
@@ -129,10 +151,13 @@ class ImportEstrattiController extends Controller
             $this->registraMovimenti($request->user(), $nuovi, 'importato', null);
             // Le regole subito, a conto bloccato: un salvataggio di regole (che blocca tutti i conti) aspetta e poi rifà le proposte.
             Regole::applicaAiNuovi($request->user(), $nuovi);
+            if ($controlli !== null) {
+                ImportFoglio::segnalaDubbi($request->user(), $conto, $controlli);
+            }
 
             $prima = $import->istantanea();
             $percorso = $import->percorso;
-            $import->update(['stato' => 'confermato', 'percorso' => null, 'confermato_il' => now()]);
+            $import->update(['stato' => 'confermato', 'percorso' => null, 'confermato_il' => now(), 'controlli' => $controlli]);
             RegistroModifica::registra($request->user(), $import, 'confermato', $prima, $import->istantanea() + [
                 'nuovi' => count($classi['nuove']), 'gia_presenti' => count($classi['presenti']), 'in_conflitto' => count($classi['conflitti']),
             ]);
@@ -273,6 +298,14 @@ class ImportEstrattiController extends Controller
         });
         if ($percorso) {
             Storage::disk('local')->delete($percorso);
+        }
+    }
+
+    /** Mai due fonti per lo stesso periodo: il foglio non ha righe dopo la data di passaggio (#19). */
+    private function controllaPassaggio(Conto $conto, Estratto $estratto): void
+    {
+        if ($conto->importaDalFoglio() && $conto->passaggio_il && $estratto->al() > $conto->passaggio_il->toDateString()) {
+            $this->rifiuta('Il foglio ha righe fino al '.date('d/m/Y', strtotime($estratto->al())).', dopo la data di passaggio ('.$conto->passaggio_il->format('d/m/Y').'): da lì la cassa si registra solo nell’app. Togli quelle righe dal foglio.');
         }
     }
 

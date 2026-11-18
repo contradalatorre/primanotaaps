@@ -34,6 +34,10 @@
         <p><a href="{{ route('import.revisione', $import) }}" class="bottone" data-merlo="rivedi-movimenti">Rivedi i movimenti</a></p>
     @endif
 
+    @if (! empty($foglio))
+        @include('import.foglio')
+    @endif
+
     @if ($import->stato === 'anteprima')
         @if ($buco)
             <p class="avviso" role="status">
@@ -47,7 +51,7 @@
         @endif
         <form method="POST" action="{{ route('import.conferma', $import) }}" class="modulo-in-riga">
             @csrf
-            <button type="submit" class="bottone" data-merlo="conferma-import">Conferma l’import</button>
+            <button type="submit" class="bottone" data-merlo="conferma-import" @disabled($foglio && ! $foglio['finale']['ok'])>Conferma l’import</button>
         </form>
         <form method="POST" action="{{ route('import.scarta', $import) }}" class="modulo-in-riga">
             @csrf
