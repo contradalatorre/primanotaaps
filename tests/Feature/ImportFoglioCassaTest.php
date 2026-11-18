@@ -4,12 +4,15 @@ namespace Tests\Feature;
 
 use App\Classificazione;
 use App\Giroconti;
-use App\Models\Giroconto;
+use App\Models\Attivita;
 use App\Models\Conto;
 use App\Models\ConversioneCausale;
+use App\Models\Giroconto;
 use App\Models\ImportConflitto;
 use App\Models\ImportEstratto;
+use App\Models\Iniziativa;
 use App\Models\Movimento;
+use App\Models\Tag;
 use App\Models\Tipologia;
 use App\Models\User;
 use DateTimeImmutable;
@@ -303,6 +306,105 @@ class ImportFoglioCassaTest extends TestCase
         $this->assertNull($this->cassa->refresh()->passaggio_il);
 
         $this->actingAs($this->utenteCon('Consigliere'))->post("/conti/{$this->cassa->id}/passaggio", ['passaggio_il' => '2026-12-31'])->assertForbidden();
+    }
+
+    private function riga(string $causale): ConversioneCausale
+    {
+        return ConversioneCausale::where('chiave', mb_strtolower($causale))->firstOrFail();
+    }
+
+    private function salvaRiga(string $causale, array $dati, ?User $utente = null)
+    {
+        return $this->actingAs($utente ?? $this->tesoriere)->put('/conversione-causali/'.$this->riga($causale)->id, $dati);
+    }
+
+    public function test_la_pagina_della_tabella_si_vede_ma_la_modifica_solo_chi_gestisce_i_dati_di_base(): void
+    {
+        $this->actingAs($this->tesoriere)->get('/conversione-causali')->assertOk()->assertSee('Assicurazioni')->assertSee('Salva e riapplica');
+
+        $consigliere = $this->utenteCon('Consigliere');
+        $this->actingAs($consigliere)->get('/conversione-causali')->assertOk()->assertSee('Assicurazioni')->assertDontSee('Salva e riapplica');
+        $this->salvaRiga('Assicurazioni', ['tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id'), 'area' => 'E'], $consigliere)->assertForbidden();
+    }
+
+    public function test_una_riga_cambiata_si_riapplica_ai_movimenti_da_classificare_e_proposti_ma_non_alle_scelte_a_mano(): void
+    {
+        $this->importa(self::foglio([
+            [new DateTimeImmutable('2026-01-10'), 'Assicurazioni', 'Polizza A', null, null, 10, 490],
+            [new DateTimeImmutable('2026-01-11'), 'Assicurazioni', 'Polizza B', null, null, 10, 480],
+            [new DateTimeImmutable('2026-01-12'), 'Causale mai vista', 'Cosa strana', null, null, 10, 470],
+        ]));
+        $utenze = Tipologia::where('nome', 'Utenze')->value('id');
+        $proposto = Movimento::where('descrizione', 'Polizza A')->firstOrFail();
+        $dellaPersona = Movimento::where('descrizione', 'Polizza B')->firstOrFail();
+        Classificazione::salva($this->tesoriere, $dellaPersona, null, [['tipologia_id' => Tipologia::where('nome', 'Servizi vari')->value('id'), 'area' => 'E']]);
+
+        $this->salvaRiga('Assicurazioni', ['tipologia_id' => $utenze, 'area' => 'E'])->assertSessionHasNoErrors()->assertRedirect('/conversione-causali');
+
+        $this->assertSame('Utenze', $proposto->refresh()->imputazioni()->with('tipologia')->first()->tipologia->nome);
+        $this->assertSame('proposto', $proposto->stato);
+        $this->assertSame('Servizi vari', $dellaPersona->refresh()->imputazioni()->with('tipologia')->first()->tipologia->nome); // una scelta a mano non si tocca
+
+        // La causale mai vista si aggiunge: il movimento che la aspettava riceve la proposta e il suo dubbio della tabella si chiude.
+        $strana = Movimento::where('descrizione', 'Cosa strana')->firstOrFail();
+        $this->assertTrue($strana->inDubbio());
+        $this->post('/conversione-causali', ['causale' => '-> Causale mai vista', 'verso' => 'uscita', 'tipologia_id' => Tipologia::where('nome', 'Materiali e beni di consumo')->value('id'), 'area' => 'E'])
+            ->assertSessionHasNoErrors();
+        $strana->refresh();
+        $this->assertSame('proposto', $strana->stato);
+        $this->assertFalse($strana->inDubbio());
+        $this->assertNotNull($strana->conversione_causale_id);
+    }
+
+    public function test_i_confermati_restano_come_sono_e_si_elencano_da_correggere(): void
+    {
+        $import = $this->importa(self::foglio());
+        $confermato = Movimento::where('data', '2026-01-10')->firstOrFail();
+        Classificazione::conferma($this->tesoriere, $confermato, Classificazione::versione($confermato));
+
+        $this->salvaRiga('Assicurazioni', ['tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id'), 'area' => 'E'])->assertSessionHasNoErrors();
+
+        $this->assertSame('Assicurazioni', $confermato->refresh()->imputazioni()->with('tipologia')->first()->tipologia->nome);
+        $this->assertSame('confermato', $confermato->stato);
+        $this->get('/conversione-causali')->assertSee('Confermati da correggere')->assertSee('Bolletta luce')->assertSee("/import/{$import->id}/revisione", false)
+            ->assertSee('Un movimento già confermato è da correggere');
+    }
+
+    public function test_una_riga_sbagliata_si_rifiuta_con_gli_stessi_controlli_delle_regole(): void
+    {
+        $this->salvaRiga('Assicurazioni', ['tipologia_id' => Tipologia::where('nome', 'Quote associative')->value('id'), 'area' => 'A'])->assertSessionHasErrors('tipologia_id'); // è un'entrata
+        $this->salvaRiga('Assicurazioni', ['tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id')])->assertSessionHasErrors('area'); // senza area né iniziativa
+        $this->salvaRiga('Prelievo', ['tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id'), 'area' => 'E'])->assertSessionHasErrors('tabella'); // un giroconto non si classifica
+        $this->post('/conversione-causali', ['causale' => 'assicurazioni', 'verso' => 'uscita'])->assertSessionHasErrors('causale'); // c'è già
+
+        $this->assertSame('Assicurazioni', $this->riga('Assicurazioni')->tipologia->nome);
+    }
+
+    public function test_una_riga_senza_tipologia_riporta_da_classificare_con_un_dubbio_i_movimenti_proposti(): void
+    {
+        $this->importa(self::foglio());
+
+        $this->salvaRiga('Assicurazioni', ['tipologia_id' => null, 'area' => null])->assertSessionHasNoErrors();
+
+        $movimento = Movimento::where('data', '2026-01-10')->firstOrFail();
+        $this->assertSame(['da_classificare', 0, true, null], [$movimento->stato, $movimento->imputazioni()->count(), $movimento->inDubbio(), $movimento->conversione_causale_id]);
+    }
+
+    public function test_passata_la_data_di_passaggio_la_tabella_e_chiusa(): void
+    {
+        $this->cassa->update(['passaggio_il' => '2026-05-31']); // oggi è il 2/06
+
+        $this->actingAs($this->tesoriere)->get('/conversione-causali')->assertOk()->assertSee('chiusa insieme all’import')->assertDontSee('Salva e riapplica');
+        $this->salvaRiga('Assicurazioni', ['tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id'), 'area' => 'E'])->assertSessionHasErrors('tabella');
+        $this->assertSame('Assicurazioni', $this->riga('Assicurazioni')->tipologia->nome);
+    }
+
+    public function test_una_tipologia_usata_dalla_tabella_non_si_cancella_si_archivia(): void
+    {
+        $this->assertTrue(Tipologia::where('nome', 'Assicurazioni')->firstOrFail()->usata());
+        $this->assertTrue(Iniziativa::where('nome', 'Carnevale')->firstOrFail()->usata());
+        $this->assertTrue(Tag::where('nome', 'Microprogetto')->firstOrFail()->usata());
+        $this->assertTrue(Attivita::where('nome', 'Sponsorizzazioni e pubblicità')->firstOrFail()->usata());
     }
 
     public function test_un_saldo_finale_che_non_torna_blocca_la_conferma_e_non_entra_nulla(): void

@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Import\Estratto;
 use App\Import\EstrattoNonValido;
 use App\Import\FoglioCassa;
 use DateTimeImmutable;
@@ -22,7 +23,7 @@ class FoglioCassaTest extends TestCase
         return ['Mappatura' => [['x']], 'Cassa' => [['Cassa 2026'], self::INTESTAZIONE, [null, null, 'Saldo iniziale', null, null, null, 500], ...$righe, ['Totale', null, null, null, 10, 20]]];
     }
 
-    private static function leggi(array $fogli, string $formato = 'xlsx'): \App\Import\Estratto
+    private static function leggi(array $fogli, string $formato = 'xlsx'): Estratto
     {
         return (new FoglioCassa)->leggi(self::$formato($fogli));
     }

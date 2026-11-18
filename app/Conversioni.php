@@ -132,7 +132,7 @@ final class Conversioni
                 throw ValidationException::withMessages(['causale' => 'Scrivi la causale com’è nel foglio e scegli se è un’entrata o un’uscita.']);
             }
             if (ConversioneCausale::where('chiave', EsempiDalFoglio::chiave($etichetta))->exists()) {
-                throw ValidationException::withMessages(['causale' => "La causale «$etichetta» è già nella tabella."]);
+                throw ValidationException::withMessages(['causale' => "La causale «{$etichetta}» è già nella tabella."]);
             }
             $riga = new ConversioneCausale(['causale' => $etichetta, 'chiave' => EsempiDalFoglio::chiave($etichetta), 'verso' => $verso]);
             self::controlla($riga, $dati);
