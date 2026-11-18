@@ -258,6 +258,53 @@ class ImportFoglioCassaTest extends TestCase
         ]);
     }
 
+    public function test_la_data_di_passaggio_fa_rifiutare_le_righe_successive(): void
+    {
+        $this->travelTo('2026-02-05 10:00'); // il passaggio è nel futuro: il foglio è ancora in uso
+        $this->actingAs($this->tesoriere)->post("/conti/{$this->cassa->id}/passaggio", ['passaggio_il' => '2026-02-10'])->assertSessionHasNoErrors();
+        $this->assertSame('2026-02-10', $this->cassa->refresh()->passaggio_il->toDateString());
+
+        $this->carica(self::foglio())->assertSessionHasErrors('estratto'); // c'è una riga del 20/02
+        $this->assertStringContainsString('10/02/2026', session('errors')->first('estratto'));
+        $this->assertSame(0, ImportEstratto::count());
+
+        $this->carica(self::foglio(array_slice(self::righe(), 0, 3)))->assertSessionHasNoErrors(); // fino al 3/02 va bene
+        $this->assertSame(1, ImportEstratto::count());
+    }
+
+    public function test_la_conferma_rifa_il_controllo_del_passaggio_fissato_dopo_l_anteprima(): void
+    {
+        $this->travelTo('2026-02-05 10:00');
+        $this->carica(self::foglio())->assertSessionHasNoErrors();
+        $import = ImportEstratto::firstOrFail();
+
+        $this->post("/conti/{$this->cassa->id}/passaggio", ['passaggio_il' => '2026-02-10'])->assertSessionHasNoErrors();
+        $this->post("/import/{$import->id}/conferma")->assertSessionHasErrors('estratto');
+
+        $this->assertSame(0, Movimento::count());
+    }
+
+    public function test_passata_la_data_di_passaggio_il_foglio_e_chiuso_e_non_si_riapre(): void
+    {
+        $this->actingAs($this->tesoriere)->post("/conti/{$this->cassa->id}/passaggio", ['passaggio_il' => '2026-05-31'])->assertSessionHasNoErrors(); // oggi è il 2/06
+
+        $this->carica(self::foglio(array_slice(self::righe(), 0, 2)))->assertSessionHasErrors('estratto');
+        $this->assertStringContainsString('data di passaggio è passata', session('errors')->first('estratto'));
+        $this->get("/conti/{$this->cassa->id}/import")->assertOk()->assertSee('il foglio è chiuso')->assertDontSee('name="estratto"', false);
+        $this->post("/conti/{$this->cassa->id}/passaggio", ['passaggio_il' => '2026-12-31'])->assertSessionHasErrors('passaggio_il');
+        $this->assertSame('2026-05-31', $this->cassa->refresh()->passaggio_il->toDateString());
+    }
+
+    public function test_il_passaggio_non_puo_precedere_i_movimenti_gia_importati_e_lo_fissa_solo_chi_importa(): void
+    {
+        $this->importa(self::foglio());
+
+        $this->post("/conti/{$this->cassa->id}/passaggio", ['passaggio_il' => '2026-02-10'])->assertSessionHasErrors('passaggio_il'); // c'è il 20/02
+        $this->assertNull($this->cassa->refresh()->passaggio_il);
+
+        $this->actingAs($this->utenteCon('Consigliere'))->post("/conti/{$this->cassa->id}/passaggio", ['passaggio_il' => '2026-12-31'])->assertForbidden();
+    }
+
     public function test_un_saldo_finale_che_non_torna_blocca_la_conferma_e_non_entra_nulla(): void
     {
         $righe = self::righe();

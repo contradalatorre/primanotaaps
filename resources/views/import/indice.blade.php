@@ -15,18 +15,31 @@
         @endif
     </p>
 
+    @if ($conto->importaDalFoglio())
+        @include('import.foglio-passaggio')
+    @endif
+
     @if ($conto->chiuso())
         <p class="nota">Il conto è chiuso: non si importano nuovi movimenti.</p>
+    @elseif ($conto->foglioChiuso())
+        <p class="nota">Il foglio non è più in uso: da {{ $conto->passaggio_il->copy()->addDay()->format('d/m/Y') }} la cassa si registra solo nell’app.</p>
     @else
         <form method="POST" action="{{ route('import.carica', $conto) }}" enctype="multipart/form-data" class="modulo">
             @csrf
-            <label>{{ $saldiDichiarati !== null ? 'Report transazioni di Satispay (CSV)' : 'Estratto conto (CSV di Nowbanking)' }}
-                <input type="file" name="estratto" accept=".csv,.txt,text/csv,text/plain" required>
-                <span class="nota">Si legge il file così come lo scarichi, al massimo 2 MB. Prima di salvare vedi un’anteprima.</span>
-            </label>
+            @if ($conto->importaDalFoglio())
+                <label>Foglio di calcolo della cassa (.xlsx o .ods)
+                    <input type="file" name="estratto" accept=".xlsx,.ods,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.oasis.opendocument.spreadsheet" required>
+                    <span class="nota">Si legge la scheda «Cassa», al massimo 4 MB. Puoi ricaricarlo quante volte vuoi: le righe già importate si saltano, le cambiate sono un conflitto, quelle sparite si segnalano. Prima di salvare vedi un’anteprima.</span>
+                </label>
+            @else
+                <label>{{ $saldiDichiarati !== null ? 'Report transazioni di Satispay (CSV)' : 'Estratto conto (CSV di Nowbanking)' }}
+                    <input type="file" name="estratto" accept=".csv,.txt,text/csv,text/plain" required>
+                    <span class="nota">Si legge il file così come lo scarichi, al massimo 2 MB. Prima di salvare vedi un’anteprima.</span>
+                </label>
+            @endif
             <button type="submit" class="bottone">Carica e mostra l’anteprima</button>
         </form>
-        @if (app(\App\Onboarding\Prova::class)->attiva())
+        @if (! $conto->importaDalFoglio() && app(\App\Onboarding\Prova::class)->attiva())
             {{-- Solo in prova (#71): al posto del file scaricato dalla banca, l'estratto inventato dello scenario, che passa dallo stesso caricamento. --}}
             <form method="POST" action="{{ route('prova.estratto', $conto) }}" class="modulo-in-riga">
                 @csrf

@@ -305,6 +305,35 @@ class ImportEstrattiController extends Controller
         }
     }
 
+    /**
+     * La data di passaggio dal foglio (#64, #19): l'ultimo giorno che il foglio copre. Da lì l'import rifiuta le righe successive e, passata la data,
+     * import e tabella di conversione si chiudono. Vuota la toglie, finché non è passata. Mai prima dell'ultimo movimento che il conto ha.
+     */
+    public function passaggio(Request $request, Conto $conto): RedirectResponse
+    {
+        abort_unless($conto->importaDalFoglio(), 404);
+        $dati = $request->validate(['passaggio_il' => ['nullable', 'date_format:Y-m-d']], ['passaggio_il.date_format' => 'Scrivi la data di passaggio come giorno, mese e anno.']);
+
+        DB::transaction(function () use ($request, $conto, $dati) {
+            // Prima il conto, poi si rilegge il permesso: la rotta lo ha controllato su dati che possono essere di prima.
+            $conto = Conto::lockForUpdate()->findOrFail($conto->id);
+            abort_unless(User::find($request->user()->id)?->can('importare_e_confermare'), 403);
+            if ($conto->foglioChiuso()) {
+                throw ValidationException::withMessages(['passaggio_il' => 'La data di passaggio è già passata: il foglio è chiuso e non si riapre.']);
+            }
+            $data = $dati['passaggio_il'] ?? null;
+            $ultimo = $conto->movimenti()->max('data');
+            if ($data !== null && $ultimo !== null && $data < $ultimo) {
+                throw ValidationException::withMessages(['passaggio_il' => 'Il conto ha movimenti fino al '.date('d/m/Y', strtotime($ultimo)).': il passaggio non può essere prima.']);
+            }
+            $prima = $conto->istantanea();
+            $conto->update(['passaggio_il' => $data]);
+            RegistroModifica::registra($request->user(), $conto, 'passaggio_fissato', $prima, $conto->istantanea());
+        });
+
+        return back()->with('ok', ($dati['passaggio_il'] ?? null) ? 'Data di passaggio fissata.' : 'Data di passaggio tolta.');
+    }
+
     /** Mai due fonti per lo stesso periodo: il foglio non ha righe dopo la data di passaggio (#19). */
     private function controllaPassaggio(Conto $conto, Estratto $estratto): void
     {

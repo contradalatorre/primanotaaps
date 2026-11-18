@@ -5,6 +5,7 @@ use App\Http\Controllers\AperturaSaldiController;
 use App\Http\Controllers\ClassificazioneController;
 use App\Http\Controllers\ConteDiCassaController;
 use App\Http\Controllers\ContiController;
+use App\Http\Controllers\ConversioneCausaliController;
 use App\Http\Controllers\CronController;
 use App\Http\Controllers\DatiDiClassificazioneController;
 use App\Http\Controllers\DatiEsercizioController;
@@ -133,6 +134,12 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::put('/manuale/{sezione}', [ManualeController::class, 'salva'])->name('manuale.salva');
     });
     // Regole del tesoriere (#42): `gestire_regole`, come il manuale. Il riordino e il salvataggio rifanno le proposte.
+    // La tabella di conversione delle causali del foglio (#64): la vede chi vede, la modifica chi gestisce i dati di base, finché il foglio è in uso.
+    Route::middleware('can:vedere')->get('/conversione-causali', [ConversioneCausaliController::class, 'indice'])->name('conversione');
+    Route::middleware('can:gestire_regole')->where(['riga' => '[0-9]+'])->group(function () {
+        Route::post('/conversione-causali', [ConversioneCausaliController::class, 'crea'])->name('conversione.crea');
+        Route::put('/conversione-causali/{riga}', [ConversioneCausaliController::class, 'salva'])->name('conversione.salva');
+    });
     Route::middleware('can:gestire_regole')->group(function () {
         Route::get('/regole', [RegoleController::class, 'index'])->name('regole');
         Route::get('/regole/nuova', [RegoleController::class, 'nuova'])->name('regole.nuova');
@@ -153,6 +160,7 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
     Route::middleware('can:importare_e_confermare')->group(function () {
         Route::get('/conti/{conto}/import', [ImportEstrattiController::class, 'index'])->name('import.indice');
         Route::post('/conti/{conto}/import', [ImportEstrattiController::class, 'carica'])->name('import.carica');
+        Route::post('/conti/{conto}/passaggio', [ImportEstrattiController::class, 'passaggio'])->name('import.passaggio'); // la data di passaggio dal foglio (#64)
         // Conti senza saldo nell'estratto (Satispay, #49): riepilogo mensile di controllo e saldo dichiarato.
         Route::post('/conti/{conto}/riepilogo', [SatispayController::class, 'riepilogo'])->name('import.riepilogo');
         Route::post('/conti/{conto}/saldi-dichiarati', [SatispayController::class, 'saldoDichiarato'])->name('import.saldo');

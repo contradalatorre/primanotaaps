@@ -101,13 +101,8 @@ final class Conversioni
      */
     public static function salva(User $utente, ConversioneCausale $riga, array $dati): array
     {
-        return DB::transaction(function () use ($utente, $riga, $dati) {
-            Conto::orderBy('id')->lockForUpdate()->get(['id']);
+        return self::inTransazione($utente, function () use ($utente, $riga, $dati) {
             $riga = ConversioneCausale::lockForUpdate()->findOrFail($riga->id);
-            abort_unless(User::find($utente->id)?->can('gestire_regole'), 403);
-            if (self::chiusa()) {
-                throw ValidationException::withMessages(['tabella' => 'La data di passaggio è passata: la tabella di conversione è chiusa insieme all’import.']);
-            }
             if ($riga->verso === 'giroconto') {
                 throw ValidationException::withMessages(['tabella' => 'Prelievi e versamenti sono giroconti: non hanno una classificazione.']);
             }
@@ -118,6 +113,48 @@ final class Conversioni
             RegistroModifica::registra($utente, $riga, 'modificata', $prima, $riga->istantanea());
 
             return [$riga, self::riapplica($utente, $riga->refresh())];
+        });
+    }
+
+    /**
+     * Una causale che la tabella non aveva (un movimento arrivato come dubbio): si aggiunge con la sua classificazione e si riapplica ai movimenti che la aspettano.
+     *
+     * @param  array{tipologia_id: ?int, area: ?string, attivita_id: ?int, iniziativa_id: ?int, tag_id: ?int}  $dati
+     * @return array{0: ConversioneCausale, 1: int}
+     *
+     * @throws ValidationException
+     */
+    public static function aggiungi(User $utente, string $causale, string $verso, array $dati): array
+    {
+        return self::inTransazione($utente, function () use ($utente, $causale, $verso, $dati) {
+            $etichetta = trim(preg_replace('/^\s*(->|→)\s*/u', '', $causale));
+            if ($etichetta === '' || ! in_array($verso, ['entrata', 'uscita'], true)) {
+                throw ValidationException::withMessages(['causale' => 'Scrivi la causale com’è nel foglio e scegli se è un’entrata o un’uscita.']);
+            }
+            if (ConversioneCausale::where('chiave', EsempiDalFoglio::chiave($etichetta))->exists()) {
+                throw ValidationException::withMessages(['causale' => "La causale «$etichetta» è già nella tabella."]);
+            }
+            $riga = new ConversioneCausale(['causale' => $etichetta, 'chiave' => EsempiDalFoglio::chiave($etichetta), 'verso' => $verso]);
+            self::controlla($riga, $dati);
+
+            $riga->forceFill($dati)->save();
+            RegistroModifica::registra($utente, $riga, 'creata', null, $riga->istantanea());
+
+            return [$riga, self::riapplica($utente, $riga->refresh())];
+        });
+    }
+
+    /** Il lock di tutti i conti prima di qualunque lettura, poi il permesso riletto e la tabella ancora aperta. */
+    private static function inTransazione(User $utente, callable $lavoro): array
+    {
+        return DB::transaction(function () use ($utente, $lavoro) {
+            Conto::orderBy('id')->lockForUpdate()->get(['id']);
+            abort_unless(User::find($utente->id)?->can('gestire_regole'), 403);
+            if (self::chiusa()) {
+                throw ValidationException::withMessages(['tabella' => 'La data di passaggio è passata: la tabella di conversione è chiusa insieme all’import.']);
+            }
+
+            return $lavoro();
         });
     }
 

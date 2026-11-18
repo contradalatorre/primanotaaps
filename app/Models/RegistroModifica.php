@@ -49,6 +49,7 @@ class RegistroModifica extends Model
                 $oggetto instanceof ManualeSezione => 'manuale',
                 $oggetto instanceof Nota => 'nota',
                 $oggetto instanceof Regola => 'regola',
+                $oggetto instanceof ConversioneCausale => 'conversione',
                 $oggetto instanceof ImpostazioniAssociazione => 'impostazioni',
                 $oggetto instanceof DatiEsercizio => 'dati_esercizio',
                 $oggetto instanceof RigaFigurativa => 'riga_figurativa',
