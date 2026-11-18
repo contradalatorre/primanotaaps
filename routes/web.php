@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccessoController;
+use App\Http\Controllers\AperturaSaldiController;
 use App\Http\Controllers\ClassificazioneController;
 use App\Http\Controllers\ConteDiCassaController;
 use App\Http\Controllers\ContiController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\DatiDiClassificazioneController;
 use App\Http\Controllers\DatiEsercizioController;
 use App\Http\Controllers\EmergenzaController;
 use App\Http\Controllers\EsercizioController;
+use App\Http\Controllers\EsercizioStoricoController;
 use App\Http\Controllers\ForzatureController;
 use App\Http\Controllers\GirocontiController;
 use App\Http\Controllers\HomeController;
@@ -83,6 +85,9 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
     Route::middleware('can:gestire_esercizio')->where(['anno' => '[1-9][0-9]{3}', 'riga' => '[0-9]+'])->group(function () {
         Route::post('/esercizi/{anno}/test/criterio', [VerificheController::class, 'confermaCriterio'])->name('test-esercizio.criterio');
         Route::put('/esercizi/{anno}/test/annotazione', [VerificheController::class, 'annotazione'])->name('test-esercizio.annotazione'); // #54
+        // La procedura di apertura (#63): i saldi dei conti al 1/1, una sola volta. L'URL non è «apertura»: quello è la copia delle voci (#51).
+        Route::get('/esercizi/{anno}/saldi-apertura', [AperturaSaldiController::class, 'indice'])->name('esercizio.saldi');
+        Route::post('/esercizi/{anno}/saldi-apertura', [AperturaSaldiController::class, 'inserisci'])->name('esercizio.saldi.inserisci');
         Route::get('/esercizi/{anno}/dati', [DatiEsercizioController::class, 'indice'])->name('dati-esercizio');
         Route::put('/esercizi/{anno}/dati', [DatiEsercizioController::class, 'salva'])->name('dati-esercizio.salva');
         Route::post('/esercizi/{anno}/dati/figurativi', [DatiEsercizioController::class, 'aggiungiFigurativo'])->name('dati-esercizio.figurativi.aggiungi');
@@ -95,6 +100,17 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
     });
     // Aprire un esercizio nuovo copia voci e predefiniti: è «modificare la tabella delle voci» (#16).
     Route::post('/esercizi/{anno}/apertura', [EsercizioController::class, 'apri'])->where('anno', '[1-9][0-9]{3}')->middleware('can:riclassificare_in_blocco')->name('esercizio.apri');
+    // L'esercizio storico dal foglio approvato (#63, #18): lo vede chi vede, lo carica chi gestisce i dati dell'esercizio, lo modifica solo chi può riaprirlo.
+    Route::middleware('can:vedere')->get('/esercizi/{anno}/storico', [EsercizioStoricoController::class, 'indice'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.storico');
+    Route::middleware('can:gestire_esercizio')->where(['anno' => '[1-9][0-9]{3}', 'token' => '[A-Za-z0-9]{40}'])->group(function () {
+        Route::post('/esercizi/{anno}/storico', [EsercizioStoricoController::class, 'carica'])->name('esercizio.storico.carica');
+        Route::get('/esercizi/{anno}/storico/anteprima/{token}', [EsercizioStoricoController::class, 'anteprima'])->name('esercizio.storico.anteprima');
+        Route::post('/esercizi/{anno}/storico/anteprima/{token}', [EsercizioStoricoController::class, 'conferma'])->name('esercizio.storico.conferma');
+    });
+    Route::middleware('can:riaprire_esercizio')->where(['anno' => '[1-9][0-9]{3}'])->group(function () {
+        Route::get('/esercizi/{anno}/storico/modifica', [EsercizioStoricoController::class, 'modifica'])->name('esercizio.storico.modifica');
+        Route::put('/esercizi/{anno}/storico/modifica', [EsercizioStoricoController::class, 'aggiorna'])->name('esercizio.storico.aggiorna');
+    });
     // I dati di base (conti) sono di chi ha `gestire_regole`: #16 non ha un permesso a parte.
     Route::middleware('can:gestire_regole')->group(function () {
         Route::get('/conti/nuovo', [ContiController::class, 'nuovo'])->name('conti.nuovo');

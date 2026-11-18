@@ -3,10 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\ConteDiCassa;
+use App\Esercizio\SaldiApertura;
 use App\Euro;
 use App\Models\Conto;
+use App\Models\DatiEsercizio;
 use App\Models\RegistroModifica;
 use App\Models\User;
+use App\Permesso;
+use Carbon\Carbon;
+use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -34,7 +39,10 @@ class ContiController extends Controller
         $request->validate(['tipo' => ['required', Rule::in(array_keys(Conto::TIPI))]]);
         $dati = $this->dati($request, $request->string('tipo')->toString());
 
-        DB::transaction(function () use ($dati, $request) {
+        $this->sottoApertura($request->user(), [$dati['aperto_il']], function () use ($dati, $request) {
+            self::controllaDataDopoApertura($dati['aperto_il']);
+            // Al 1/1 dopo la procedura di apertura (#63) un conto nuovo è un secondo inserimento di saldi: passa dal controllo con la chiusura.
+            self::primoGennaio($dati['aperto_il']) && SaldiApertura::controllaConto((int) substr($dati['aperto_il'], 0, 4), $dati['riga_modello_d'], $dati['saldo_iniziale']);
             $conto = Conto::create($dati);
             RegistroModifica::registra($request->user(), $conto, 'creato', null, $conto->istantanea());
         });
@@ -54,7 +62,22 @@ class ContiController extends Controller
         }
         $dati = $this->dati($request, $conto->tipo, $conto);
 
-        DB::transaction(function () use ($conto, $dati, $request) {
+        $letto = $conto->aperto_il->toDateString();
+        $this->sottoApertura($request->user(), [$letto, $dati['aperto_il']], function () use ($conto, $letto, $dati, $request) {
+            $dati['aperto_il'] === $letto || self::controllaDataDopoApertura($dati['aperto_il']);
+            $conto = Conto::lockForUpdate()->findOrFail($conto->id); // la copia bloccata: quella della rotta può essere di prima
+            if ($conto->aperto_il->toDateString() !== $letto) {
+                throw ValidationException::withMessages(['conto' => 'Il conto è stato modificato nel frattempo: ricarica la pagina e riprova.']);
+            }
+            // Dopo la procedura di apertura (#63) saldo, riga e data dei conti del 1/1 non si cambiano da qui (sarebbe un secondo inserimento), e un conto
+            // che arriva al 1/1 passa dal controllo con la chiusura.
+            if (self::primoGennaio($letto) && SaldiApertura::fatta($conto->aperto_il->year)) {
+                if ($dati['saldo_iniziale'] !== $conto->saldo_iniziale || $dati['aperto_il'] !== $letto || $dati['riga_modello_d'] !== $conto->riga_modello_d) {
+                    throw ValidationException::withMessages(['saldo_iniziale' => 'I saldi di apertura del '.$conto->aperto_il->year.' sono già inseriti: il saldo di partenza, la riga del Modello D e la data di apertura non si cambiano più.']);
+                }
+            } elseif (self::primoGennaio($dati['aperto_il']) && $dati['aperto_il'] !== $letto) {
+                SaldiApertura::controllaConto((int) substr($dati['aperto_il'], 0, 4), $dati['riga_modello_d'], $dati['saldo_iniziale'], $conto->id);
+            }
             $prima = $conto->istantanea();
             $conto->update($dati);
             RegistroModifica::registra($request->user(), $conto, 'modificato', $prima, $conto->istantanea());
@@ -107,6 +130,38 @@ class ContiController extends Controller
             'Restano senza conti, quindi in sola lettura: '.$rimasti->join(', ').'. Un Amministratore può dare loro un nuovo conto dalla pagina Utenti.');
     }
 
+    /**
+     * Una scrittura di conti nella stessa transazione, a righe `dati_esercizio` bloccate per gli anni di cui una data è un 1/1: tocca l'apertura di quell'anno.
+     * Lo stesso ordine di `SaldiApertura::inserisci` (prima i dati dell'esercizio, poi i conti, poi ogni lettura semplice: MySQL in REPEATABLE READ fotografa alla prima),
+     * così un'apertura e un conto al 1/1 non si leggono a vicenda una versione vecchia. Il permesso si rilegge lì.
+     * Due anni insieme (un conto spostato da un 1/1 a un altro) si bloccano in ordine di anno, in un'unica lettura.
+     *
+     * @param  list<string>  $date  «AAAA-MM-GG»
+     */
+    private function sottoApertura(User $utente, array $date, Closure $scrittura): mixed
+    {
+        $anni = collect($date)->filter(self::primoGennaio(...))->map(fn (string $d) => (int) substr($d, 0, 4))->unique()->sort()->values()->all();
+
+        return DatiEsercizio::sottoBlocchi($utente, $anni, fn () => $scrittura(), Permesso::GestireRegole);
+    }
+
+    /**
+     * Dopo l'apertura dell'anno Y il Modello D conta nei saldi iniziali ogni conto aperto prima del 1/1/Y: una data di apertura anteriore (il 31/12/Y-1) aggirerebbe
+     * il controllo con la chiusura, quindi non si crea né ci si sposta. Si legge a righe bloccate, prima dei conti (l'ordine di `SaldiApertura::inserisci`).
+     */
+    private static function controllaDataDopoApertura(string $data): void
+    {
+        // Si bloccano le righe degli anni dopo e la colonna si guarda in PHP: con un filtro SQL, in READ COMMITTED, le righe scartate si sbloccherebbero.
+        if (DatiEsercizio::where('esercizio', '>', (int) substr($data, 0, 4))->lockForUpdate()->get()->contains(fn (DatiEsercizio $d) => $d->saldi_apertura_il !== null)) {
+            throw ValidationException::withMessages(['aperto_il' => 'I saldi di apertura sono già inseriti: un conto non può aprirsi prima del 1/1 di quell’esercizio.']);
+        }
+    }
+
+    private static function primoGennaio(string $data): bool
+    {
+        return substr($data, 5) === '01-01';
+    }
+
     private function dati(Request $request, string $tipo, ?Conto $conto = null): array
     {
         $dati = $request->validate([
@@ -129,7 +184,7 @@ class ContiController extends Controller
             'formato_import' => $dati['formato_import'],
             // Come deciso in #12: PayPal e Satispay nei depositi, la cassa nella riga cassa; la banca nei depositi.
             'riga_modello_d' => ($dati['riga_modello_d'] ?? null) ?: ($tipo === 'cassa' ? 'cassa' : 'depositi'),
-            'aperto_il' => $dati['aperto_il'],
+            'aperto_il' => Carbon::parse($dati['aperto_il'])->toDateString(),
             'saldo_iniziale' => Euro::daTesto($dati['saldo_iniziale']),
         ];
     }

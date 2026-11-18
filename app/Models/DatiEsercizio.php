@@ -19,7 +19,7 @@ class DatiEsercizio extends Model
 
     protected function casts(): array
     {
-        return ['esercizio' => 'integer', 'dipendenti_medi' => 'integer', 'attivo' => 'integer', 'figurativi_dichiarati' => 'boolean'];
+        return ['esercizio' => 'integer', 'dipendenti_medi' => 'integer', 'attivo' => 'integer', 'figurativi_dichiarati' => 'boolean', 'saldi_apertura_il' => 'datetime'];
     }
 
     /** I dati dell'esercizio, o quelli di partenza (non salvati) se nessuno li ha ancora scritti. */
@@ -38,12 +38,26 @@ class DatiEsercizio extends Model
      */
     public static function sottoBlocco(User $utente, int $esercizio, Closure $scrittura, Permesso $permesso = Permesso::GestireEsercizio): mixed
     {
+        return self::sottoBlocchi($utente, [$esercizio], fn (array $dati) => $scrittura($dati[$esercizio]), $permesso);
+    }
+
+    /**
+     * Come `sottoBlocco` per più esercizi insieme (anche nessuno: solo la transazione e il permesso): le righe si bloccano in un'unica
+     * lettura, in ordine di anno, e `$scrittura` riceve quelle bloccate per esercizio.
+     *
+     * @param  list<int>  $esercizi
+     * @param  Closure(array<int, DatiEsercizio>): mixed  $scrittura
+     */
+    public static function sottoBlocchi(User $utente, array $esercizi, Closure $scrittura, Permesso $permesso = Permesso::GestireEsercizio): mixed
+    {
         $utente->unsetRelation('assegnazioniAttive'); // quelle in cache sono del controllo della rotta, forse di prima di una revoca
         abort_unless($utente->puo($permesso), 403); // prima di inserire: chi è stato revocato non crea la riga (si rilegge poi a riga bloccata)
-        DB::table('dati_esercizio')->insertOrIgnore(['esercizio' => $esercizio, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'created_at' => now(), 'updated_at' => now()]);
+        foreach ($esercizi as $esercizio) {
+            DB::table('dati_esercizio')->insertOrIgnore(['esercizio' => $esercizio, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'created_at' => now(), 'updated_at' => now()]);
+        }
 
-        return DB::transaction(function () use ($utente, $esercizio, $scrittura, $permesso) {
-            $dati = self::where('esercizio', $esercizio)->lockForUpdate()->firstOrFail();
+        return DB::transaction(function () use ($utente, $esercizi, $scrittura, $permesso) {
+            $dati = $esercizi === [] ? [] : self::whereIn('esercizio', $esercizi)->orderBy('esercizio')->lockForUpdate()->get()->keyBy('esercizio')->all();
             $utente->unsetRelation('assegnazioniAttive');
             abort_unless($utente->puo($permesso), 403);
 

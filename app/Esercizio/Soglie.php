@@ -13,9 +13,9 @@ namespace App\Esercizio;
  *
  * Mai a favore: un attivo o dei dipendenti non dichiarati contano come limite superato (con l'avviso «dato mancante»); un esercizio che
  * non ha nessun dato nell'app non dà un esito, e non può dare nemmeno «potete redigere il Modello E».
+ * L'esercizio storico 2025 (#63) dà le sue entrate al 2026 attraverso `Verifiche::misura`; finché non è caricato, l'esercizio precedente è «senza dati».
  * L'obbligo degli artt. 30 e 31 si guarda su quattro esercizi (due consecutivi oltre lo fanno nascere, un solo esercizio sotto non lo fa cessare).
  * shortcut: oltre il quarto esercizio prima la storia non si guarda (un obbligo nato ancora prima non si presume); da estendere se un esercizio più vecchio dovesse contare.
- * shortcut: l'esercizio storico 2025 (#63) non esiste ancora, quindi per il 2026 l'esercizio precedente è «senza dati»; da leggere in `Verifiche::misura`.
  */
 final class Soglie
 {
