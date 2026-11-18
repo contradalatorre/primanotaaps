@@ -403,6 +403,17 @@ class GirocontiTest extends TestCase
         $this->assertSame(1, Giroconto::count());
     }
 
+    public function test_un_pagamento_con_carta_a_un_negozio_paypal_non_e_un_giroconto(): void
+    {
+        $paypal = Conto::factory()->create(['tipo' => 'paypal', 'nome' => 'PayPal', 'formato_import' => 'paypal_csv', 'riga_modello_d' => 'depositi', 'aperto_il' => '2026-01-01']);
+        $spesa = $this->dellaBanca('PAGAMENTO TRAMITE POS', 'PAYPAL *BAR DELLA PIAZZA', 1200, 'uscita', '2026-05-12');
+        Movimento::factory()->create(['conto_id' => $paypal->id, 'manuale' => false, 'inserito_da' => $this->tesoriere->id, 'causale' => 'Pagamento ricevuto',
+            'descrizione' => 'Donazione', 'importo' => 1200, 'verso' => 'entrata', 'data' => '2026-05-13']);
+
+        $this->assertNull(Giroconti::regolaDi($spesa->load('conto')));
+        $this->assertTrue(Giroconti::proposte()->where('movimento.id', $spesa->id)->isEmpty());
+    }
+
     public function test_le_regole_si_aggiungono_e_si_ritirano_per_formato(): void
     {
         $this->dellaBanca('BONIFICO ESTERO', 'BONIFICO ESTERO VERSO CASSA FESTA', 7000, 'uscita');

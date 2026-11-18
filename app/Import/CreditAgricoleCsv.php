@@ -31,10 +31,10 @@ class CreditAgricoleCsv implements FormatoImport
             // shortcut: la parola «SATISPAY» è un'ipotesi (#33: descrizione del versamento da verificare su un estratto vero, fuori dal repo).
             'satispay' => ['nome' => 'Versamento da Satispay', 'verso' => 'entrata', 'contiene' => ['SATISPAY'], 'con' => 'satispay', 'giorni' => 3, 'meta' => 'Versamento su {conto}'],
             // Senza `meta`: la metà sta sull'estratto PayPal, che la porta (il trasferimento di PayPal e la sua ricarica hanno la loro regola in `PayPalCsv`).
-            // shortcut: la parola «PAYPAL» è un'ipotesi, come «SATISPAY» (descrizione da verificare su un estratto vero). Rischio noto: un pagamento con carta tramite PayPal («PAYPAL *NEGOZIO») contiene la
-            // parola e resterebbe «in attesa» (e orfano) finché nessuno lo classifica a mano; da restringere con il testo vero dell'estratto.
-            'paypal_accredito' => ['nome' => 'Trasferimento da PayPal', 'verso' => 'entrata', 'contiene' => ['PAYPAL'], 'con' => 'paypal', 'giorni' => 5],
-            'paypal_ricarica' => ['nome' => 'Bonifico a PayPal', 'verso' => 'uscita', 'contiene' => ['PAYPAL'], 'con' => 'paypal', 'giorni' => 5],
+            // shortcut: la parola «PAYPAL (EUROPE)» (la società che accredita e addebita, come nell'estratto di prova) è un'ipotesi da verificare su un estratto vero. Più stretta di «PAYPAL»,
+            // che prenderebbe anche un pagamento con carta tramite PayPal («PAYPAL *BAR»): quello non è un giroconto e resta da classificare a mano.
+            'paypal_accredito' => ['nome' => 'Trasferimento da PayPal', 'verso' => 'entrata', 'contiene' => ['PAYPAL (EUROPE)'], 'con' => 'paypal', 'giorni' => 5],
+            'paypal_ricarica' => ['nome' => 'Bonifico a PayPal', 'verso' => 'uscita', 'contiene' => ['PAYPAL (EUROPE)'], 'con' => 'paypal', 'giorni' => 5],
             'prelievo' => ['nome' => 'Prelievo di contanti', 'verso' => 'uscita', 'contiene' => ['PRELIEV'], 'con' => 'cassa', 'giorni' => 3, 'meta' => 'Prelievo da {conto}'],
             'versamento' => ['nome' => 'Versamento di contanti', 'verso' => 'entrata', 'contiene' => ['VERSAMENT'], 'con' => 'cassa', 'giorni' => 3, 'meta' => 'Versamento su {conto}'],
         ];

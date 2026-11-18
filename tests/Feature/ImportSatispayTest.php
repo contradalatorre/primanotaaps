@@ -259,7 +259,7 @@ class ImportSatispayTest extends TestCase
 
     public function test_il_saldo_dichiarato_con_dati_sbagliati_si_rifiuta(): void
     {
-        foreach ([['data' => '2026-07-01', 'importo' => '10,00'], ['data' => '2025-12-31', 'importo' => '10,00'], ['data' => '2026-05-31', 'importo' => 'dieci'], ['data' => '2026-05-31', 'importo' => '']] as $dati) {
+        foreach ([['data' => '2026-07-01', 'importo' => '10,00'], ['data' => '2025-12-31', 'importo' => '10,00'], ['data' => '2026-05-31', 'importo' => 'dieci'], ['data' => '2026-05-31', 'importo' => '-10,00'], ['data' => '2026-05-31', 'importo' => '']] as $dati) {
             $this->actingAs($this->tesoriere)->post("/conti/{$this->satispay->id}/saldi-dichiarati", $dati)->assertSessionHasErrors();
         }
         $this->assertSame(0, $this->satispay->saldiDichiarati()->count());

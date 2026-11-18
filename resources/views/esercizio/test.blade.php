@@ -26,6 +26,8 @@
         @can('gestire_esercizio') · <a href="{{ route('dati-esercizio', $anno) }}" class="link">Dati dell’esercizio</a> @endcan
     </p>
 
+    @include('esercizio.forzature-link', ['anno' => $anno])
+
     @include('esercizio.secondarieta')
     @include('esercizio.test-natura')
     @include('esercizio.test-soglie')

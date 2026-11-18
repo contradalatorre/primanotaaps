@@ -30,17 +30,16 @@ class ForfettarioSoglieConfrontoPaginaTest extends TestCase
         $this->tesoriere = $this->utenteCon('Tesoriere', [], ['name' => 'Tina Verdi']);
         $this->cassa = Conto::factory()->create(['nome' => 'Cassa contanti', 'aperto_il' => '2024-01-01', 'saldo_iniziale' => 0]);
         // Le voci Modello D ci sono solo per il 2026 (migrazione di #39): senza, un movimento di un altro anno non ha riga. Gli esercizi vicini le hanno copiate.
-        foreach ([2023, 2024, 2025] as $anno) {
+        foreach ([2022, 2023, 2024, 2025] as $anno) {
             DB::table('voci_modello_d')->insert(DB::table('voci_modello_d')->where('esercizio', 2026)->get(['area', 'tipologia_id', 'voce'])->map(fn ($v) => ['esercizio' => $anno] + (array) $v)->all());
         }
     }
 
-    private function imputa(string $verso, int $importo, string $tipologia, string $area, string $data = '2026-03-01'): Imputazione
+    private function imputa(string $verso, int $importo, string $tipologia, string $area, string $data = '2026-03-01', string $stato = 'confermato'): Imputazione
     {
         $movimento = Movimento::factory()->create([
-            'conto_id' => $this->cassa->id, 'verso' => $verso, 'importo' => $importo, 'data' => $data, 'inserito_da' => $this->tesoriere->id,
-            'stato' => 'confermato', 'confermato_il' => now(), 'confermato_da' => $this->tesoriere->id,
-        ]);
+            'conto_id' => $this->cassa->id, 'verso' => $verso, 'importo' => $importo, 'data' => $data, 'inserito_da' => $this->tesoriere->id, 'stato' => $stato,
+        ] + ($stato === 'confermato' ? ['confermato_il' => now(), 'confermato_da' => $this->tesoriere->id] : []));
 
         return Imputazione::create(['movimento_id' => $movimento->id, 'importo' => $importo, 'area' => $area, 'tipologia_id' => Tipologia::where('nome', $tipologia)->firstOrFail()->id]);
     }
@@ -91,6 +90,30 @@ class ForfettarioSoglieConfrontoPaginaTest extends TestCase
         $this->pagina(2025)->assertDontSeeText('potete redigere il Modello E');
     }
 
+    public function test_i_movimenti_non_confermati_dell_esercizio_precedente_si_dicono_e_l_art_13_non_e_mai_rispettato(): void
+    {
+        $this->imputa('entrata', 500_000, 'Quote associative', 'A', '2025-04-01');
+        $this->pagina()->assertDontSeeText('restano da confermare');
+        $this->assertSame('rispettato', Verifiche::pagina(2026)['soglie']['art13']['esito']);
+
+        $this->imputa('entrata', 29_600_000, 'Quote associative', 'A', '2025-05-01', 'proposto');
+        $this->imputa('uscita', 1_000, 'Utenze', 'A', '2025-05-02', 'proposto');
+
+        $this->pagina()->assertSeeText('Nell’esercizio 2025 restano da confermare 1 entrata per 296.000,00 € e 1 uscita per 10,00 €')
+            ->assertSeeText('l’esito non può essere «rispettato»');
+        $this->assertSame('vicino', Verifiche::pagina(2026)['soglie']['art13']['esito']);
+    }
+
+    public function test_un_movimento_importato_da_classificare_nell_esercizio_precedente_conta_come_in_attesa_e_niente_modello_e(): void
+    {
+        $this->imputa('entrata', 500_000, 'Quote associative', 'A', '2025-04-01');
+        Movimento::factory()->create(['conto_id' => $this->cassa->id, 'verso' => 'entrata', 'importo' => 29_600_000, 'data' => '2025-05-01', 'inserito_da' => $this->tesoriere->id, 'stato' => 'da_classificare']);
+
+        $this->assertSame(['numero' => 1, 'importo' => 29_600_000], Verifiche::inAttesa(2025)['entrate']);
+        $this->assertSame('vicino', Verifiche::pagina(2026)['soglie']['art13']['esito']);
+        $this->pagina()->assertSeeText('Nell’esercizio 2025 restano da confermare 1 entrata per 296.000,00 €')->assertDontSeeText('potete redigere il Modello E');
+    }
+
     public function test_sopra_i_60_000_euro_niente_modello_e_e_la_cassa_resta_ammessa(): void
     {
         $this->imputa('entrata', 7_000_000, 'Quote associative', 'A', '2025-04-01');
@@ -112,6 +135,20 @@ class ForfettarioSoglieConfrontoPaginaTest extends TestCase
             ->assertSeeText('Dipendenti medi: 9 (limite superato)')
             ->assertSeeText('2 limiti superati su 3')->assertSeeText('Superati anche nell’esercizio prima: l’obbligo c’è.')
             ->assertDontSeeText('Dato mancante: l’attivo');
+    }
+
+    public function test_un_obbligo_nato_prima_non_cessa_con_un_solo_esercizio_sotto_i_limiti(): void
+    {
+        // Dal più vecchio: oltre, oltre, sotto, oltre. L'obbligo nato nel 2023 non è cessato nel 2024 (un solo esercizio sotto) e nel 2025 i limiti sono di nuovo superati.
+        foreach (['2022-04-01', '2023-04-01', '2025-04-01'] as $data) {
+            $this->imputa('entrata', 10_000_000, 'Quote associative', 'A', $data);
+            DatiEsercizio::create(['esercizio' => (int) substr($data, 0, 4), 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'attivo' => 20_000_000, 'dipendenti_medi' => 9]);
+        }
+        $this->imputa('entrata', 1_000_000, 'Quote associative', 'A', '2024-04-01');
+        DatiEsercizio::create(['esercizio' => 2024, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'attivo' => 1_000_000, 'dipendenti_medi' => 2]);
+
+        $this->assertSame('non_rispettato', Verifiche::pagina(2026)['soglie']['art30']['esito']);
+        $this->pagina()->assertSeeText('l’obbligo nato in precedenza cessa solo dopo due esercizi consecutivi sotto i limiti: c’è ancora');
     }
 
     public function test_con_un_solo_esercizio_sotto_i_limiti_l_obbligo_non_e_ancora_cessato(): void

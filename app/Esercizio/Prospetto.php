@@ -74,11 +74,14 @@ final class Prospetto
     {
         return $righe->map(function (array $r) use ($affiliazioneRete) {
             $i = $r['imputazione'];
+            $ingressi = $i->ingressiCon($r['voce'], $affiliazioneRete);
+            // Una forzatura «non commerciale» da rivedere (i dati del calcolo sono cambiati dopo di lei, #52) non vale: a favore dell'ente non si presume. Quella «commerciale» resta (prudente).
+            $forzata = $i->natura_forzata === false && Natura::cambiamenti($i->forzatura_ingressi ?? [], $ingressi) !== [] ? null : $i->natura_forzata;
 
             return new Imputata(
                 $r['lato'], $r['voce'], abs($i->importo), $i->area->value, $i->iniziativa_id,
-                $r['lato'] === 'entrate' ? Natura::calcola($i->ingressiCon($r['voce'], $affiliazioneRete)) : null,
-                $i->natura_forzata, in_array('neutra_nel_test_dell_ente', $i->tipologia?->proprieta ?? [], true),
+                $r['lato'] === 'entrate' ? Natura::calcola($ingressi) : null,
+                $forzata, in_array('neutra_nel_test_dell_ente', $i->tipologia?->proprieta ?? [], true),
             );
         })->all();
     }
