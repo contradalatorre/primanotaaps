@@ -151,7 +151,8 @@ class ContiController extends Controller
      */
     private static function controllaDataDopoApertura(string $data): void
     {
-        if (DatiEsercizio::whereNotNull('saldi_apertura_il')->where('esercizio', '>', (int) substr($data, 0, 4))->lockForUpdate()->exists()) {
+        // Si bloccano le righe degli anni dopo e la colonna si guarda in PHP: con un filtro SQL, in READ COMMITTED, le righe scartate si sbloccherebbero.
+        if (DatiEsercizio::where('esercizio', '>', (int) substr($data, 0, 4))->lockForUpdate()->get()->contains(fn (DatiEsercizio $d) => $d->saldi_apertura_il !== null)) {
             throw ValidationException::withMessages(['aperto_il' => 'I saldi di apertura sono già inseriti: un conto non può aprirsi prima del 1/1 di quell’esercizio.']);
         }
     }

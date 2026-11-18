@@ -113,7 +113,7 @@ final class RendicontoFoglio
                 $dopo[] = Foglio::centesimi($celle[$j]);
             }
             $dopoPieno = array_filter($dopo, fn ($v) => $v !== null) !== [];
-            $blocchi[] = [$cella, $dopo[0] ?? ($dopoPieno ? 0 : null), $dopo !== [] && $dopo[0] === null && $dopoPieno];
+            $blocchi[] = [$cella, $dopo[0] ?? ($dopoPieno ? 0 : null), $dopoPieno && $dopo[0] === null];
         }
 
         return $blocchi;
