@@ -40,7 +40,7 @@ class SoglieTest extends TestCase
             'esattamente 300.000 euro: cassa ammessa, ma vicino alla soglia' => [2026, [2025 => self::m(300_000), 2024 => null], ['art13.esito' => 'vicino', 'art13.cassa' => true, 'art13.margine' => 0]],
             '300.000 euro e un centesimo: soglia superata, non rispettato' => [2026, [2025 => ['entrate' => 30_000_001, 'attivo' => 0, 'dipendenti' => 0], 2024 => null], ['art13.esito' => 'non_rispettato', 'art13.cassa' => false, 'art13.margine' => -1]],
 
-            'entrate in attesa di conferma nell’esercizio precedente: al massimo vicino, mai rispettato' => [2026, [2025 => self::m(5_000) + ['inAttesa' => 1], 2024 => null], ['art13.esito' => 'vicino', 'art13.inAttesa' => 1, 'art13.modelloE' => true]],
+            'entrate in attesa di conferma nell’esercizio precedente: al massimo vicino, mai rispettato e niente Modello E' => [2026, [2025 => self::m(5_000) + ['inAttesa' => 1], 2024 => null], ['art13.esito' => 'vicino', 'art13.inAttesa' => 1, 'art13.modelloE' => false]],
             'entrate in attesa e soglia già superata: resta non rispettato' => [2026, [2025 => ['entrate' => 30_000_001, 'attivo' => 0, 'dipendenti' => 0, 'inAttesa' => 2], 2024 => null], ['art13.esito' => 'non_rispettato']],
             'nessuna entrata in attesa: rispettato' => [2026, [2025 => self::m(5_000) + ['inAttesa' => 0], 2024 => null], ['art13.esito' => 'rispettato', 'art13.inAttesa' => 0]],
 

@@ -293,6 +293,20 @@ class SecondarietaPaginaTest extends TestCase
         $this->assertSame(['numero' => 1, 'importo' => 6000], Verifiche::inAttesa(2026)['entrate']);
     }
 
+    public function test_chi_e_stato_revocato_dopo_il_controllo_della_rotta_non_crea_la_riga_dei_dati_dell_esercizio(): void
+    {
+        $this->assertTrue($this->tesoriere->can('gestire_esercizio')); // il controllo della rotta carica le assegnazioni
+        \App\Models\Assegnazione::where('user_id', $this->tesoriere->id)->delete(); // revoca nel frattempo
+
+        try {
+            DatiEsercizio::sottoBlocco($this->tesoriere, 2031, fn () => $this->fail('La scrittura non doveva partire.'));
+            $this->fail('La scrittura doveva essere rifiutata.');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            $this->assertSame(403, $e->getStatusCode());
+        }
+        $this->assertFalse(DatiEsercizio::where('esercizio', 2031)->exists());
+    }
+
     public function test_la_pagina_dei_test_e_il_suo_indirizzo_corto_e_gli_anni_impossibili(): void
     {
         $this->actingAs($this->tesoriere)->get('/test')->assertRedirect('/esercizi/2026/test');

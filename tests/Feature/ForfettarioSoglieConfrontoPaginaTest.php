@@ -104,6 +104,16 @@ class ForfettarioSoglieConfrontoPaginaTest extends TestCase
         $this->assertSame('vicino', Verifiche::pagina(2026)['soglie']['art13']['esito']);
     }
 
+    public function test_un_movimento_importato_da_classificare_nell_esercizio_precedente_conta_come_in_attesa_e_niente_modello_e(): void
+    {
+        $this->imputa('entrata', 500_000, 'Quote associative', 'A', '2025-04-01');
+        Movimento::factory()->create(['conto_id' => $this->cassa->id, 'verso' => 'entrata', 'importo' => 29_600_000, 'data' => '2025-05-01', 'inserito_da' => $this->tesoriere->id, 'stato' => 'da_classificare']);
+
+        $this->assertSame(['numero' => 1, 'importo' => 29_600_000], Verifiche::inAttesa(2025)['entrate']);
+        $this->assertSame('vicino', Verifiche::pagina(2026)['soglie']['art13']['esito']);
+        $this->pagina()->assertSeeText('Nell’esercizio 2025 restano da confermare 1 entrata per 296.000,00 €')->assertDontSeeText('potete redigere il Modello E');
+    }
+
     public function test_sopra_i_60_000_euro_niente_modello_e_e_la_cassa_resta_ammessa(): void
     {
         $this->imputa('entrata', 7_000_000, 'Quote associative', 'A', '2025-04-01');

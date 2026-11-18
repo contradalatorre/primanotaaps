@@ -285,6 +285,27 @@ class ModelloDTest extends TestCase
         $this->assertSame(0, RegistroModifica::where('oggetto_tipo', 'impostazioni')->count());
     }
 
+    public function test_la_riga_nuova_delle_impostazioni_nasce_senza_i_dati_dell_utente_che_si_scrivono_a_riga_bloccata(): void
+    {
+        $utente = $this->utenteCon('Amministratore');
+        $this->assertTrue($utente->can('gestire_impostazioni'));
+        $revoca = true;
+        DB::listen(function ($query) use ($utente, &$revoca) { // la riga è appena stata inserita, fuori dalla transazione: revoca prima del controllo a riga bloccata
+            if ($revoca && str_contains($query->sql, 'insert') && str_contains($query->sql, 'impostazioni_associazione')) {
+                $revoca = false;
+                Assegnazione::where('user_id', $utente->id)->delete();
+            }
+        });
+
+        try {
+            ImpostazioniAssociazione::scrivi($utente, ['dal_esercizio' => 2027, 'denominazione' => 'Nome rifiutato', 'codice_fiscale' => '11111111111', 'affiliazione_rete' => true]);
+            $this->fail('La scrittura doveva essere rifiutata.');
+        } catch (HttpException $e) {
+            $this->assertSame(403, $e->getStatusCode());
+        }
+        $this->assertSame([], array_intersect(['Nome rifiutato', '11111111111'], ImpostazioniAssociazione::where('dal_esercizio', 2027)->get(['denominazione', 'codice_fiscale'])->flatMap->getAttributes()->all()));
+    }
+
     public function test_il_registro_si_filtra_per_dati_dell_esercizio_e_per_riga_figurativa(): void
     {
         $admin = $this->utenteCon('Amministratore');
