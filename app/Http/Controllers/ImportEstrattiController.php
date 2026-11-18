@@ -58,7 +58,7 @@ class ImportEstrattiController extends Controller
         }
         $foglio = $lettore instanceof FoglioCassa;
         if ($foglio && $conto->foglioChiuso()) {
-            $this->rifiuta('La data di passaggio è passata ('.$conto->passaggio_il->format('d/m/Y').'): da lì la cassa si registra solo nell’app e il foglio non si importa più.');
+            $this->rifiutaFoglioChiuso($conto);
         }
         // Il controllo sul contenuto vuole l'estensione fileinfo; senza, al posto di un errore 500 un messaggio che dice cosa fare.
         if (! extension_loaded('fileinfo')) {
@@ -130,6 +130,9 @@ class ImportEstrattiController extends Controller
             }
             if ($conto->chiuso()) {
                 $this->rifiuta('Il conto è stato chiuso: non si importano nuovi movimenti.');
+            }
+            if ($conto->importaDalFoglio() && $conto->foglioChiuso()) {
+                $this->rifiutaFoglioChiuso($conto);
             }
 
             $estratto = $import->estratto();
@@ -340,6 +343,11 @@ class ImportEstrattiController extends Controller
         if ($conto->importaDalFoglio() && $conto->passaggio_il && $estratto->al() > $conto->passaggio_il->toDateString()) {
             $this->rifiuta('Il foglio ha righe fino al '.date('d/m/Y', strtotime($estratto->al())).', dopo la data di passaggio ('.$conto->passaggio_il->format('d/m/Y').'): da lì la cassa si registra solo nell’app. Togli quelle righe dal foglio.');
         }
+    }
+
+    private function rifiutaFoglioChiuso(Conto $conto): never
+    {
+        $this->rifiuta('La data di passaggio è passata ('.$conto->passaggio_il->format('d/m/Y').'): da lì la cassa si registra solo nell’app e il foglio non si importa più.');
     }
 
     private function rifiuta(string $messaggio): never

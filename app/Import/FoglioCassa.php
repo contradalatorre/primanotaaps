@@ -53,6 +53,7 @@ class FoglioCassa implements FormatoImport
         $visti = [];
         $saldoIniziale = null;
         $saldiMensili = [];
+        $saldoFinale = null;
         foreach ($righe as $i => $riga) {
             if ($i <= $intestazione) {
                 continue;
@@ -64,6 +65,10 @@ class FoglioCassa implements FormatoImport
             $firmato = Foglio::centesimi($riga[$c['importo'] ?? -1] ?? null);
             $saldo = Foglio::centesimi($riga[$c['saldo'] ?? -1] ?? null);
 
+            // Una cella che comincia per «Totale» fa della riga un totale, con la data o senza; «total» dentro una descrizione no.
+            if (array_filter($riga, fn ($cella) => is_string($cella) && preg_match('/^\s*total[ei]\b/iu', $cella)) !== []) {
+                continue;
+            }
             if (preg_match('/saldo\s+iniziale/iu', $testo)) {
                 $saldoIniziale ??= $saldo ?? $entrata;
 
@@ -72,7 +77,7 @@ class FoglioCassa implements FormatoImport
             $netto = $firmato ?? (($entrata ?? 0) - ($uscita ?? 0));
             if ($data === null) {
                 // Le righe vuote e i totali non sono movimenti; un importo con una data illeggibile sì, e non si lascia cadere in silenzio.
-                if ($netto !== 0 && ! preg_match('/total/iu', $testo)) {
+                if ($netto !== 0) {
                     throw new EstrattoNonValido('Riga '.($i + 1).' del foglio: c’è un importo ma la data non si legge. Scrivila come data o come g/m/aaaa.');
                 }
 
@@ -90,6 +95,7 @@ class FoglioCassa implements FormatoImport
 
             $movimenti[] = new RigaEstratto($data, null, $causale === '' ? null : $causale, $descrizione !== '' ? $descrizione : ($causale ?: 'Senza descrizione'), $netto, null, sha1($uguali.'|'.$visti[$uguali]));
             if ($saldo !== null) {
+                $saldoFinale = $saldo; // quello dell'ultima riga del foglio, non dell'ultimo mese in ordine di data
                 $saldiMensili[substr($data, 0, 7)] = $saldo;
             }
         }
@@ -97,7 +103,7 @@ class FoglioCassa implements FormatoImport
             throw new EstrattoNonValido('Nella scheda «Cassa» non ci sono movimenti con data e importo.');
         }
 
-        return new Estratto($movimenti, $saldoIniziale, $saldiMensili === [] ? null : end($saldiMensili), $saldiMensili);
+        return new Estratto($movimenti, $saldoIniziale, $saldoFinale, $saldiMensili);
     }
 
     /** @return ?array{0: int, 1: array<string, int>} la riga dell'intestazione e le colonne; null se mancano data, causale e un importo */

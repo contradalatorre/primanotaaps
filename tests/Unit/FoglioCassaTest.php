@@ -103,6 +103,28 @@ class FoglioCassaTest extends TestCase
         $this->assertNotSame($a->chiave(), $c->chiave());
     }
 
+    public function test_il_saldo_finale_e_quello_dell_ultima_riga_con_saldo_anche_se_fuori_ordine_di_data(): void
+    {
+        $estratto = self::leggi(self::cassa(
+            [new DateTimeImmutable('2026-03-01'), 'Utenze', 'Prima', null, null, 10, 490],
+            [new DateTimeImmutable('2026-04-01'), 'Utenze', 'Bolletta', null, null, 10, 480],
+            [new DateTimeImmutable('2026-03-15'), 'Utenze', 'Scritta in fondo', null, null, 10, 470],
+            [new DateTimeImmutable('2026-03-02'), 'Utenze', 'Senza saldo', null, null, 5, null],
+        ));
+
+        $this->assertSame(47000, $estratto->saldoFinale); // non quello di aprile, l'ultimo mese presente
+    }
+
+    public function test_una_riga_di_totale_con_la_data_non_e_un_movimento(): void
+    {
+        $estratto = self::leggi(self::cassa(
+            [new DateTimeImmutable('2026-02-10'), 'Utenze', 'Bolletta', null, null, 10, 490],
+            [new DateTimeImmutable('2026-02-28'), null, 'Totale febbraio', null, 0, 10, null],
+        ));
+
+        $this->assertCount(1, $estratto->righe);
+    }
+
     public function test_un_importo_con_una_data_illeggibile_si_rifiuta_con_il_numero_di_riga(): void
     {
         $this->expectException(EstrattoNonValido::class);

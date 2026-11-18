@@ -407,6 +407,32 @@ class ImportFoglioCassaTest extends TestCase
         $this->assertTrue(Attivita::where('nome', 'Sponsorizzazioni e pubblicità')->firstOrFail()->usata());
     }
 
+    public function test_riclassificare_a_mano_un_confermato_della_tabella_lo_toglie_dai_confermati_da_correggere(): void
+    {
+        $this->importa(self::foglio());
+        $confermato = Movimento::where('data', '2026-01-10')->firstOrFail();
+        Classificazione::conferma($this->tesoriere, $confermato, Classificazione::versione($confermato));
+        $this->assertNotNull($confermato->refresh()->conversione_causale_id);
+
+        Classificazione::salva($this->tesoriere, $confermato, null, [['tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id'), 'area' => 'E']]);
+
+        $this->assertNull($confermato->refresh()->conversione_causale_id);
+        $this->assertSame('confermato', $confermato->stato);
+        $this->get('/conversione-causali')->assertDontSee('Bolletta luce');
+    }
+
+    public function test_la_conferma_rifa_il_controllo_del_foglio_chiuso_dopo_l_anteprima(): void
+    {
+        $this->carica(self::foglio())->assertSessionHasNoErrors();
+        $import = ImportEstratto::firstOrFail();
+
+        $this->post("/conti/{$this->cassa->id}/passaggio", ['passaggio_il' => '2026-05-31'])->assertSessionHasNoErrors(); // oggi è il 2/06: il foglio si chiude
+        $this->post("/import/{$import->id}/conferma")->assertSessionHasErrors('estratto');
+
+        $this->assertSame(0, Movimento::count());
+        $this->assertSame('anteprima', $import->refresh()->stato);
+    }
+
     public function test_un_saldo_finale_che_non_torna_blocca_la_conferma_e_non_entra_nulla(): void
     {
         $righe = self::righe();

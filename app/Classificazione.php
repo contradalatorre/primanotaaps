@@ -58,7 +58,8 @@ final class Classificazione
                 if (($problemi = self::problemiDiConferma($movimento)) !== []) {
                     throw ValidationException::withMessages(['conferma' => $problemi]);
                 }
-                $stato = $cambiata ? ['confermato_da' => $utente->id, 'confermato_il' => now()] : [];
+                // Cambiata la classificazione, la fonte «tabella di conversione» non vale più: non è più da correggere sulla tabella.
+                $stato = $cambiata ? ['confermato_da' => $utente->id, 'confermato_il' => now(), 'conversione_causale_id' => null] : [];
             } elseif ($cambiata || $movimento->regola_id !== null || $movimento->storico_movimento_id !== null || $movimento->storico_esempio_id !== null || $movimento->conversione_causale_id !== null) {
                 // Salvare a mano una proposta di regola, dello storico o della tabella di conversione ne fa una scelta della persona (anche senza cambiare nulla): non la toccano più.
                 $stato = ['stato' => $imputazioni === [] ? 'da_classificare' : 'proposto', 'proposto_da' => $imputazioni === [] ? null : $utente->id, 'regola_id' => null, 'storico_movimento_id' => null, 'storico_esempio_id' => null, 'conversione_causale_id' => null];
