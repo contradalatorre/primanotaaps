@@ -112,7 +112,7 @@ class FoglioCassaTest extends TestCase
             [new DateTimeImmutable('2026-03-02'), 'Utenze', 'Senza saldo', null, null, 5, null],
         ));
 
-        $this->assertSame(47000, $estratto->saldoFinale); // non quello di aprile, l'ultimo mese presente
+        $this->assertSame(46500, $estratto->saldoFinale); // non quello di aprile: l'ultimo saldo scritto, meno le righe dopo di esso senza saldo
     }
 
     public function test_una_riga_di_totale_con_la_data_non_e_un_movimento(): void
@@ -123,6 +123,16 @@ class FoglioCassaTest extends TestCase
         ));
 
         $this->assertCount(1, $estratto->righe);
+    }
+
+    public function test_una_riga_con_la_causale_la_cui_descrizione_comincia_per_totale_resta_un_movimento(): void
+    {
+        $estratto = self::leggi(self::cassa(
+            [new DateTimeImmutable('2026-02-10'), 'Tesseramento ord', 'Totale incasso cena', null, 30, null, 530],
+            [null, null, 'Subtotale febbraio', null, 30, 0, null],
+        ));
+
+        $this->assertCount(1, $estratto->righe); // la riga senza data né causale è un totale, anche se dice «Subtotale»
     }
 
     public function test_un_importo_con_una_data_illeggibile_si_rifiuta_con_il_numero_di_riga(): void

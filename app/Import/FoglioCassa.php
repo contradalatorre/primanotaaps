@@ -65,10 +65,6 @@ class FoglioCassa implements FormatoImport
             $firmato = Foglio::centesimi($riga[$c['importo'] ?? -1] ?? null);
             $saldo = Foglio::centesimi($riga[$c['saldo'] ?? -1] ?? null);
 
-            // Una cella che comincia per «Totale» fa della riga un totale, con la data o senza; «total» dentro una descrizione no.
-            if (array_filter($riga, fn ($cella) => is_string($cella) && preg_match('/^\s*total[ei]\b/iu', $cella)) !== []) {
-                continue;
-            }
             if (preg_match('/saldo\s+iniziale/iu', $testo)) {
                 $saldoIniziale ??= $saldo ?? $entrata;
 
@@ -77,7 +73,7 @@ class FoglioCassa implements FormatoImport
             $netto = $firmato ?? (($entrata ?? 0) - ($uscita ?? 0));
             if ($data === null) {
                 // Le righe vuote e i totali non sono movimenti; un importo con una data illeggibile sì, e non si lascia cadere in silenzio.
-                if ($netto !== 0) {
+                if ($netto !== 0 && ! preg_match('/total/iu', $testo)) {
                     throw new EstrattoNonValido('Riga '.($i + 1).' del foglio: c’è un importo ma la data non si legge. Scrivila come data o come g/m/aaaa.');
                 }
 
@@ -88,14 +84,19 @@ class FoglioCassa implements FormatoImport
             }
 
             $causale = trim(preg_replace('/^\s*(->|→)\s*/u', '', (string) ($riga[$c['causale']] ?? '')));
+            // Un totale può avere la data («Totale febbraio»): senza causale e con una cella che comincia per «Totale» non è un movimento.
+            if ($causale === '' && array_filter($riga, fn ($cella) => is_string($cella) && preg_match('/^\s*total[ei]\b/iu', $cella)) !== []) {
+                continue;
+            }
             $descrizione = Iban::maschera(Foglio::senzaEmail($riga[$c['descrizione'] ?? -1] ?? ''));
             $riferimento = preg_replace('/[^a-z0-9]/', '', mb_strtolower((string) ($riga[$c['riferimento'] ?? -1] ?? '')));
             $uguali = implode('|', [$data, $netto > 0 ? 'e' : 'u', abs($netto), $riferimento]);
             $visti[$uguali] = ($visti[$uguali] ?? 0) + 1;
 
             $movimenti[] = new RigaEstratto($data, null, $causale === '' ? null : $causale, $descrizione !== '' ? $descrizione : ($causale ?: 'Senza descrizione'), $netto, null, sha1($uguali.'|'.$visti[$uguali]));
+            // Saldo finale: l'ultimo saldo scritto più le righe dopo di esso senza saldo (l'app confronta con tutte le righe), non quello dell'ultimo mese in ordine di data.
+            $saldoFinale = $saldo ?? ($saldoFinale === null ? null : $saldoFinale + $netto);
             if ($saldo !== null) {
-                $saldoFinale = $saldo; // quello dell'ultima riga del foglio, non dell'ultimo mese in ordine di data
                 $saldiMensili[substr($data, 0, 7)] = $saldo;
             }
         }

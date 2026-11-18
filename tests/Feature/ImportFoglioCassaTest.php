@@ -433,6 +433,18 @@ class ImportFoglioCassaTest extends TestCase
         $this->assertSame('anteprima', $import->refresh()->stato);
     }
 
+    public function test_un_foglio_con_le_ultime_righe_senza_saldo_o_fuori_ordine_si_conferma_se_il_saldo_torna(): void
+    {
+        $righe = self::righe();
+        $righe[2][6] = null; // senza saldo: l'ultimo scritto è 539,50 e dopo ci sono +200 e -10
+        $righe[3][6] = null;
+        $this->importa(self::foglio($righe));
+
+        $righe = [...self::righe(), [new DateTimeImmutable('2026-01-12'), 'Tesseramento ord', 'Scritta in fondo', null, 10, null, 739.5]]; // fuori ordine di data: l'ultima riga ha il saldo 739,50
+        $this->importa(self::foglio($righe));
+        $this->assertSame(5, Movimento::count());
+    }
+
     public function test_un_saldo_finale_che_non_torna_blocca_la_conferma_e_non_entra_nulla(): void
     {
         $righe = self::righe();
