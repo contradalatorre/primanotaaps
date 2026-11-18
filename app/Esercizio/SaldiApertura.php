@@ -18,7 +18,8 @@ use Illuminate\Validation\ValidationException;
  * storico precedente, confrontati con il primo estratto e con la conta di cassa, e controllati: la somma dei saldi iniziali di ogni riga del
  * Modello D (cassa, depositi) deve coincidere con il saldo finale dell'esercizio storico. Dagli esercizi dopo l'apertura sarà la chiusura dell'anno prima.
  *
- * Sono dell'apertura i conti aperti proprio il 1/1; un conto aperto in seguito si crea con il suo saldo di partenza.
+ * Sono dell'apertura i conti aperti proprio il 1/1; un conto aperto in seguito si crea con il suo saldo di partenza. Un conto aperto prima del 1/1 non ha posto qui
+ * (il Modello D ne conterebbe il saldo lo stesso): ferma l'apertura, e dopo l'apertura non si crea né ci si sposta (`ContiController`).
  * shortcut: il foglio dà solo cassa e depositi aggregati, quindi i depositi con più conti (banca, PayPal, Satispay) non si precompilano e si
  * controllano in somma; se il foglio 2025 avrà il saldo finale per conto (le schede), si potrà precompilare e controllare conto per conto.
  */
@@ -143,6 +144,11 @@ final class SaldiApertura
             $conti = Conto::where('aperto_il', "$anno-01-01")->orderBy('id')->lockForUpdate()->get();
             if ($conti->pluck('id')->sort()->values()->all() !== collect(array_keys($saldi))->sort()->values()->all()) {
                 throw ValidationException::withMessages(['saldi' => 'I conti da compilare sono cambiati: ricarica la pagina e riprova.']);
+            }
+
+            // Il Modello D somma nei saldi iniziali anche i conti aperti prima del 1/1: senza una data corretta sfuggirebbero a questa procedura.
+            if (Conto::where('aperto_il', '<', "$anno-01-01")->where(fn ($c) => $c->whereNull('chiuso_il')->orWhere('chiuso_il', '>=', "$anno-01-01"))->exists()) {
+                throw ValidationException::withMessages(['apertura' => "Ci sono conti aperti prima del 1/1/$anno: la procedura vale per i conti aperti il 1/1, correggi la loro data di apertura."]);
             }
 
             $errori = self::scostamenti($anno, $conti->groupBy('riga_modello_d')->map(fn (Collection $c) => $c->sum(fn (Conto $conto) => $saldi[$conto->id]))->all());

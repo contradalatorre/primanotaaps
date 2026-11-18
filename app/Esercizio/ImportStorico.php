@@ -32,7 +32,7 @@ final class ImportStorico
 
     /**
      * @param  array<string, list<list<mixed>>>  $fogli  quelli di `Foglio::leggi`
-     * @return array{voci: array<string, int>, nonRiconosciute: list<array{riga: int, etichetta: string, importo: int}>, saldi: array{cassa: ?int, depositi: ?int}, totali: array<string, int>, esempi: list<array<string, mixed>>, scartate: array<string, int>, schede: list<string>}
+     * @return array{voci: array<string, int>, nonRiconosciute: list<array{riga: int, etichetta: string, importo: int}>, saldi: array{cassa: ?int, depositi: ?int}, totali: array<string, int>, esempi: list<array<string, mixed>>, scartate: array<string, int>, schede: list<string>, colonnaVuota: list<int>}
      *
      * @throws FoglioNonValido
      */

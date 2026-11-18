@@ -69,6 +69,7 @@ class EsercizioStoricoController extends Controller
         return view('esercizio.storico-anteprima', [
             'anno' => $anno, 'token' => $token, 'anteprima' => $anteprima, 'm' => $m, 'voci' => ImportStorico::voci(),
             'differenze' => ImportStorico::differenze($anteprima['totali'], $m), 'saldoCassa' => $saldoCassa, 'saldoDepositi' => $saldoDepositi,
+            'colonnaVuota' => $anteprima['colonnaVuota'] ?? [], 'daControllare' => self::daControllare($anteprima, $importi),
             'abbinamenti' => $campi['abbinamenti'], 'figurativi' => old('figurativi', array_map(fn ($aree) => array_map(Euro::formatta(...), $aree), $anteprima['figurativi'] ?? [])),
         ]);
     }
@@ -82,6 +83,9 @@ class EsercizioStoricoController extends Controller
 
         $campi = $this->campi($request->all());
         $importi = ImportStorico::importi($anteprima, $campi['abbinamenti']);
+        if (self::daControllare($anteprima, $importi) && ! $request->boolean('colonna_vuota_controllata')) {
+            throw ValidationException::withMessages(['colonna_vuota_controllata' => 'Gli importi letti dal foglio vanno controllati contro il foglio: spunta la casella per confermare che sono giusti.']);
+        }
         $cassa = self::euro($request->input('saldo_cassa'), 'saldo_cassa', 'il saldo finale di cassa');
         $depositi = self::euro($request->input('saldo_depositi'), 'saldo_depositi', 'il saldo finale dei depositi');
         $figurativi = ['costi' => [], 'proventi' => []];
@@ -96,6 +100,15 @@ class EsercizioStoricoController extends Controller
         Storage::disk('local')->delete($this->percorso($token));
 
         return redirect()->route('esercizio.storico', $anno)->with('ok', "Esercizio storico $anno caricato e bloccato.")->with($this->avvisoApertura($anno));
+    }
+
+    /**
+     * Le celle vuote dopo un'etichetta con un numero più avanti (una colonna vuota in mezzo legge tutto a zero, e anche i totali del foglio, quindi il confronto non basta)
+     * o nessuna voce diversa da zero: la conferma vuole la casella spuntata, perché una persona abbia guardato gli importi.
+     */
+    private static function daControllare(array $anteprima, array $importi): bool
+    {
+        return ($anteprima['colonnaVuota'] ?? []) !== [] || $importi === [];
     }
 
     public function modifica(int $anno)

@@ -23,8 +23,10 @@ final class RendicontoFoglio
      *     nonRiconosciute: list<array{riga: int, etichetta: string, importo: int}>,
      *     saldi: array{cassa: ?int, depositi: ?int},
      *     totali: array<string, int>,
-     *     figurativi: array{costi: array<string, int>, proventi: array<string, int>}
-     * } voci: «lato:codice» → centesimi; totali: i totali e gli avanzi scritti nel foglio («uscite:A», «gestione:entrate», «avanzo_complessivo»…)
+     *     figurativi: array{costi: array<string, int>, proventi: array<string, int>},
+     *     colonnaVuota: list<int>
+     * } voci: «lato:codice» → centesimi; totali: i totali e gli avanzi scritti nel foglio («uscite:A», «gestione:entrate», «avanzo_complessivo»…);
+     *   colonnaVuota: le righe del foglio (da 1) con la cella dopo l'etichetta vuota e un numero più avanti
      */
     public static function leggi(array $righe): array
     {
@@ -35,9 +37,11 @@ final class RendicontoFoglio
         $contesto = []; // per blocco: lato e area («I» per gli investimenti)
         $macro = [];
         $figurativi = ['costi' => [], 'proventi' => []];
+        $colonnaVuota = [];
 
         foreach ($righe as $n => $celle) {
-            foreach (self::blocchi($celle) as $k => [$etichetta, $importo]) {
+            foreach (self::blocchi($celle) as $k => [$etichetta, $importo, $vuota]) {
+                $vuota && $colonnaVuota[] = $n + 1;
                 $testo = self::normalizza($etichetta);
                 $c = $contesto[$k] ?? null;
 
@@ -86,13 +90,14 @@ final class RendicontoFoglio
             }
         }
 
-        return ['voci' => $voci, 'nonRiconosciute' => $nonRiconosciute, 'saldi' => $saldi, 'totali' => $totali, 'figurativi' => $figurativi];
+        return ['voci' => $voci, 'nonRiconosciute' => $nonRiconosciute, 'saldi' => $saldi, 'totali' => $totali, 'figurativi' => $figurativi, 'colonnaVuota' => array_values(array_unique($colonnaVuota))];
     }
 
     /**
-     * @return list<array{0: string, 1: ?int}> le etichette della riga, ognuna con l'importo della cella che la segue (centesimi): se la cella è vuota
-     *                                         vale 0 quando più avanti, prima della prossima etichetta, c'è un numero (l'anno precedente), mai quello della colonna accanto.
-     *                                         shortcut: l'importo è nella cella subito dopo l'etichetta; con una colonna vuota in mezzo nel foglio vero i 2025 si leggerebbero come zeri (lo mostra il confronto coi totali).
+     * @return list<array{0: string, 1: ?int, 2: bool}> le etichette della riga, ognuna con l'importo della cella che la segue (centesimi) e se quella cella era vuota con un numero più avanti:
+     *                                                  allora l'importo vale 0 (cella 2025 vuota, anno precedente pieno), mai quello della colonna accanto.
+     *                                                  shortcut: l'importo è nella cella subito dopo l'etichetta; con una colonna vuota in mezzo (celle unite, spaziatura) i 2025 si leggono come zeri,
+     *                                                  e anche i totali del foglio, quindi il confronto coi totali non se ne accorge: lo segnala `colonnaVuota`, che l'anteprima mostra e la conferma vuole spuntato.
      */
     private static function blocchi(array $celle): array
     {
@@ -107,7 +112,8 @@ final class RendicontoFoglio
             for ($j = $i + 1; $j < count($celle) && ! $eEtichetta($celle[$j]); $j++) {
                 $dopo[] = Foglio::centesimi($celle[$j]);
             }
-            $blocchi[] = [$cella, $dopo[0] ?? (array_filter($dopo, fn ($v) => $v !== null) !== [] ? 0 : null)];
+            $dopoPieno = array_filter($dopo, fn ($v) => $v !== null) !== [];
+            $blocchi[] = [$cella, $dopo[0] ?? ($dopoPieno ? 0 : null), $dopo !== [] && $dopo[0] === null && $dopoPieno];
         }
 
         return $blocchi;

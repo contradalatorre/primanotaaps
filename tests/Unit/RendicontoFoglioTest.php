@@ -135,6 +135,20 @@ class RendicontoFoglioTest extends TestCase
         $this->assertSame(0, $esito['totali']['avanzo_complessivo']);
     }
 
+    public function test_una_colonna_vuota_tra_l_etichetta_e_gli_importi_si_segnala_riga_per_riga(): void
+    {
+        $normale = self::foglio(['uscite:A1' => 10, 'entrate:A4' => 30]);
+        $this->assertSame([], RendicontoFoglio::leggi($normale)['colonnaVuota']);
+
+        // Celle unite o una colonna di spaziatura: ogni importo scivola una colonna a destra e si leggerebbe come zero.
+        $conSpaziatura = array_map(fn ($riga) => count($riga) > 1 ? [$riga[0], null, ...array_slice($riga, 1)] : $riga, $normale);
+        $esito = RendicontoFoglio::leggi($conSpaziatura);
+
+        $this->assertSame([], $esito['voci']);
+        $this->assertContains(4, $esito['colonnaVuota']); // la riga 4 è «1) …» della sezione A delle uscite
+        $this->assertGreaterThan(50, count($esito['colonnaVuota']));
+    }
+
     public function test_un_solo_titolo_dei_figurativi_con_i_sottotitoli_costi_e_proventi_non_porta_righe_tra_le_voci_da_abbinare(): void
     {
         $righe = self::foglio(['uscite:I1' => 100]);

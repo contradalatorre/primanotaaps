@@ -97,6 +97,33 @@ class EsercizioStoricoTest extends TestCase
             ->assertSee('name="figurativi[costi][B]" inputmode="decimal" maxlength="30" value="0"', false);
     }
 
+    public function test_una_colonna_vuota_dopo_le_etichette_si_segnala_e_la_conferma_vuole_una_casella_spuntata(): void
+    {
+        $righe = array_map(fn ($riga) => count($riga) > 1 ? [$riga[0], null, ...array_slice($riga, 1)] : $riga, RendicontoFoglioTest::foglio(['entrate:A1' => 1000], extra: ['cassa' => 120, 'depositi' => 530]));
+        $url = $this->anteprimaUrl($this->carica(UploadedFile::fake()->createWithContent('foglio-2025.xlsx', self::xlsx(['RUNTS_Rendiconto' => $righe]))));
+        $campi = ['saldo_cassa' => '120,00', 'saldo_depositi' => '530,00'];
+
+        $this->actingAs($this->tesoriere)->get($url)->assertOk()->assertSee('name="colonna_vuota_controllata"', false)->assertSeeText('colonna vuota');
+        $this->actingAs($this->tesoriere)->post($url, $campi)->assertSessionHasErrors('colonna_vuota_controllata');
+        $this->assertSame(0, EsercizioStorico::count());
+
+        $this->actingAs($this->tesoriere)->post($url, $campi + ['colonna_vuota_controllata' => '1'])->assertSessionHas('ok');
+        $this->assertSame(1, EsercizioStorico::count());
+    }
+
+    public function test_un_foglio_con_tutte_le_voci_a_zero_vuole_la_casella_anche_senza_celle_vuote(): void
+    {
+        $url = $this->anteprimaUrl($this->carica(UploadedFile::fake()->createWithContent('foglio-2025.xlsx', self::xlsx(['RUNTS_Rendiconto' => RendicontoFoglioTest::foglio([])]))));
+
+        $this->actingAs($this->tesoriere)->post($url, ['saldo_cassa' => '0', 'saldo_depositi' => '0'])->assertSessionHasErrors('colonna_vuota_controllata');
+        $this->assertSame(0, EsercizioStorico::count());
+    }
+
+    public function test_senza_celle_vuote_ne_avviso_ne_casella(): void
+    {
+        $this->actingAs($this->tesoriere)->get($this->anteprimaUrl($this->carica()))->assertOk()->assertDontSee('colonna_vuota_controllata');
+    }
+
     public function test_la_conferma_salva_con_l_abbinamento_manuale_i_figurativi_e_i_saldi_e_poi_blocca(): void
     {
         $url = $this->anteprimaUrl($this->carica());

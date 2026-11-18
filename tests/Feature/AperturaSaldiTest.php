@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Esercizio\SaldiApertura;
 use App\Models\ContaDiCassa;
 use App\Models\Conto;
 use App\Models\DatiEsercizio;
@@ -177,5 +178,31 @@ class AperturaSaldiTest extends TestCase
         // Il permesso si rilegge a riga bloccata, come nelle altre scritture.
         $this->tesoriere->assegnazioni()->delete();
         $this->actingAs($this->tesoriere)->post('/conti', $this->nuovoConto('Cassa altra', '0', '2026-01-01'))->assertForbidden();
+    }
+
+    public function test_dopo_l_apertura_una_data_di_apertura_anteriore_al_primo_gennaio_non_aggira_il_controllo(): void
+    {
+        $this->storico2025();
+        $this->actingAs($this->tesoriere)->post('/esercizi/2026/saldi-apertura', $this->saldi())->assertSessionHas('ok');
+        $dopo = Conto::factory()->create(['nome' => 'Cassa Festa', 'aperto_il' => '2026-06-01']);
+        $iniziali = SaldiApertura::iniziali(2026);
+
+        // Il Modello D somma il saldo di un conto aperto il 31/12/2025 nei saldi iniziali del 2026: per la procedura di apertura è un secondo inserimento.
+        $this->actingAs($this->tesoriere)->post('/conti', $this->nuovoConto('Cassa nuova', '5,00', '2025-12-31'))->assertSessionHasErrors('aperto_il');
+        $this->assertSame(0, Conto::where('nome', 'Cassa nuova')->count());
+        $this->actingAs($this->tesoriere)->put('/conti/'.$dopo->id, $this->nuovoConto('Cassa Festa', '5,00', '2025-12-31'))->assertSessionHasErrors('aperto_il');
+        $this->assertSame('2026-06-01', $dopo->fresh()->aperto_il->toDateString());
+        $this->assertSame($iniziali, SaldiApertura::iniziali(2026));
+        // Un conto già più vecchio si rinomina ancora: la data non cambia.
+        $vecchio = Conto::factory()->create(['nome' => 'Cassa vecchia', 'aperto_il' => '2025-06-01']);
+        $this->actingAs($this->tesoriere)->put('/conti/'.$vecchio->id, $this->nuovoConto('Cassa vecchia 2', '0', '2025-06-01'))->assertSessionHasNoErrors();
+    }
+
+    public function test_un_conto_aperto_prima_del_primo_gennaio_ferma_l_apertura(): void
+    {
+        Conto::factory()->create(['nome' => 'Cassa 2025', 'aperto_il' => '2025-12-31']);
+
+        $this->actingAs($this->tesoriere)->post('/esercizi/2026/saldi-apertura', $this->saldi())->assertSessionHasErrors('apertura');
+        $this->assertNull(DatiEsercizio::per(2026)->saldi_apertura_il);
     }
 }

@@ -10,6 +10,19 @@
     <form method="POST" action="{{ route('esercizio.storico.conferma', [$anno, $token]) }}" class="modulo" data-merlo="storico-anteprima">
         @csrf
 
+        @if ($daControllare)
+            <div class="avviso" role="alert" data-merlo="storico-colonna-vuota">
+                @if ($colonnaVuota !== [])
+                    <p><strong>Attenzione: una colonna vuota tra le etichette e gli importi?</strong> Nelle righe {{ implode(', ', array_slice($colonnaVuota, 0, 12)) }}{{ count($colonnaVuota) > 12 ? ' e altre '.(count($colonnaVuota) - 12) : '' }} la cella dopo l’etichetta è vuota e più avanti c’è un numero. Se nel foglio c’è una colonna vuota in mezzo (celle unite, spaziatura), gli importi si leggono tutti come zero, e anche i totali del foglio: il confronto qui sotto non se ne accorge.</p>
+                @endif
+                @if ($colonnaVuota === [])
+                    <p><strong>Tutte le voci lette sono a zero.</strong> Controlla che il foglio sia quello giusto.</p>
+                @endif
+                <label><input type="checkbox" name="colonna_vuota_controllata" value="1" @checked(old('colonna_vuota_controllata'))> Ho controllato gli importi qui sotto contro il foglio e sono giusti</label>
+                @error('colonna_vuota_controllata') <p class="errore" role="alert">{{ $message }}</p> @enderror
+            </div>
+        @endif
+
         <h2>Righe da abbinare a mano</h2>
         @forelse ($anteprima['nonRiconosciute'] as $riga)
             <label>Riga {{ $riga['riga'] }} del foglio: «{{ $riga['etichetta'] }}» · {{ $euro($riga['importo']) }} €

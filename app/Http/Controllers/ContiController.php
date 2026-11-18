@@ -40,6 +40,7 @@ class ContiController extends Controller
         $dati = $this->dati($request, $request->string('tipo')->toString());
 
         $this->sottoApertura($request->user(), [$dati['aperto_il']], function () use ($dati, $request) {
+            self::controllaDataDopoApertura($dati['aperto_il']);
             // Al 1/1 dopo la procedura di apertura (#63) un conto nuovo è un secondo inserimento di saldi: passa dal controllo con la chiusura.
             self::primoGennaio($dati['aperto_il']) && SaldiApertura::controllaConto((int) substr($dati['aperto_il'], 0, 4), $dati['riga_modello_d'], $dati['saldo_iniziale']);
             $conto = Conto::create($dati);
@@ -63,6 +64,7 @@ class ContiController extends Controller
 
         $letto = $conto->aperto_il->toDateString();
         $this->sottoApertura($request->user(), [$letto, $dati['aperto_il']], function () use ($conto, $letto, $dati, $request) {
+            $dati['aperto_il'] === $letto || self::controllaDataDopoApertura($dati['aperto_il']);
             $conto = Conto::lockForUpdate()->findOrFail($conto->id); // la copia bloccata: quella della rotta può essere di prima
             if ($conto->aperto_il->toDateString() !== $letto) {
                 throw ValidationException::withMessages(['conto' => 'Il conto è stato modificato nel frattempo: ricarica la pagina e riprova.']);
@@ -141,6 +143,17 @@ class ContiController extends Controller
         $anni = collect($date)->filter(self::primoGennaio(...))->map(fn (string $d) => (int) substr($d, 0, 4))->unique()->sort()->values()->all();
 
         return DatiEsercizio::sottoBlocchi($utente, $anni, fn () => $scrittura(), Permesso::GestireRegole);
+    }
+
+    /**
+     * Dopo l'apertura dell'anno Y il Modello D conta nei saldi iniziali ogni conto aperto prima del 1/1/Y: una data di apertura anteriore (il 31/12/Y-1) aggirerebbe
+     * il controllo con la chiusura, quindi non si crea né ci si sposta. Si legge a righe bloccate, prima dei conti (l'ordine di `SaldiApertura::inserisci`).
+     */
+    private static function controllaDataDopoApertura(string $data): void
+    {
+        if (DatiEsercizio::whereNotNull('saldi_apertura_il')->where('esercizio', '>', (int) substr($data, 0, 4))->lockForUpdate()->exists()) {
+            throw ValidationException::withMessages(['aperto_il' => 'I saldi di apertura sono già inseriti: un conto non può aprirsi prima del 1/1 di quell’esercizio.']);
+        }
     }
 
     private static function primoGennaio(string $data): bool
