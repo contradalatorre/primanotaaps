@@ -1,4 +1,4 @@
-{{-- Forfettario dell'art. 86, soglie degli artt. 13, 30 e 31 sull'esercizio precedente e confronto con gli altri esercizi (#55). Vuole $anno, $catena, $soglie, $confronto. --}}
+{{-- Forfettario dell'art. 86, soglie degli artt. 13, 30 e 31 sull'esercizio precedente e confronto con gli altri esercizi (#55). Vuole $anno, $catena, $soglie, $confronto, $inAttesaPrecedente (Verifiche::inAttesa dell'esercizio precedente). --}}
 @php
     $euro = fn (int $c) => \App\Euro::formatta($c);
     $pct = fn (?float $p) => $p === null ? 'non calcolabile' : number_format($p, 2, ',', '.').'%';
@@ -74,6 +74,18 @@
         </p>
     @endif
 
+    @php $attesaPrima = $inAttesaPrecedente['entrate']['numero'] + $inAttesaPrecedente['uscite']['numero']; @endphp
+    @if ($attesaPrima > 0)
+        <p class="avviso" role="status" data-merlo="test-soglie-in-attesa">
+            {!! $icona !!}
+            <span>Nell’esercizio {{ $r }} restano da confermare {{ $inAttesaPrecedente['entrate']['numero'] }} {{ $inAttesaPrecedente['entrate']['numero'] === 1 ? 'entrata' : 'entrate' }} per {{ $euro($inAttesaPrecedente['entrate']['importo']) }} €
+                e {{ $inAttesaPrecedente['uscite']['numero'] }} {{ $inAttesaPrecedente['uscite']['numero'] === 1 ? 'uscita' : 'uscite' }} per {{ $euro($inAttesaPrecedente['uscite']['importo']) }} €: le soglie si misurano solo sui movimenti confermati.
+                @if ($inAttesaPrecedente['entrate']['numero'] > 0) Le entrate in attesa potrebbero superare il limite dell’art. 13, quindi l’esito non può essere «rispettato». @endif
+                <a href="{{ route('movimenti') }}" class="link">Movimenti</a>
+            </span>
+        </p>
+    @endif
+
     @if ($a13['senzaDati'])
         <p class="avviso" role="status" data-merlo="test-soglie-senza-dati">
             {!! $icona !!}
@@ -127,6 +139,7 @@
                                     @if ($o['consecutivi'] === true) Superati anche nell’esercizio prima: l’obbligo c’è.
                                     @elseif ($o['consecutivi'] === null) L’esercizio prima non è nell’app: per prudenza vale come superato.
                                     @elseif ($o['inCessazione']) Superati due esercizi fa, sotto l’ultimo: l’obbligo, se c’è, cessa solo dopo due esercizi consecutivi sotto i limiti.
+                                    @elseif ($o['persiste']) Non superati nell’esercizio prima, ma l’obbligo nato in precedenza cessa solo dopo due esercizi consecutivi sotto i limiti: c’è ancora.
                                     @elseif ($o['superati'] >= 2) Non superati nell’esercizio prima: l’obbligo nascerebbe se lo fossero anche quest’anno. @endif
                                 </span>
                             @endif

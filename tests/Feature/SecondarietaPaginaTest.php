@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Esercizio\Prospetto;
 use App\Esercizio\Verifiche;
+use App\Models\Assegnazione;
 use App\Models\Conto;
 use App\Models\DatiEsercizio;
 use App\Models\ImpostazioniAssociazione;
@@ -14,6 +15,7 @@ use App\Models\RigaFigurativa;
 use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 /** Dati dell'esercizio e test di secondarietà a schermo (#53): pagine, permessi, registro, home. Dati inventati. */
@@ -244,6 +246,14 @@ class SecondarietaPaginaTest extends TestCase
         $this->actingAs($this->lettore())->post('/esercizi/2026/dati/figurativi', ['tipo' => 'provento', 'area' => 'A', 'descrizione' => 'x', 'importo' => '10'])->assertForbidden();
     }
 
+    public function test_il_costo_figurativo_da_ore_e_tariffa_si_arrotonda_per_difetto(): void
+    {
+        // 0,03 ore × 12,50 €/h = 0,375 €: 37 centesimi, non 38 (un costo figurativo in più va a favore dell'ente).
+        $this->actingAs($this->tesoriere)->post('/esercizi/2026/dati/figurativi', ['tipo' => 'costo', 'area' => 'A', 'descrizione' => 'Gruppo', 'ore' => '0,03', 'tariffa' => '12,50'])->assertSessionHasNoErrors();
+
+        $this->assertSame(37, RigaFigurativa::sole()->importo);
+    }
+
     public function test_ore_e_tariffa_fuori_misura_sono_rifiutate_senza_un_errore_500(): void
     {
         foreach ([['ore' => '9999999999', 'tariffa' => '9999999999'], ['ore' => '100.001', 'tariffa' => '10'], ['ore' => '10', 'tariffa' => '1.000,01']] as $caso) {
@@ -283,6 +293,20 @@ class SecondarietaPaginaTest extends TestCase
         }
 
         $this->assertSame(['numero' => 1, 'importo' => 6000], Verifiche::inAttesa(2026)['entrate']);
+    }
+
+    public function test_chi_e_stato_revocato_dopo_il_controllo_della_rotta_non_crea_la_riga_dei_dati_dell_esercizio(): void
+    {
+        $this->assertTrue($this->tesoriere->can('gestire_esercizio')); // il controllo della rotta carica le assegnazioni
+        Assegnazione::where('user_id', $this->tesoriere->id)->delete(); // revoca nel frattempo
+
+        try {
+            DatiEsercizio::sottoBlocco($this->tesoriere, 2031, fn () => $this->fail('La scrittura non doveva partire.'));
+            $this->fail('La scrittura doveva essere rifiutata.');
+        } catch (HttpException $e) {
+            $this->assertSame(403, $e->getStatusCode());
+        }
+        $this->assertFalse(DatiEsercizio::where('esercizio', 2031)->exists());
     }
 
     public function test_la_pagina_dei_test_e_il_suo_indirizzo_corto_e_gli_anni_impossibili(): void

@@ -40,6 +40,10 @@ class SoglieTest extends TestCase
             'esattamente 300.000 euro: cassa ammessa, ma vicino alla soglia' => [2026, [2025 => self::m(300_000), 2024 => null], ['art13.esito' => 'vicino', 'art13.cassa' => true, 'art13.margine' => 0]],
             '300.000 euro e un centesimo: soglia superata, non rispettato' => [2026, [2025 => ['entrate' => 30_000_001, 'attivo' => 0, 'dipendenti' => 0], 2024 => null], ['art13.esito' => 'non_rispettato', 'art13.cassa' => false, 'art13.margine' => -1]],
 
+            'entrate in attesa di conferma nell’esercizio precedente: al massimo vicino, mai rispettato e niente Modello E' => [2026, [2025 => self::m(5_000) + ['inAttesa' => 1], 2024 => null], ['art13.esito' => 'vicino', 'art13.inAttesa' => 1, 'art13.modelloE' => false]],
+            'entrate in attesa e soglia già superata: resta non rispettato' => [2026, [2025 => ['entrate' => 30_000_001, 'attivo' => 0, 'dipendenti' => 0, 'inAttesa' => 2], 2024 => null], ['art13.esito' => 'non_rispettato']],
+            'nessuna entrata in attesa: rispettato' => [2026, [2025 => self::m(5_000) + ['inAttesa' => 0], 2024 => null], ['art13.esito' => 'rispettato', 'art13.inAttesa' => 0]],
+
             // --- artt. 30 e 31: due limiti su tre, per due esercizi consecutivi ---
             'sotto tutti i limiti: rispettato' => [2026, [2025 => $ok, 2024 => $ok], ['art30.esito' => 'rispettato', 'art30.superati' => 0, 'art30.mancanti' => 0, 'art31.esito' => 'rispettato', 'art30.consecutivi' => false]],
             'due limiti superati in due esercizi consecutivi: obbligo dell’organo di controllo, non della revisione' => [2026, [2025 => $oltre, 2024 => $oltre], [
@@ -50,6 +54,12 @@ class SoglieTest extends TestCase
             'sotto i limiti da un solo esercizio, dopo due oltre: l’obbligo non è ancora cessato, vicino' => [2026, [2025 => $ok, 2024 => $oltre], [
                 'art30.superati' => 0, 'art30.esito' => 'vicino', 'art30.consecutivi' => false, 'art30.inCessazione' => true, 'art31.esito' => 'rispettato', 'art31.inCessazione' => false,
             ]],
+            'oltre, oltre, sotto, oltre: l’obbligo nato prima non è cessato con un solo esercizio sotto, quindi non rispettato' => [2026, [2025 => $oltre, 2024 => $ok, 2023 => $oltre, 2022 => $oltre], [
+                'art30.esito' => 'non_rispettato', 'art30.consecutivi' => false, 'art30.persiste' => true,
+            ]],
+            'sotto, oltre, sotto, oltre: l’obbligo non è mai nato, vicino' => [2026, [2025 => $oltre, 2024 => $ok, 2023 => $oltre, 2022 => $ok], ['art30.esito' => 'vicino', 'art30.persiste' => false]],
+            'oltre, sotto, oltre e prima non si sa: per prudenza l’obbligo può essere nato, non rispettato' => [2026, [2025 => $oltre, 2024 => $ok, 2023 => $oltre, 2022 => null], ['art30.esito' => 'non_rispettato', 'art30.persiste' => true]],
+            'oltre, sotto, il terzo esercizio non è nell’app e il quarto è oltre: per prudenza l’obbligo può essere nato, non rispettato' => [2026, [2025 => $oltre, 2024 => $ok, 2023 => null, 2022 => $oltre], ['art30.esito' => 'non_rispettato', 'art30.persiste' => true]],
             'sotto i limiti e l’esercizio prima non è nell’app: rispettato (non si inventa un obbligo che non si può dimostrare)' => [2026, [2025 => $ok, 2024 => null], ['art30.esito' => 'rispettato', 'art30.inCessazione' => false]],
             'sotto i limiti da due esercizi: l’obbligo è cessato' => [2026, [2025 => $ok, 2024 => $ok], ['art30.esito' => 'rispettato', 'art30.inCessazione' => false]],
             'un limite solo superato: non basta' => [2026, [2025 => self::m(100_000, 200_000, 3), 2024 => $ok], ['art30.superati' => 1, 'art30.esito' => 'rispettato']],

@@ -38,6 +38,7 @@ class VerificheController extends Controller
             'confronto' => $test['confronto'],
             'annotazione' => ['proposta' => $proposta, 'salvata' => $dati->annotazione_in_calce, 'testo' => $dati->annotazione_in_calce ?? $proposta],
             'inAttesa' => Verifiche::inAttesa($anno),
+            'inAttesaPrecedente' => $test['inAttesa'],
             'aggiornatoAl' => now(),
         ]);
     }

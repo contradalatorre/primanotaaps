@@ -2,8 +2,10 @@
 
 namespace App\Esercizio;
 
+use App\Models\DatiEsercizio;
 use App\Models\RegistroModifica;
 use App\Models\User;
+use App\Permesso;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -26,7 +28,8 @@ final class Apertura
 
     public static function apri(User $utente, int $anno): void
     {
-        DB::transaction(function () use ($utente, $anno) {
+        // Sotto il blocco della riga dell'esercizio: un doppio clic aspetta e poi trova le voci già copiate (errore di convalida, non un 500 sulla chiave unica).
+        DatiEsercizio::sottoBlocco($utente, $anno, function () use ($utente, $anno) {
             $da = self::sorgente($anno);
             if ($da === null) {
                 throw ValidationException::withMessages(['esercizio' => "L'esercizio $anno ha già le sue voci, oppure non c'è un esercizio precedente da cui copiarle."]);
@@ -45,6 +48,6 @@ final class Apertura
                 'user_id' => $utente->id, 'oggetto_tipo' => 'esercizio', 'oggetto_id' => $anno, 'azione' => 'aperto', 'prima' => null,
                 'dopo' => ['voci_copiate' => count($voci), 'predefiniti_copiati' => count($predefiniti), 'copiati_da' => $da],
             ]);
-        });
+        }, Permesso::RiclassificareInBlocco);
     }
 }

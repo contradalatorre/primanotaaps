@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Esercizio\Apertura;
 use App\Esercizio\Prospetto;
+use App\Models\Assegnazione;
 use App\Models\Conto;
 use App\Models\Giroconto;
 use App\Models\ImportEstratto;
@@ -17,6 +19,7 @@ use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 /** Il Modello D a schermo, le sue imputazioni, gli impedimenti e le impostazioni dell'associazione (#51). Dati inventati. */
@@ -263,6 +266,58 @@ class ModelloDTest extends TestCase
         $this->actingAs($admin)->put('/impostazioni', ['dal_esercizio' => 2026, 'denominazione' => ''])->assertSessionHasErrors('denominazione');
     }
 
+    public function test_il_permesso_revocato_dopo_il_controllo_della_rotta_non_basta_a_scrivere_le_impostazioni(): void
+    {
+        $utente = $this->utenteCon('Amministratore');
+        $this->assertTrue($utente->can('gestire_impostazioni')); // il controllo della rotta carica le assegnazioni
+        Assegnazione::where('user_id', $utente->id)->delete(); // revoca nel frattempo
+
+        foreach ([2026, 2027] as $anno) { // una riga che c'è e una che non c'è
+            try {
+                ImpostazioniAssociazione::scrivi($utente, ['dal_esercizio' => $anno, 'denominazione' => 'Nome rifiutato', 'affiliazione_rete' => false]);
+                $this->fail('La scrittura doveva essere rifiutata.');
+            } catch (HttpException $e) {
+                $this->assertSame(403, $e->getStatusCode());
+            }
+        }
+        $this->assertSame('Contrada La Torre APS', ImpostazioniAssociazione::where('dal_esercizio', 2026)->value('denominazione'));
+        $this->assertFalse(ImpostazioniAssociazione::where('dal_esercizio', 2027)->exists());
+        $this->assertSame(0, RegistroModifica::where('oggetto_tipo', 'impostazioni')->count());
+    }
+
+    public function test_la_riga_nuova_delle_impostazioni_nasce_senza_i_dati_dell_utente_che_si_scrivono_a_riga_bloccata(): void
+    {
+        $utente = $this->utenteCon('Amministratore');
+        $this->assertTrue($utente->can('gestire_impostazioni'));
+        $revoca = true;
+        DB::listen(function ($query) use ($utente, &$revoca) { // la riga è appena stata inserita, fuori dalla transazione: revoca prima del controllo a riga bloccata
+            if ($revoca && str_contains($query->sql, 'insert') && str_contains($query->sql, 'impostazioni_associazione')) {
+                $revoca = false;
+                Assegnazione::where('user_id', $utente->id)->delete();
+            }
+        });
+
+        try {
+            ImpostazioniAssociazione::scrivi($utente, ['dal_esercizio' => 2027, 'denominazione' => 'Nome rifiutato', 'codice_fiscale' => '11111111111', 'affiliazione_rete' => true]);
+            $this->fail('La scrittura doveva essere rifiutata.');
+        } catch (HttpException $e) {
+            $this->assertSame(403, $e->getStatusCode());
+        }
+        $this->assertSame([], array_intersect(['Nome rifiutato', '11111111111'], ImpostazioniAssociazione::where('dal_esercizio', 2027)->get(['denominazione', 'codice_fiscale'])->flatMap->getAttributes()->all()));
+    }
+
+    public function test_il_registro_si_filtra_per_dati_dell_esercizio_e_per_riga_figurativa(): void
+    {
+        $admin = $this->utenteCon('Amministratore');
+        foreach (['dati_esercizio' => 'Dati di prova', 'riga_figurativa' => 'Riga di prova'] as $tipo => $segno) {
+            RegistroModifica::create(['user_id' => $admin->id, 'oggetto_tipo' => $tipo, 'oggetto_id' => 1, 'azione' => 'modificato', 'prima' => null, 'dopo' => ['esercizio' => 2026, 'descrizione' => $segno]]);
+        }
+
+        $this->actingAs($admin)->get('/registro?oggetto=dati_esercizio')->assertOk()->assertSee('Dati di prova')->assertDontSee('Riga di prova');
+        $this->actingAs($admin)->get('/registro?oggetto=riga_figurativa')->assertOk()->assertSee('Riga di prova')->assertDontSee('Dati di prova');
+        $this->actingAs($admin)->get('/registro')->assertOk()->assertSee('value="dati_esercizio"', false)->assertSee('value="riga_figurativa"', false);
+    }
+
     public function test_chi_puo_vedere_legge_il_modello_d_ma_solo_chi_gestisce_le_impostazioni_le_cambia(): void
     {
         $lettore = $this->utenteCon('Lettore esterno', ['scade_il' => now()->addMonth()], ['email' => 'revisore@esterno.example']);
@@ -327,6 +382,21 @@ class ModelloDTest extends TestCase
 
         $this->actingAs($consigliere)->post('/esercizi/2027/apertura')->assertForbidden();
         $this->actingAs($consigliere)->get('/esercizi/2027/modello-d')->assertOk()->assertSeeText('Chi può modificare la tabella delle voci può copiarla dal 2026');
+        $this->assertSame(0, DB::table('voci_modello_d')->where('esercizio', 2027)->count());
+    }
+
+    public function test_il_permesso_revocato_dopo_il_controllo_della_rotta_non_basta_ad_aprire_l_esercizio(): void
+    {
+        $utente = $this->utenteCon('Tesoriere');
+        $this->assertTrue($utente->can('riclassificare_in_blocco')); // il controllo della rotta carica le assegnazioni
+        Assegnazione::where('user_id', $utente->id)->delete(); // revoca nel frattempo
+
+        try {
+            Apertura::apri($utente, 2027);
+            $this->fail('L’apertura doveva essere rifiutata.');
+        } catch (HttpException $e) {
+            $this->assertSame(403, $e->getStatusCode());
+        }
         $this->assertSame(0, DB::table('voci_modello_d')->where('esercizio', 2027)->count());
     }
 

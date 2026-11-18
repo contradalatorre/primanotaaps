@@ -65,8 +65,8 @@ class SatispayController extends Controller
             ['data.*' => 'Scrivi la data del saldo (non nel futuro).', 'importo.required' => 'Scrivi il saldo dichiarato in euro (es. 123,45).'],
         );
         $importo = Euro::daTesto($dati['importo']);
-        if ($importo === null) {
-            throw ValidationException::withMessages(['importo' => 'Il saldo dichiarato dev’essere un importo in euro con al più due decimali (es. 123,45).']);
+        if ($importo === null || $importo < 0) {
+            throw ValidationException::withMessages(['importo' => 'Il saldo dichiarato dev’essere un importo in euro non negativo, con al più due decimali (es. 123,45).']);
         }
         if ($dati['data'] < $conto->aperto_il->toDateString()) {
             throw ValidationException::withMessages(['data' => 'Il conto è stato aperto il '.$conto->aperto_il->format('d/m/Y').': non ha un saldo prima.']);

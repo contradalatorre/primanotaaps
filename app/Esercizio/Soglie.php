@@ -14,6 +14,8 @@ namespace App\Esercizio;
  * Mai a favore: un attivo o dei dipendenti non dichiarati contano come limite superato (con l'avviso «dato mancante»); un esercizio che
  * non ha nessun dato nell'app non dà un esito, e non può dare nemmeno «potete redigere il Modello E».
  * L'esercizio storico 2025 (#63) dà le sue entrate al 2026 attraverso `Verifiche::misura`; finché non è caricato, l'esercizio precedente è «senza dati».
+ * L'obbligo degli artt. 30 e 31 si guarda su quattro esercizi (due consecutivi oltre lo fanno nascere, un solo esercizio sotto non lo fa cessare).
+ * shortcut: oltre il quarto esercizio prima la storia non si guarda (un obbligo nato ancora prima non si presume); da estendere se un esercizio più vecchio dovesse contare.
  */
 final class Soglie
 {
@@ -30,7 +32,7 @@ final class Soglie
     public const REVISIONE = ['attivo' => 150_000_000, 'entrate' => 300_000_000, 'dipendenti' => 20];
 
     /**
-     * @param  array<int, ?array{entrate: int, attivo: ?int, dipendenti: ?int}>  $misure  per anno: gli esercizi che precedono `$anno`; null se non hanno dati nell'app
+     * @param  array<int, ?array{entrate: int, attivo: ?int, dipendenti: ?int, inAttesa?: int}>  $misure  per anno: i quattro esercizi che precedono `$anno`; null se non hanno dati nell'app. `inAttesa`: le entrate ancora da confermare dell'esercizio (mai a favore: l'art. 13 non è «rispettato»)
      * @param  int  $sogliaVicino  percentuale del limite oltre la quale l'esito è «vicino alla soglia»
      */
     public static function calcola(int $anno, array $misure, int $sogliaVicino): array
@@ -42,8 +44,8 @@ final class Soglie
             'anno' => $anno,
             'riferimento' => $anno - 1,
             'art13' => self::art13($anno, $prima, $sogliaVicino),
-            'art30' => self::obbligo(self::ORGANO_DI_CONTROLLO, $prima, $primaDiPrima, $sogliaVicino),
-            'art31' => self::obbligo(self::REVISIONE, $prima, $primaDiPrima, $sogliaVicino),
+            'art30' => self::obbligo(self::ORGANO_DI_CONTROLLO, $prima, $primaDiPrima, [$misure[$anno - 3] ?? null, $misure[$anno - 4] ?? null], $sogliaVicino),
+            'art31' => self::obbligo(self::REVISIONE, $prima, $primaDiPrima, [$misure[$anno - 3] ?? null, $misure[$anno - 4] ?? null], $sogliaVicino),
         ];
     }
 
@@ -57,29 +59,34 @@ final class Soglie
             'entrate' => $entrate,
             'soglia' => self::LIMITE_CASSA,
             'margine' => $entrate === null ? null : self::LIMITE_CASSA - $entrate, // negativo se superata
+            'inAttesa' => $prima['inAttesa'] ?? 0,
             'cassa' => $entrate !== null && $entrate <= self::LIMITE_CASSA,
-            'modelloE' => $entrate !== null && $anno >= self::PRIMO_ANNO_MODELLO_E && $entrate <= self::LIMITE_MODELLO_E,
+            'modelloE' => $entrate !== null && ! ($prima['inAttesa'] ?? 0) && $anno >= self::PRIMO_ANNO_MODELLO_E && $entrate <= self::LIMITE_MODELLO_E,
             'limiteModelloE' => self::LIMITE_MODELLO_E,
             'esito' => match ($stato) {
                 null => null,
                 'superato' => 'non_rispettato',
                 'vicino' => 'vicino',
-                default => 'rispettato',
+                default => ($prima['inAttesa'] ?? 0) > 0 ? 'vicino' : 'rispettato', // entrate non confermate potrebbero superare il limite
             },
         ];
     }
 
     /**
      * @param  array{attivo: int, entrate: int, dipendenti: int}  $limiti
+     * @param  array{0: ?array, 1: ?array}  $piuVecchi  il terzo e il quarto esercizio prima di quello guardato
      */
-    private static function obbligo(array $limiti, ?array $prima, ?array $primaDiPrima, int $sogliaVicino): array
+    private static function obbligo(array $limiti, ?array $prima, ?array $primaDiPrima, array $piuVecchi, int $sogliaVicino): array
     {
         if ($prima === null) {
-            return ['senzaDati' => true, 'parametri' => [], 'superati' => null, 'mancanti' => null, 'consecutivi' => null, 'inCessazione' => null, 'esito' => null];
+            return ['senzaDati' => true, 'parametri' => [], 'superati' => null, 'mancanti' => null, 'consecutivi' => null, 'persiste' => false, 'inCessazione' => null, 'esito' => null];
         }
         $ora = self::misura($limiti, $prima, $sogliaVicino);
         $primaDiPrimaOltre = $primaDiPrima === null ? null : self::misura($limiti, $primaDiPrima, $sogliaVicino)['superati'] >= 2;
         $consecutivi = $ora['superati'] < 2 ? false : $primaDiPrimaOltre;
+        // Oltre, sotto, oltre, oltre (dal più vecchio): l'obbligo nato dai due oltre non è cessato con un solo esercizio sotto. Con uno dei due ignoto, per prudenza, può esserci, purché l'altro non dica il contrario; con tutti e due ignoti non lo si presume.
+        [$terzo, $quarto] = array_map(fn (?array $m) => $m === null ? null : self::misura($limiti, $m, $sogliaVicino)['superati'] >= 2, $piuVecchi);
+        $persiste = $ora['superati'] >= 2 && $primaDiPrimaOltre === false && $terzo !== false && $quarto !== false && ($terzo === true || $quarto === true);
         // Art. 30 c. 3 e art. 31: l'obbligo cessa solo dopo due esercizi consecutivi sotto i limiti; con uno solo sotto, dopo uno oltre, non è ancora cessato.
         $inCessazione = $ora['superati'] < 2 && $primaDiPrimaOltre === true;
 
@@ -90,9 +97,10 @@ final class Soglie
             'mancanti' => $ora['mancanti'],
             // null: l'esercizio prima non è nell'app e non si può dire; per prudenza vale come due esercizi consecutivi.
             'consecutivi' => $consecutivi,
+            'persiste' => $persiste,
             'inCessazione' => $inCessazione,
             'esito' => match (true) {
-                $ora['superati'] >= 2 => $consecutivi === false ? 'vicino' : 'non_rispettato',
+                $ora['superati'] >= 2 => $consecutivi === false && ! $persiste ? 'vicino' : 'non_rispettato',
                 $inCessazione, $ora['vicini'] >= 2 => 'vicino',
                 default => 'rispettato',
             },

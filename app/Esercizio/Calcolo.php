@@ -128,7 +128,7 @@ final class Calcolo
         foreach (['costo' => 'costi', 'provento' => 'proventi'] as $tipo => $nome) {
             $righe = [];
             foreach (SchemaModelloD::figurativi() as $area => $etichetta) {
-                $righe[$area] = ['area' => $area, 'etichetta' => $etichetta, 'importo' => 0, 'dettaglio' => []];
+                $righe[$area] = ['area' => $area, 'etichetta' => $etichetta, 'importo' => 0];
             }
             foreach ($figurativi as $f) {
                 if ($f->tipo !== $tipo) {
@@ -141,7 +141,6 @@ final class Calcolo
                     continue;
                 }
                 $righe[$f->area]['importo'] += $f->importo;
-                $righe[$f->area]['dettaglio'][] = ['descrizione' => $f->descrizione, 'importo' => $f->importo];
             }
             $prospetto[$nome] = ['righe' => array_values($righe), 'totale' => array_sum(array_column($righe, 'importo'))];
         }

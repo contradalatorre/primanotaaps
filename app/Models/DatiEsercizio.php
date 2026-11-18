@@ -33,7 +33,8 @@ class DatiEsercizio extends Model
      * dal controllo della rotta possono essere di prima di una revoca) ed esegue `$scrittura($dati)` nella stessa transazione.
      * La riga si crea FUORI dalla transazione: un `INSERT IGNORE` su una riga che c'è già prende un blocco condiviso, e due
      * richieste che poi chiedono quello esclusivo si bloccano a vicenda (deadlock su MySQL). Non si blocca una riga che non c'è:
-     * il blocco sullo spazio vuoto lascia correre due scritture insieme. Anche le righe figurative si scrivono sotto questo blocco.
+     * il blocco sullo spazio vuoto lascia correre due scritture insieme. Anche le righe figurative si scrivono sotto questo blocco, e l'apertura
+     * dell'esercizio (`Apertura`, permesso `$permesso` diverso): la riga dell'esercizio fa da serratura anche per scritture che non la toccano.
      */
     public static function sottoBlocco(User $utente, int $esercizio, Closure $scrittura, Permesso $permesso = Permesso::GestireEsercizio): mixed
     {
@@ -49,6 +50,8 @@ class DatiEsercizio extends Model
      */
     public static function sottoBlocchi(User $utente, array $esercizi, Closure $scrittura, Permesso $permesso = Permesso::GestireEsercizio): mixed
     {
+        $utente->unsetRelation('assegnazioniAttive'); // quelle in cache sono del controllo della rotta, forse di prima di una revoca
+        abort_unless($utente->puo($permesso), 403); // prima di inserire: chi è stato revocato non crea la riga (si rilegge poi a riga bloccata)
         foreach ($esercizi as $esercizio) {
             DB::table('dati_esercizio')->insertOrIgnore(['esercizio' => $esercizio, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'created_at' => now(), 'updated_at' => now()]);
         }

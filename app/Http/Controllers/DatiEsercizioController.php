@@ -85,7 +85,8 @@ class DatiEsercizioController extends Controller
         if ($costo && $tariffa > 100_000) {
             throw ValidationException::withMessages(['tariffa' => 'La retribuzione oraria non può superare 1.000 € l’ora.']);
         }
-        $importo = $costo ? intdiv($ore * $tariffa + 50, 100) : Euro::daTesto($campi['importo']);
+        // Per difetto: un costo figurativo in più andrebbe a favore dell'ente (secondarietà, art. 79 c. 2-bis).
+        $importo = $costo ? intdiv($ore * $tariffa, 100) : Euro::daTesto($campi['importo']);
         if ($importo === null || $importo <= 0) {
             throw ValidationException::withMessages([$costo ? 'ore' : 'importo' => 'Scrivi un importo in euro maggiore di zero, per esempio 1.234,56.']);
         }

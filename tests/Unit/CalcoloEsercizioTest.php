@@ -212,11 +212,12 @@ class CalcoloEsercizioTest extends TestCase
         $this->assertCount($anomalie, $m['anomalie']);
     }
 
-    public function test_il_dettaglio_di_un_figurativo_porta_la_descrizione(): void
+    public function test_la_descrizione_libera_di_un_figurativo_non_entra_nel_modello_d(): void
     {
-        $m = Calcolo::modelloD([], [], [new Figurativo('costo', 'A', 'Volontari del Carnevale, 40 ore', 300)]);
+        $m = Calcolo::modelloD([], [], [new Figurativo('costo', 'A', 'Volontari del Carnevale, Mario Rossi, 40 ore', 300)]);
 
-        $this->assertSame([['descrizione' => 'Volontari del Carnevale, 40 ore', 'importo' => 300]], $m['figurativi']['costi']['righe'][0]['dettaglio']);
+        $this->assertSame(300, $m['figurativi']['costi']['righe'][0]['importo']);
+        $this->assertStringNotContainsString('Mario Rossi', json_encode($m)); // può nominare una persona (storia 143)
     }
 
     public function test_senza_riga_si_raccolgono_le_voci_mancanti_o_sconosciute(): void
