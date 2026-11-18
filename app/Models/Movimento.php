@@ -111,6 +111,11 @@ class Movimento extends Model
         return $this->belongsTo(Regola::class);
     }
 
+    public function conversioneCausale(): BelongsTo
+    {
+        return $this->belongsTo(ConversioneCausale::class);
+    }
+
     /** Il movimento da cui lo storico ha preso la proposta (anche eliminato: la fonte ne dice la data, il collegamento no). */
     public function storicoMovimento(): BelongsTo
     {
@@ -130,12 +135,13 @@ class Movimento extends Model
 
     /**
      * Da dove viene la proposta in corso, o null se non ce n'è.
-     * shortcut: finora le fonti sono persone, regole e storico; l'AI (#66) avrà la sua. Da caricare prima: `proponente`, `regola`, `storicoMovimento` e `storicoEsempio`.
+     * shortcut: finora le fonti sono persone, regole, storico e tabella di conversione del foglio; l'AI (#66) avrà la sua. Da caricare prima: `proponente`, `regola`, `conversioneCausale`, `storicoMovimento` e `storicoEsempio`.
      */
     public function fonteProposta(): ?string
     {
         return match (true) {
             $this->stato !== 'proposto' => null,
+            $this->conversione_causale_id !== null => 'Conversione: «'.$this->conversioneCausale->causale.'» (tabella del foglio)',
             $this->regola_id !== null => 'Regola: '.$this->regola->nome,
             $this->storico_movimento_id !== null => 'Storico: come il movimento del '.$this->storicoMovimento->data->format('d/m/Y'),
             $this->storico_esempio_id !== null => 'Storico: come l’esempio del '.$this->storicoEsempio->data->format('d/m/Y'),

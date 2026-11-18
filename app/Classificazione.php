@@ -3,6 +3,7 @@
 namespace App;
 
 use App\Models\Attivita;
+use App\Models\ConversioneCausale;
 use App\Models\Imputazione;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
@@ -57,10 +58,11 @@ final class Classificazione
                 if (($problemi = self::problemiDiConferma($movimento)) !== []) {
                     throw ValidationException::withMessages(['conferma' => $problemi]);
                 }
-                $stato = $cambiata ? ['confermato_da' => $utente->id, 'confermato_il' => now()] : [];
-            } elseif ($cambiata || $movimento->regola_id !== null || $movimento->storico_movimento_id !== null || $movimento->storico_esempio_id !== null) {
-                // Salvare a mano una proposta di regola o dello storico ne fa una scelta della persona (anche senza cambiare nulla): non la toccano più.
-                $stato = ['stato' => $imputazioni === [] ? 'da_classificare' : 'proposto', 'proposto_da' => $imputazioni === [] ? null : $utente->id, 'regola_id' => null, 'storico_movimento_id' => null, 'storico_esempio_id' => null];
+                // Cambiata la classificazione, la fonte «tabella di conversione» non vale più: non è più da correggere sulla tabella.
+                $stato = $cambiata ? ['confermato_da' => $utente->id, 'confermato_il' => now(), 'conversione_causale_id' => null] : [];
+            } elseif ($cambiata || $movimento->regola_id !== null || $movimento->storico_movimento_id !== null || $movimento->storico_esempio_id !== null || $movimento->conversione_causale_id !== null) {
+                // Salvare a mano una proposta di regola, dello storico o della tabella di conversione ne fa una scelta della persona (anche senza cambiare nulla): non la toccano più.
+                $stato = ['stato' => $imputazioni === [] ? 'da_classificare' : 'proposto', 'proposto_da' => $imputazioni === [] ? null : $utente->id, 'regola_id' => null, 'storico_movimento_id' => null, 'storico_esempio_id' => null, 'conversione_causale_id' => null];
             }
             $movimento->forceFill(['tipo_controparte' => $tipoControparte ?: null] + $stato)->save();
             RegistroModifica::registra($utente, $movimento, 'classificato', $prima, $movimento->istantanea());
@@ -133,6 +135,28 @@ final class Classificazione
     }
 
     /**
+     * Le imputazioni che la tabella di conversione del foglio propone per il movimento (#64), come per le regole, o null se non si possono proporre:
+     * senza tipologia, elemento archiviato, segno diverso, combinazione fuori dalla tabella delle voci, area non ricavabile.
+     *
+     * @return list<array<string,mixed>>|null
+     */
+    public static function imputazioniDellaConversione(Movimento $movimento, ConversioneCausale $riga): ?array
+    {
+        $riga->loadMissing('tipologia', 'iniziativa', 'attivita', 'tag');
+        if ($riga->tipologia_id === null || $riga->archiviata()) {
+            return null;
+        }
+        try {
+            return self::risolvi($movimento, [[
+                'tipologia_id' => $riga->tipologia_id, 'iniziativa_id' => $riga->iniziativa_id, 'area' => $riga->area,
+                'attivita_id' => $riga->attivita_id, 'tag' => $riga->tag_id ? [$riga->tag_id] : [],
+            ]]);
+        } catch (ValidationException) {
+            return null;
+        }
+    }
+
+    /**
      * Le imputazioni che lo storico propone per il movimento, copiando la classificazione del precedente, o null se non
      * si possono proporre: un elemento archiviato (come per le regole, nemmeno dove la proposta c'è già), una
      * combinazione fuori dalla tabella delle voci per l'esercizio del movimento.
@@ -168,10 +192,12 @@ final class Classificazione
      * @param  list<array<string,mixed>>  $imputazioni  quelle di `imputazioniDellaRegola` o `imputazioniDelloStorico`, già controllate da chi chiama
      * @param  ?string  $tipoDiPrima  il socio o terzo che aveva la regola di prima quando ha proposto (non quello di adesso: può essere stata appena modificata)
      */
-    public static function proponi(User $utente, Movimento $movimento, ?Regola $regola, ?Precedente $precedente, array $imputazioni, ?string $tipoDiPrima = null): void
+    public static function proponi(User $utente, Movimento $movimento, ?Regola $regola, ?Precedente $precedente, array $imputazioni, ?string $tipoDiPrima = null, ?ConversioneCausale $conversione = null): void
     {
         $prima = $movimento->istantanea();
         $azione = match (true) {
+            $conversione !== null => 'proposto_da_conversione',
+            $movimento->conversione_causale_id !== null && $regola === null && $precedente === null => 'proposta_di_conversione_tolta',
             $regola !== null => 'proposto_da_regola',
             $precedente !== null => 'proposto_da_storico',
             $movimento->regola_id !== null => 'proposta_di_regola_tolta',
@@ -186,7 +212,7 @@ final class Classificazione
         }
         $tipo ??= $regola?->tipo_controparte;
         $movimento->forceFill([
-            'stato' => $regola || $precedente ? 'proposto' : 'da_classificare', 'proposto_da' => null, 'regola_id' => $regola?->id,
+            'stato' => $regola || $precedente || $conversione ? 'proposto' : 'da_classificare', 'proposto_da' => null, 'regola_id' => $regola?->id, 'conversione_causale_id' => $conversione?->id,
             'storico_movimento_id' => $precedente?->movimento?->id, 'storico_esempio_id' => $precedente?->esempio?->id, 'tipo_controparte' => $tipo,
         ])->save();
         RegistroModifica::registra($utente, $movimento, $azione, $prima, $movimento->istantanea());

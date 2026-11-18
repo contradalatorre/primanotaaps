@@ -145,6 +145,7 @@ class DatiDiBaseClassificazioneTest extends TestCase
     public function test_le_proprieta_fiscali_di_una_tipologia_si_cambiano_solo_se_mai_usata(): void
     {
         $this->actingAs($this->utenteCon('Tesoriere'));
+        ConversioneCausale::query()->delete(); // la tabella di conversione (#64) usa già molte voci di base: qui si prova l'uso da imputazioni, regole ed esempi
         $usata = Tipologia::firstWhere('nome', 'Utenze');
         $usata->update(['proprieta' => []]);
         Imputazione::create(['movimento_id' => Movimento::factory()->create()->id, 'importo' => 1250, 'area' => 'E', 'tipologia_id' => $usata->id]);
@@ -175,6 +176,7 @@ class DatiDiBaseClassificazioneTest extends TestCase
     public function test_si_cancella_solo_cio_che_non_e_mai_stato_usato(): void
     {
         $this->actingAs($this->utenteCon('Tesoriere'));
+        ConversioneCausale::query()->delete(); // la tabella di conversione (#64) usa già molte voci di base: qui si prova l'uso da imputazioni, regole ed esempi
         $tipologia = Tipologia::firstWhere('nome', 'Utenze');
         $iniziativa = Iniziativa::firstWhere('nome', 'Carnevale');
         $tag = Tag::firstWhere('nome', 'Microprogetto');
@@ -204,9 +206,7 @@ class DatiDiBaseClassificazioneTest extends TestCase
         $this->assertNull($libri->fresh());
         $this->assertNull($casa->fresh());
         $this->assertNull($altro->fresh());
-        // La tabella di conversione delle causali (#63) li citava: non blocca la cancellazione, perde il riferimento (la riga arriva come dubbio).
-        $this->assertNull(ConversioneCausale::firstWhere('chiave', 'acquisto libri')->tipologia_id);
-        $this->assertNull(ConversioneCausale::firstWhere('chiave', 'utenze "la casa"')->iniziativa_id);
+        // La tabella di conversione delle causali ora conta come un uso (#64): che blocchi la cancellazione lo prova ImportFoglioCassaTest.
         $this->assertSame(0, \DB::table('voci_modello_d')->where('tipologia_id', $libri->id)->count());
         $this->assertSame(['eliminato'], RegistroModifica::where('oggetto_tipo', 'tag')->pluck('azione')->all());
     }
@@ -214,6 +214,7 @@ class DatiDiBaseClassificazioneTest extends TestCase
     public function test_un_elemento_usato_solo_da_una_regola_o_da_un_esempio_non_si_cancella_si_archivia(): void
     {
         $this->actingAs($this->utenteCon('Tesoriere'));
+        ConversioneCausale::query()->delete(); // la tabella di conversione (#64) usa già molte voci di base: qui si prova l'uso da imputazioni, regole ed esempi
         $tipologia = Tipologia::firstWhere('nome', 'Libri e pubblicazioni');
         $iniziativa = Iniziativa::firstWhere('nome', 'La Casa');
         $attivita = Attivita::firstWhere('nome', 'Lettera i (art. 5 CTS)');

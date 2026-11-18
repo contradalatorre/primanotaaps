@@ -29,6 +29,8 @@ Una riga per causale, comprese quelle mai usate. Il confronto con la causale ign
 
 Una riga che cambia voce rispetto alla Mappatura ha la nota che spiega perché.
 
+Nell'app (#64) la tabella ha le colonne `causale`, `verso`, `tipologia`, `area`, `attivita`, `iniziativa` e `tag`. Le colonne `voce`, `voce_mappatura_2026`, `controllo` e `nota` restano solo qui, per la revisione: l'import non segnala ancora i `controllo` (che cosa guardare in revisione) come dubbi, per non riempire di dubbi anche le spese piccole di «oltre 516,46 euro: investimento».
+
 ## Tipologie proposte
 
 La voce Modello D è la riga indicata, nella sezione dell'area dell'imputazione. Per le uscite le aree A, B ed E hanno le stesse righe.

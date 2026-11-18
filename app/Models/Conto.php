@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /** Un luogo in cui l'associazione tiene denaro (glossario: Conto). Può esistere solo per un periodo. */
-#[Fillable(['tipo', 'nome', 'formato_import', 'riga_modello_d', 'aperto_il', 'chiuso_il', 'saldo_iniziale'])]
+#[Fillable(['tipo', 'nome', 'formato_import', 'riga_modello_d', 'aperto_il', 'chiuso_il', 'saldo_iniziale', 'passaggio_il'])]
 class Conto extends Model
 {
     /** @use HasFactory<ContoFactory> */
@@ -37,7 +37,7 @@ class Conto extends Model
 
     protected function casts(): array
     {
-        return ['aperto_il' => 'date', 'chiuso_il' => 'date', 'saldo_iniziale' => 'integer'];
+        return ['aperto_il' => 'date', 'chiuso_il' => 'date', 'saldo_iniziale' => 'integer', 'passaggio_il' => 'date'];
     }
 
     public function movimenti(): HasMany
@@ -191,6 +191,18 @@ class Conto extends Model
         return $this->chiuso_il !== null;
     }
 
+    /** Il conto è la cassa che si importa dal foglio (#64). */
+    public function importaDalFoglio(): bool
+    {
+        return $this->formato_import === 'foglio_cassa';
+    }
+
+    /** Il foglio non è più in uso: la data di passaggio è passata. Da lì l'import e la tabella di conversione sono chiusi e la cassa si registra solo nell'app (#19). */
+    public function foglioChiuso(): bool
+    {
+        return $this->importaDalFoglio() && $this->passaggio_il !== null && $this->passaggio_il->lt(today());
+    }
+
     public function etichettaTipo(): string
     {
         return self::TIPI[$this->tipo];
@@ -202,7 +214,7 @@ class Conto extends Model
         return [
             'tipo' => $this->tipo, 'nome' => $this->nome, 'formato_import' => $this->formato_import,
             'riga_modello_d' => $this->riga_modello_d, 'aperto_il' => $this->aperto_il?->toDateString(),
-            'chiuso_il' => $this->chiuso_il?->toDateString(), 'saldo_iniziale' => $this->saldo_iniziale,
+            'chiuso_il' => $this->chiuso_il?->toDateString(), 'saldo_iniziale' => $this->saldo_iniziale, 'passaggio_il' => $this->passaggio_il?->toDateString(),
         ];
     }
 }

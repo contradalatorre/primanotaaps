@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Import\CreditAgricoleCsv;
 use App\Import\Estratto;
+use App\Import\FoglioCassa;
 use App\Import\FormatoImport;
 use App\Import\PayPalCsv;
 use App\Import\RigaEstratto;
@@ -30,13 +31,14 @@ class ImportEstratto extends Model
         'credit_agricole_csv' => CreditAgricoleCsv::class,
         'satispay_csv' => SatispayCsv::class,
         'paypal_csv' => PayPalCsv::class,
+        'foglio_cassa' => FoglioCassa::class,
     ];
 
     protected function casts(): array
     {
         return [
             'periodo_dal' => 'date', 'periodo_al' => 'date', 'saldo_iniziale' => 'integer', 'saldo_finale' => 'integer',
-            'confermato_il' => 'datetime', 'annullato_il' => 'datetime',
+            'confermato_il' => 'datetime', 'annullato_il' => 'datetime', 'controlli' => 'array',
         ];
     }
 

@@ -1,6 +1,6 @@
 @php
     $campi = ['tipo' => 'Tipo', 'nome' => 'Nome', 'formato_import' => 'Formato di import', 'riga_modello_d' => 'Riga del Modello D',
-        'aperto_il' => 'Aperto il', 'chiuso_il' => 'Chiuso il', 'saldo_iniziale' => 'Saldo di partenza', 'conto_id' => 'Conto',
+        'aperto_il' => 'Aperto il', 'chiuso_il' => 'Chiuso il', 'passaggio_il' => 'Data di passaggio dal foglio', 'causale' => 'Causale', 'tipologia_id' => 'Tipologia n.', 'attivita_id' => 'Attività n.', 'iniziativa_id' => 'Iniziativa n.', 'tag_id' => 'Tag n.', 'saldo_iniziale' => 'Saldo di partenza', 'conto_id' => 'Conto',
         'data' => 'Data', 'importo' => 'Importo', 'verso' => 'Verso', 'descrizione' => 'Descrizione',
         'valuta_originale' => 'Valuta originale', 'stato' => 'Stato', 'area' => 'Area',
         'spiegazione' => 'Spiegazione', 'codice' => 'Sezione', 'titolo' => 'Titolo', 'corpo' => 'Testo', 'proprieta' => 'Proprietà fiscali', 'archiviata_il' => 'Archiviata il', 'predefiniti' => 'Area e attività predefinite',
@@ -22,8 +22,8 @@
         'importato' => 'ha importato', 'annullato' => 'ha annullato', 'conflitto_deciso' => 'ha deciso un conflitto di',
         'scritta' => 'ha scritto', 'modificata' => 'ha modificato', 'eliminata' => 'ha eliminato', 'oscurata' => 'ha oscurato', 'dubbio_chiuso' => 'ha chiuso il dubbio di', 'aperto' => 'ha aperto',
         'caricato' => 'ha caricato', 'creata' => 'ha creato', 'riordinata' => 'ha riordinato', 'giroconto_confermato' => 'ha confermato il giroconto di', 'giroconto_sciolto' => 'ha sciolto il giroconto di', 'conta' => 'ha fatto una conta di cassa:', 'saldo_dichiarato' => 'ha dichiarato il saldo di',
-        'natura_forzata' => 'ha forzato la natura commerciale del', 'forzatura_tolta' => 'ha tolto la forzatura della natura commerciale dal'];
-    $oggetti = ['conto' => 'il conto', 'movimento' => 'il movimento', 'tipologia' => 'la tipologia', 'attivita' => 'l’attività', 'iniziativa' => 'l’iniziativa', 'tag' => 'il tag', 'import' => 'l’import', 'manuale' => 'la sezione del manuale', 'nota' => 'la nota', 'regola' => 'la regola', 'impostazioni' => 'le impostazioni dell’associazione dall’esercizio', 'esercizio' => 'l’esercizio', 'dati_esercizio' => 'i dati dell’esercizio', 'riga_figurativa' => 'una riga figurativa dell’esercizio', 'esercizio_storico' => 'l’esercizio storico'];
+        'passaggio_fissato' => 'ha fissato la data di passaggio dal foglio del', 'natura_forzata' => 'ha forzato la natura commerciale del', 'forzatura_tolta' => 'ha tolto la forzatura della natura commerciale dal'];
+    $oggetti = ['conto' => 'il conto', 'movimento' => 'il movimento', 'tipologia' => 'la tipologia', 'attivita' => 'l’attività', 'iniziativa' => 'l’iniziativa', 'tag' => 'il tag', 'import' => 'l’import', 'manuale' => 'la sezione del manuale', 'nota' => 'la nota', 'regola' => 'la regola', 'conversione' => 'la riga della tabella di conversione', 'impostazioni' => 'le impostazioni dell’associazione dall’esercizio', 'esercizio' => 'l’esercizio', 'dati_esercizio' => 'i dati dell’esercizio', 'riga_figurativa' => 'una riga figurativa dell’esercizio', 'esercizio_storico' => 'l’esercizio storico'];
 @endphp
 <li class="scheda">
     <p>
