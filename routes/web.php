@@ -12,6 +12,7 @@ use App\Http\Controllers\DatiEsercizioController;
 use App\Http\Controllers\EmergenzaController;
 use App\Http\Controllers\EsercizioController;
 use App\Http\Controllers\EsercizioStoricoController;
+use App\Http\Controllers\EsportazioniController;
 use App\Http\Controllers\ForzatureController;
 use App\Http\Controllers\GirocontiController;
 use App\Http\Controllers\HomeController;
@@ -75,6 +76,12 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::get('/esercizi/{anno}/iniziative', [IniziativeController::class, 'conti'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.iniziative');
         // Il rendiconto per l'assemblea (#56): dal vivo, senza nomi di persone.
         Route::get('/esercizi/{anno}/rendiconto', [EsercizioController::class, 'rendiconto'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.rendiconto');
+        // Le esportazioni dei prospetti (#58): stessi permessi delle pagine da cui nascono; il controller toglie ciò che chi scarica non vedrebbe.
+        Route::middleware('throttle:30,1')->where(['anno' => '[1-9][0-9]{3}', 'formato' => 'pdf|xlsx', 'tipo' => 'imputazioni|movimenti'])->group(function () {
+            Route::get('/esercizi/{anno}/modello-d/{formato}', [EsportazioniController::class, 'modelloD'])->name('esporta.modello-d');
+            Route::get('/esercizi/{anno}/rendiconto/{formato}', [EsportazioniController::class, 'rendiconto'])->name('esporta.rendiconto');
+            Route::get('/esercizi/{anno}/{tipo}.csv', [EsportazioniController::class, 'elenco'])->name('esporta.elenco');
+        });
     });
     // Forzare la natura commerciale (#52) è di chi classifica; App\Forzature rilegge il permesso a riga bloccata.
     Route::post('/imputazioni/natura', [ForzatureController::class, 'forza'])->middleware('can:importare_e_confermare')->name('natura.forza');
