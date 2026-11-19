@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Esercizio\Verifiche;
+use App\Import\Foglio;
 use App\Models\Attivita;
 use App\Models\Conto;
 use App\Models\DatiEsercizio;
@@ -358,6 +359,54 @@ class ApprovazioneEsercizioTest extends TestCase
                 ->assertSeeText('Totale entrate della gestione')->assertSeeText('800,00')->assertSeeText('820,00')->assertSeeText('20,00')
                 ->assertDontSeeText('Nessuna differenza');
         }
+    }
+
+    public function test_le_esportazioni_portano_la_versione_dell_esercizio_e_le_differenze(): void
+    {
+        $this->esercizio2026();
+        $xlsx = fn () => Foglio::leggi($this->come($this->tesoriere)->get('/esercizi/2026/modello-d/xlsx')->assertOk()->getContent())['Modello D'][3];
+
+        $this->assertSame(['Provvisorio – aggiornato al 20/04/2027 10:00. Solo le imputazioni confermate.'], $xlsx());
+
+        $this->approva()->assertRedirect();
+        $this->assertSame(['Approvato il 20/04/2027 · versione 1 · aggiornato al 20/04/2027 10:00. Solo le imputazioni confermate.'], $xlsx());
+
+        $this->imputa('entrata', 2000, '2026-07-01', 'Somministrazione');
+        $this->assertSame(['Approvato il 20/04/2027 · versione 1 · aggiornato al 20/04/2027 10:00. Solo le imputazioni confermate. Ci sono differenze dalla versione approvata.'], $xlsx());
+
+        $this->come($this->amministratore)->post('/esercizi/2026/riapertura', ['motivazione' => 'Errore'])->assertRedirect();
+        $this->assertSame(['Provvisorio – aggiornato al 20/04/2027 10:00. Solo le imputazioni confermate.'], $xlsx());
+    }
+
+    public function test_chi_modifica_un_movimento_di_un_esercizio_approvato_e_avvisato(): void
+    {
+        $imputazione = $this->imputa('entrata', 80000, '2026-06-01', 'Somministrazione');
+        $movimento = $imputazione->movimento;
+        $movimento->forceFill(['manuale' => true, 'stato' => 'proposto', 'inserito_da' => $this->tesoriere->id])->save(); // la modifica dei dati è dell'autore di un movimento a mano non ancora confermato
+        $pagine = ["/movimenti/{$movimento->id}/classificazione", "/movimenti/{$movimento->id}/modifica"];
+
+        foreach ($pagine as $pagina) {
+            $this->come($this->tesoriere)->get($pagina)->assertOk()->assertDontSeeText('è già approvato');
+        }
+        $this->approva()->assertRedirect();
+        foreach ($pagine as $pagina) {
+            $this->come($this->tesoriere)->get($pagina)->assertOk()->assertSeeText('L’esercizio 2026 è già approvato: la modifica è ammessa');
+        }
+    }
+
+    public function test_un_esercizio_depositato_non_ammette_l_eliminazione_di_un_movimento(): void
+    {
+        $manuale = Movimento::factory()->create(['conto_id' => $this->cassa->id, 'verso' => 'uscita', 'importo' => 500, 'data' => '2026-03-01', 'manuale' => true, 'inserito_da' => $this->tesoriere->id, 'stato' => 'confermato']);
+        $this->approva()->assertSessionHasNoErrors();
+
+        $this->come($this->tesoriere)->post("/movimenti/{$manuale->id}/eliminazione", ['motivazione' => 'Doppione'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSoftDeleted($manuale);
+
+        $altro = Movimento::factory()->create(['conto_id' => $this->cassa->id, 'verso' => 'uscita', 'importo' => 700, 'data' => '2026-03-02', 'manuale' => true, 'inserito_da' => $this->tesoriere->id, 'stato' => 'confermato']);
+        DatiEsercizio::where('esercizio', 2026)->update(['stato' => 'depositato']); // il deposito arriva con #60
+
+        $this->come($this->tesoriere)->post("/movimenti/{$altro->id}/eliminazione", ['motivazione' => 'Errore'])->assertSessionHasErrors('movimento');
+        $this->assertNotSoftDeleted($altro);
     }
 
     public function test_dopo_la_riapertura_il_prospetto_torna_provvisorio_con_la_nuova_versione(): void

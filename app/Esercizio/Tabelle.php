@@ -157,18 +157,21 @@ final class Tabelle
 
     /**
      * Le righe sopra ogni prospetto, dalle impostazioni dell'associazione: ente, codice fiscale e RUNTS, titolo e lo stato. Un esercizio aperto è sempre
-     * «provvisorio – aggiornato al …»: sta qui, in intestazione, e non in filigrana (il PDF/A non ammette trasparenze).
+     * «provvisorio – aggiornato al …»: sta qui, in intestazione, e non in filigrana (il PDF/A non ammette trasparenze). Un esercizio approvato (#59) porta al suo posto
+     * `$approvazione` («Approvato il … · versione N») e, se i dati di oggi non sono più quelli approvati, la frase sulle differenze.
      *
      * @param  array{denominazione?: ?string, codice_fiscale?: ?string, numero_runts?: ?string}  $impostazioni
      * @return list<string> la prima è la denominazione
      */
-    public static function intestazione(array $impostazioni, string $titolo, bool $storico, bool $proposte, CarbonInterface $ora): array
+    public static function intestazione(array $impostazioni, string $titolo, bool $storico, bool $proposte, CarbonInterface $ora, ?string $approvazione = null, bool $conDifferenze = false): array
     {
         return [
             ($impostazioni['denominazione'] ?? '') ?: 'Denominazione da inserire',
             'Codice fiscale '.(($impostazioni['codice_fiscale'] ?? '') ?: 'da inserire').' · numero RUNTS '.(($impostazioni['numero_runts'] ?? '') ?: 'da inserire'),
             $titolo,
-            $storico ? 'Esercizio storico: importi caricati dal foglio approvato' : 'Provvisorio – aggiornato al '.$ora->format('d/m/Y H:i').'. '.($proposte ? 'Con anche le imputazioni proposte, ancora da confermare.' : 'Solo le imputazioni confermate.'),
+            $storico ? 'Esercizio storico: importi caricati dal foglio approvato'
+                : ($approvazione === null ? 'Provvisorio –' : $approvazione.' ·').' aggiornato al '.$ora->format('d/m/Y H:i').'. '
+                .($proposte ? 'Con anche le imputazioni proposte, ancora da confermare.' : 'Solo le imputazioni confermate.').($conDifferenze ? ' Ci sono differenze dalla versione approvata.' : ''),
         ];
     }
 
