@@ -20,6 +20,9 @@ class Nota extends Model
     /** Per quante ore l'autore modifica o cancella la propria nota (#16). */
     public const FINESTRA_ORE = 24;
 
+    /** La fase dell'esercizio in cui una nota è stata scritta, se non era più aperto: «aggiunta dopo …» (#16, #59). */
+    public const FASI = ['approvato' => 'l’approvazione', 'depositato' => 'il deposito'];
+
     protected $guarded = [];
 
     protected function casts(): array

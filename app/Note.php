@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Models\DatiEsercizio;
 use App\Models\Menzione;
 use App\Models\Movimento;
 use App\Models\Nota;
@@ -23,8 +24,8 @@ final class Note
      * Scrive una nota sul movimento, anche fuori dall'ambito dell'utente (#16: l'ambito limita le scritture sui
      * dati, non le note). Chi era chiamato in causa da una nota precedente e risponde la chiude.
      *
-     * shortcut: «aggiunta dopo l'approvazione/il deposito» (#16) manca perché gli esercizi arrivano con #55 e
-     * successivi; lì la nota deve portare la fase in cui è stata scritta.
+     * La nota porta la fase dell'esercizio del movimento in cui è stata scritta («aggiunta dopo l'approvazione/il deposito», #16, #59),
+     * letta a movimento bloccato: una lettura prima del lock potrebbe non vedere un'approvazione appena conclusa.
      */
     public static function scrivi(User $utente, Movimento $movimento, string $testo, bool $dubbio): Nota
     {
@@ -33,7 +34,8 @@ final class Note
             Classificazione::blocca($movimento);
             self::controllaPuoScrivere($utente);
 
-            $nota = $movimento->note()->create(['user_id' => $utente->id, 'testo' => $testo, 'dubbio' => $dubbio]);
+            $fase = DatiEsercizio::per($movimento->data->year)->stato;
+            $nota = $movimento->note()->create(['user_id' => $utente->id, 'testo' => $testo, 'dubbio' => $dubbio, 'fase' => $fase === 'aperto' ? null : $fase]);
             $nuove = self::sincronizzaMenzioni($nota);
             // Chi risponde chiude le menzioni a lui rivolte sullo stesso movimento (non quella appena scritta, che non lo cita).
             Menzione::whereNull('vista_il')->rivolteA($utente)

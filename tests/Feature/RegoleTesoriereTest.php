@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Classificazione;
 use App\Models\Conto;
+use App\Models\DatiEsercizio;
 use App\Models\ImportEstratto;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
@@ -11,6 +12,7 @@ use App\Models\RegistroModifica;
 use App\Models\Regola;
 use App\Models\Tipologia;
 use App\Models\User;
+use App\Regole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Schema;
@@ -165,6 +167,29 @@ class RegoleTesoriereTest extends TestCase
         // Modificando «Tutto a 12,50» in modo che non prenda più nulla, l'anteprima elenca quello che lascia.
         $this->actingAs($this->tesoriere)->put('/regole/anteprima', $this->dati(['regola' => $generica->id, 'nome' => 'Tutto a 12,50', 'testo' => null, 'importo_min' => '99,00', 'importo_max' => '99,00']))
             ->assertSeeInOrder(['Non prenderebbe più', '2', 'Bolletta ENEL maggio', 'torna da classificare', 'Bolletta ACQUEDOTTO maggio', 'torna da classificare']);
+    }
+
+    /** #59: le regole propongono solo sui movimenti di esercizi aperti; dopo l'approvazione (o con il deposito) l'esercizio non si tocca. */
+    public function test_le_regole_non_toccano_i_movimenti_di_un_esercizio_approvato(): void
+    {
+        $chiuso = $this->movimento('Bolletta ENEL dicembre', 1250, 'uscita', ['data' => '2025-12-01']);
+        $aperto = $this->movimento('Bolletta ENEL maggio', 1250, 'uscita', ['data' => '2026-05-01']);
+        $dati = DatiEsercizio::create(['esercizio' => 2025, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'stato' => 'approvato', 'versione' => 1]);
+
+        $this->assertSame([$aperto->id], Regole::anteprima($this->dati(), null)['presi']->pluck('movimento.id')->all(), 'L’anteprima non nomina il movimento del 2025');
+        $regola = $this->creaRegola();
+
+        $this->assertSame($regola->id, $aperto->refresh()->regola_id);
+        $this->assertSame('da_classificare', $chiuso->refresh()->stato, 'Il 2025 è approvato: la regola non lo propone');
+        $this->assertNull($chiuso->regola_id);
+
+        $dati->update(['stato' => 'depositato']);
+        $this->actingAs($this->tesoriere)->put("/regole/{$regola->id}", $this->dati())->assertSessionHasNoErrors();
+        $this->assertSame('da_classificare', $chiuso->refresh()->stato, 'Nemmeno dopo il deposito');
+
+        $dati->update(['stato' => 'aperto']);
+        $this->actingAs($this->tesoriere)->put("/regole/{$regola->id}", $this->dati())->assertSessionHasNoErrors();
+        $this->assertSame($regola->id, $chiuso->refresh()->regola_id, 'Riaperto, torna ad avere le proposte delle regole');
     }
 
     public function test_l_anteprima_non_conta_come_presi_i_movimenti_che_sono_gia_della_regola(): void
