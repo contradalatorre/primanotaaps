@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Classificazione;
 use App\Giroconti;
+use App\Import\Foglio;
 use App\Models\Attivita;
 use App\Models\Conto;
 use App\Models\ConversioneCausale;
@@ -125,6 +126,19 @@ class ImportFoglioCassaTest extends TestCase
         $this->assertSame(1, ImportConflitto::count());
         $this->assertSame('Bolletta luce', Movimento::where('data', '2026-01-10')->value('descrizione'));
         $this->get("/import/{$import->id}")->assertSee('Bolletta luce di gennaio');
+    }
+
+    public function test_il_file_caricato_si_apre_da_una_cartella_sotto_storage_e_non_resta_li_nemmeno_se_il_foglio_non_e_valido(): void
+    {
+        $disco = Storage::disk('local');
+        $disco->put('foglio-tmp/rimasto-da-un-processo-morto', 'nomi di persona');
+        touch($disco->path('foglio-tmp/rimasto-da-un-processo-morto'), time() - 2 * 3600);
+        $disco->put('foglio-tmp/di-un-caricamento-in-corso', 'x');
+
+        $this->assertSame(['Cassa', 'Mappatura'], collect(array_keys(Foglio::leggi(self::foglio())))->sort()->values()->all());
+        $this->carica('non è un foglio', nome: 'cassa.xlsx')->assertSessionHasErrors('estratto');
+
+        $this->assertSame(['foglio-tmp/di-un-caricamento-in-corso'], $disco->files('foglio-tmp')); // i resti oltre l'ora si tolgono, il file letto non resta
     }
 
     public function test_importare_a_parte_una_riga_in_conflitto_del_foglio_passa_dalla_tabella_di_conversione(): void
