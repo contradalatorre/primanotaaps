@@ -243,6 +243,10 @@ class ImportEstrattiController extends Controller
             if ($decisione === 'importa_a_parte' && $conto->chiuso()) {
                 $this->rifiuta('Il conto è chiuso: non si importano nuovi movimenti.');
             }
+            // Come la conferma: passata la data di passaggio il foglio non porta più movimenti (mai due fonti per lo stesso periodo).
+            if ($decisione === 'importa_a_parte' && $conto->importaDalFoglio() && $conto->foglioChiuso()) {
+                $this->rifiutaFoglioChiuso($conto);
+            }
 
             if ($decisione === 'importa_a_parte') {
                 $riga = $conflitto->rigaEstratto();

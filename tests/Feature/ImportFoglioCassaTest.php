@@ -22,6 +22,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\FogliInventati;
 use Tests\TestCase;
+use ZipArchive;
 
 /** L'import ripetibile della cassa dal foglio (#64, #19): fogli inventati, caricati come fa il Tesoriere. */
 class ImportFoglioCassaTest extends TestCase
@@ -136,7 +137,14 @@ class ImportFoglioCassaTest extends TestCase
         $disco->put('foglio-tmp/di-un-caricamento-in-corso', 'x');
 
         $this->assertSame(['Cassa', 'Mappatura'], collect(array_keys(Foglio::leggi(self::foglio())))->sort()->values()->all());
-        $this->carica('non è un foglio', nome: 'cassa.xlsx')->assertSessionHasErrors('estratto');
+        // Uno zip che non è un foglio passa il controllo del tipo e arriva al lettore, che lo rifiuta dopo aver scritto il file.
+        $percorso = tempnam(sys_get_temp_dir(), 'zip');
+        $zip = new ZipArchive;
+        $zip->open($percorso, ZipArchive::OVERWRITE);
+        $zip->addFromString('nota.txt', 'niente fogli qui');
+        $zip->close();
+        $this->carica(file_get_contents($percorso), nome: 'cassa.xlsx')->assertSessionHasErrors('estratto');
+        unlink($percorso);
 
         $this->assertSame(['foglio-tmp/di-un-caricamento-in-corso'], $disco->files('foglio-tmp')); // i resti oltre l'ora si tolgono, il file letto non resta
     }
@@ -155,6 +163,22 @@ class ImportFoglioCassaTest extends TestCase
         $nuovo = Movimento::where('descrizione', 'Bolletta luce di gennaio')->firstOrFail();
         $this->assertSame('proposto', $nuovo->stato); // la tabella ha la sua proposta, come per le righe nuove
         $this->assertSame($this->riga('Assicurazioni')->id, $nuovo->conversione_causale_id);
+    }
+
+    public function test_passata_la_data_di_passaggio_un_conflitto_del_foglio_non_si_importa_a_parte(): void
+    {
+        $this->importa(self::foglio());
+        $righe = self::righe();
+        $righe[0][2] = 'Bolletta luce di gennaio';
+        $this->carica(self::foglio($righe))->assertSessionHasNoErrors();
+        $this->post('/import/'.ImportEstratto::latest('id')->value('id').'/conferma')->assertSessionHasNoErrors();
+        $conflitto = ImportConflitto::firstOrFail();
+
+        $this->cassa->update(['passaggio_il' => '2026-05-31']); // oggi è il 2/06
+        $this->post("/import/conflitti/{$conflitto->id}/decisione", ['decisione' => 'importa_a_parte'])->assertSessionHasErrors('estratto');
+
+        $this->assertSame(4, Movimento::count());
+        $this->assertNull($conflitto->refresh()->decisione);
     }
 
     public function test_importare_a_parte_una_riga_del_foglio_con_una_causale_fuori_dalla_tabella_la_lascia_in_dubbio(): void
@@ -501,6 +525,8 @@ class ImportFoglioCassaTest extends TestCase
         $righe = [...self::righe(), [new DateTimeImmutable('2026-01-12'), 'Tesseramento ord', 'Scritta in fondo', null, 10, null, 739.5]]; // fuori ordine di data: l'ultima riga ha il saldo 739,50
         $this->importa(self::foglio($righe));
         $this->assertSame(5, Movimento::count());
+        // Il saldo di gennaio del foglio (739,50) conta anche febbraio: con le righe fuori ordine non si confronta, e non nasce un dubbio falso.
+        $this->assertSame(0, Movimento::whereHas('note', fn ($q) => $q->where('testo', 'like', 'Controllo del foglio%'))->count());
     }
 
     public function test_un_saldo_finale_che_non_torna_blocca_la_conferma_e_non_entra_nulla(): void

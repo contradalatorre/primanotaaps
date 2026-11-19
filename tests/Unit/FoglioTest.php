@@ -110,6 +110,8 @@ class FoglioTest extends TestCase
         $riga = fn (string $celle) => self::xlsxGrezzo(['<worksheet xmlns="'.self::NS.'"><sheetData><row r="1"><c r="A1" t="str"><v>a</v></c>'.$celle.'</row></sheetData></worksheet>']);
 
         $this->assertSame([['a']], Foglio::leggi($riga('<c r="BI1"/>'))['F1']); // BI è la 61ª colonna, vuota
+        $this->assertSame([['a']], Foglio::leggi($riga('<c r="BI1" t="str"><v>  </v></c>'))['F1']); // o con solo spazi
+        Foglio::leggi(self::ods(['F' => [['a', [null, 59], '  ']]])); // lo stesso in un .ods
         $this->expectException(FoglioNonValido::class);
         Foglio::leggi($riga('<c r="BI1" t="str"><v>saldo</v></c>'));
     }

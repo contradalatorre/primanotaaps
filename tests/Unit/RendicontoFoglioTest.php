@@ -77,6 +77,9 @@ class RendicontoFoglioTest extends TestCase
         ));
 
         $this->assertSame(RendicontoFoglio::leggi(self::foglio($importi, extra: ['cassa' => 800])), RendicontoFoglio::leggi($fogli[ImportStorico::FOGLIO]));
+        // Il rendiconto legge solo il primo numero dopo l'etichetta: la cella dopo la ripetizione si vede solo nella riga grezza (A1 ha 1234,56 nella prima colonna).
+        $riga = collect($fogli[ImportStorico::FOGLIO])->first(fn ($r) => ($r[1] ?? null) === 1234.56);
+        $this->assertSame([...array_fill(0, 12, 1234.56), 999], array_slice($riga, 1));
     }
 
     public function test_riconosce_le_voci_dall_intestazione_di_sezione_e_dal_numero_e_non_dall_etichetta(): void

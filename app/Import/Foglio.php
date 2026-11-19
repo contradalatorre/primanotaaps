@@ -11,12 +11,13 @@ use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 
 /**
- * Legge un foglio di calcolo `.xlsx` o `.ods` (il foglio 2025 di #63, poi la cassa di #64) in PHP puro: solo ZipArchive e DOM, nessuna
- * dipendenza (l'estensione zip c'è già, la usa il backup). Restituisce, per ogni foglio, le righe come elenchi di celle: null per la
+ * Legge un foglio di calcolo `.xlsx` o `.ods` (il foglio 2025 di #63, poi la cassa di #64) con ZipArchive e DOM, senza dipendenze
+ * nuove (l'estensione zip c'è già, la usa il backup). Restituisce, per ogni foglio, le righe come elenchi di celle: null per la
  * vuota, testo, numero (int o float) o la data come «AAAA-MM-GG». Le formule valgono per il loro ultimo valore salvato.
  *
- * Il file lo carica un utente: si rifiutano gli XML con DTD o entità, si limitano le dimensioni, le righe e le colonne, e le righe vuote
- * ripetute di un .ods (un milione, di norma) non si espandono.
+ * Il file lo carica un utente: lo zip si apre da una copia in `storage` (`foglio-tmp`, ripulita; senza l'app, nella cartella temporanea di
+ * sistema), si rifiutano gli XML con DTD o entità, si limitano fogli, byte, righe e colonne, le tabelle annidate e un valore oltre l'ultima
+ * colonna ammessa; le righe vuote ripetute di un .ods (un milione, di norma) non si espandono.
  * shortcut: niente fogli nascosti o celle unite, niente date xlsx con formato personalizzato strano (si riconoscono d/m/y e i formati predefiniti);
  * da estendere con i file veri.
  */
@@ -92,6 +93,12 @@ final class Foglio
         }
 
         return $disco->path('foglio-tmp');
+    }
+
+    /** Una cella senza valore: null o solo spazi (le vuote di LibreOffice e le stringhe condivise vuote). */
+    private static function vuota(mixed $valore): bool
+    {
+        return $valore === null || (is_string($valore) && trim($valore) === '');
     }
 
     private static function troppeColonne(): FoglioNonValido
@@ -176,7 +183,7 @@ final class Foglio
                 default => ($t = self::testoOds($cella)) === '' ? null : $t,
             };
             // Una cella con un valore oltre l'ultima colonna ammessa non si perde in silenzio (potrebbe essere il Saldo): si rifiuta il foglio.
-            if ($valore !== null && count($celle) >= self::MAX_COLONNE) {
+            if (! self::vuota($valore) && count($celle) >= self::MAX_COLONNE) {
                 throw self::troppeColonne();
             }
             $ripetuta = max(1, (int) $cella->getAttributeNS(self::NS_ODS['table'], 'number-columns-repeated'));
@@ -251,7 +258,7 @@ final class Foglio
                 $numero = (int) $riga->getAttribute('r') ?: $numero + 1;
                 $celle = self::celleXlsx($riga, $condivise, $date);
                 // Una riga senza valori (formattata, o in fondo al foglio) non pesa: il tetto vale per quelle con dei dati.
-                if (array_filter($celle, fn ($v) => $v !== null) === []) {
+                if (array_filter($celle, fn ($v) => ! self::vuota($v)) === []) {
                     continue;
                 }
                 if ($numero > self::MAX_RIGHE) {
@@ -297,7 +304,7 @@ final class Foglio
             };
             if ($colonna > self::MAX_COLONNE) {
                 // Una cella vuota (solo formattata) si ignora; una con un valore no: sarebbe una colonna persa in silenzio.
-                $valore === null ? null : throw self::troppeColonne();
+                self::vuota($valore) ?: throw self::troppeColonne();
 
                 continue;
             }
