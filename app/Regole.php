@@ -271,8 +271,11 @@ final class Regole
 
     /**
      * Le regole e lo storico propongono solo sui movimenti di un esercizio aperto (#59, #16): dopo l'approvazione una regola nuova non cambia i movimenti
-     * di un esercizio che l'assemblea ha già visto. Gli esercizi chiusi si leggono qui, dopo i lock di chi chiama: una lettura fatta prima, su MySQL
-     * (REPEATABLE READ), potrebbe non vedere un'approvazione appena conclusa.
+     * di un esercizio che l'assemblea ha già visto.
+     *
+     * shortcut: lo stato dell'esercizio si legge senza bloccare la riga dei dati (`Approvazione::approva` blocca solo quella, e prendere il suo blocco dopo quelli
+     * dei conti invertirebbe l'ordine usato altrove): una proposta scritta mentre si approva può cadere sul 2026 appena approvato. È innocua, perché
+     * l'approvazione salva solo le imputazioni confermate, e la proposta resta una proposta.
      *
      * @param  Collection<int, Movimento>  $movimenti
      * @return Collection<int, Movimento>

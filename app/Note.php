@@ -25,7 +25,8 @@ final class Note
      * dati, non le note). Chi era chiamato in causa da una nota precedente e risponde la chiude.
      *
      * La nota porta la fase dell'esercizio del movimento in cui è stata scritta («aggiunta dopo l'approvazione/il deposito», #16, #59),
-     * letta a movimento bloccato: una lettura prima del lock potrebbe non vedere un'approvazione appena conclusa.
+     * shortcut: la fase si legge senza bloccare la riga dei dati dell'esercizio (`Approvazione::approva` blocca solo quella, e prendere il suo blocco dopo
+     * quello del movimento invertirebbe l'ordine dei lock): una nota scritta mentre si approva può portare la fase di un istante prima. È solo un'etichetta.
      */
     public static function scrivi(User $utente, Movimento $movimento, string $testo, bool $dubbio): Nota
     {

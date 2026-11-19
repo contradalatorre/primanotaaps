@@ -384,7 +384,7 @@ class ApprovazioneEsercizioTest extends TestCase
         $imputazione = $this->imputa('entrata', 80000, '2026-06-01', 'Somministrazione');
         $movimento = $imputazione->movimento;
         $movimento->forceFill(['manuale' => true, 'stato' => 'proposto', 'inserito_da' => $this->tesoriere->id])->save(); // la modifica dei dati è dell'autore di un movimento a mano non ancora confermato
-        $pagine = ["/movimenti/{$movimento->id}/classificazione", "/movimenti/{$movimento->id}/modifica"];
+        $pagine = ["/movimenti/{$movimento->id}/classificazione", "/movimenti/{$movimento->id}/modifica", '/esercizi/2026/dati'];
 
         foreach ($pagine as $pagina) {
             $this->come($this->tesoriere)->get($pagina)->assertOk()->assertDontSeeText('è già approvato');

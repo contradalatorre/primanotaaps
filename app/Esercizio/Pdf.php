@@ -10,7 +10,7 @@ use Mpdf\Output\Destination;
  * Un prospetto in PDF con mPDF (#58, #18): intestazione dell'associazione e dicitura «provvisorio» in alto a ogni pagina, piè di pagina con la data
  * di generazione, la versione dell'esercizio e il numero di pagina. «Provvisorio» sta nell'intestazione e non in filigrana: il PDF/A non ammette trasparenze.
  *
- * shortcut: questo è il PDF provvisorio, e quindi non è PDF/A; quello di deposito (PDF/A-1b, #60) si farà qui con un parametro in più; gli stati dell'esercizio (#59) ci sono, il deposito no. L'esercizio approvato porta già la sua versione al posto di «provvisorio», ma il PDF resta lo stesso.
+ * shortcut: questo è il PDF provvisorio, e quindi non è PDF/A; quello di deposito (PDF/A-1b, #60) si farà qui con un parametro in più. L'esercizio approvato porta già la sua versione al posto di «provvisorio», ma il PDF non è ancora PDF/A.
  */
 final class Pdf
 {

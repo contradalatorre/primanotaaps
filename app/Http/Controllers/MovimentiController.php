@@ -135,8 +135,9 @@ class MovimentiController extends Controller
             if ($comeAutore) {
                 $this->controllaAutore($request, $movimento);
             }
-            // «Fino al deposito» (#16, #38): l'esercizio depositato non si tocca. Lo stato si legge dopo i blocchi del conto e del movimento, in una lettura
-            // semplice (non si blocca la riga dei dati, che può non esserci). Il deposito (#60) deve cambiare stato sotto gli stessi blocchi.
+            // «Fino al deposito» (#16, #38): l'esercizio depositato non si tocca.
+            // shortcut: lo stato si legge senza bloccare la riga dei dati (può non esserci, e il suo blocco dopo quelli del conto inverte l'ordine usato altrove): un deposito
+            // che si conclude mentre si elimina non fermerebbe questa eliminazione. Il deposito (#60) deve cambiare stato dopo aver bloccato conti e movimenti, come qui.
             if (DatiEsercizio::per($movimento->data->year)->stato === 'depositato') {
                 throw ValidationException::withMessages(['movimento' => 'L’esercizio '.$movimento->data->year.' è depositato: i suoi movimenti non si eliminano più.']);
             }
