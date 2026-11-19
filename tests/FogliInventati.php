@@ -66,7 +66,7 @@ trait FogliInventati
     /**
      * @param  array<string, list<list<mixed>>>  $fogli  nome → righe; una cella `[valore, n]` si ripete n volte (`number-columns-repeated`)
      * @param  list<array{string, int, int}>  $contenitori  [elemento, prima riga, ultima riga]: le righe tra le due (da 0, comprese) finiscono in quell'elemento,
-     *                                                    p.es. `table-row-group` o `table-header-rows`, in ogni foglio
+     *                                                      p.es. `table-row-group` o `table-header-rows`, in ogni foglio
      */
     protected static function ods(array $fogli, array $contenitori = []): string
     {
