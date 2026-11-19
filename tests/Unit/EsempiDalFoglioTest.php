@@ -55,6 +55,20 @@ class EsempiDalFoglioTest extends TestCase
         $this->assertStringNotContainsString('Mario', json_encode($esempi));
     }
 
+    public function test_gli_iban_nella_descrizione_e_nella_causale_dell_estratto_si_mascherano(): void
+    {
+        $fogli = ['Banca' => [
+            ['Data', 'Causale', 'Descrizione', 'Nuova causale', 'Importo'],
+            ['2025-02-02', 'BONIFICO A IT60X0542811101000000123456', 'Rimborso a IT60X0542811101000000123456 da mario@example.org', 'Utenze', -45],
+        ]];
+
+        $esempio = EsempiDalFoglio::leggi($fogli, 2025, self::CONVERSIONE)['esempi'][0];
+
+        $this->assertStringNotContainsString('IT60X0542811101000000123456', json_encode($esempio));
+        $stelle = str_repeat('*', 23);
+        $this->assertSame(["BONIFICO A {$stelle}3456", "Rimborso a {$stelle}3456 da"], [$esempio['causale'], $esempio['descrizione']]);
+    }
+
     public function test_le_righe_che_non_si_possono_convertire_si_scartano_e_si_contano_per_motivo(): void
     {
         $esito = EsempiDalFoglio::leggi(self::cassa(

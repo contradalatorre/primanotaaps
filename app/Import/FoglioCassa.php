@@ -65,7 +65,8 @@ class FoglioCassa implements FormatoImport
             $firmato = Foglio::centesimi($riga[$c['importo'] ?? -1] ?? null);
             $saldo = Foglio::centesimi($riga[$c['saldo'] ?? -1] ?? null);
 
-            if (preg_match('/saldo\s+iniziale/iu', $testo)) {
+            // Il saldo iniziale sta prima dei movimenti: una «Rettifica saldo iniziale» dopo è un movimento come gli altri.
+            if ($movimenti === [] && preg_match('/saldo\s+iniziale/iu', $testo)) {
                 $saldoIniziale ??= $saldo ?? $entrata;
 
                 continue;
@@ -83,10 +84,14 @@ class FoglioCassa implements FormatoImport
                 continue;
             }
 
-            $causale = trim(preg_replace('/^\s*(->|→)\s*/u', '', (string) ($riga[$c['causale']] ?? '')));
+            $causale = Iban::maschera(Foglio::senzaEmail(preg_replace('/^\s*(->|→)\s*/u', '', (string) ($riga[$c['causale']] ?? ''))));
             // Un totale può avere la data («Totale febbraio»): senza causale e con una cella che comincia per «Totale» non è un movimento.
             if ($causale === '' && array_filter($riga, fn ($cella) => is_string($cella) && preg_match('/^\s*total[ei]\b/iu', $cella)) !== []) {
                 continue;
+            }
+            // Senza il segno di Importo, Entrate e Uscite sono positive: un'uscita scritta con il meno diventerebbe un'entrata.
+            if ($firmato === null && (($entrata ?? 0) < 0 || ($uscita ?? 0) < 0)) {
+                throw new EstrattoNonValido('Riga '.($i + 1).' del foglio: un importo di Entrate o di Uscite è negativo. Scrivilo positivo nella colonna giusta.');
             }
             $descrizione = Iban::maschera(Foglio::senzaEmail($riga[$c['descrizione'] ?? -1] ?? ''));
             $riferimento = preg_replace('/[^a-z0-9]/', '', mb_strtolower((string) ($riga[$c['riferimento'] ?? -1] ?? '')));
@@ -96,15 +101,38 @@ class FoglioCassa implements FormatoImport
             $movimenti[] = new RigaEstratto($data, null, $causale === '' ? null : $causale, $descrizione !== '' ? $descrizione : ($causale ?: 'Senza descrizione'), $netto, null, sha1($uguali.'|'.$visti[$uguali]));
             // Saldo finale: l'ultimo saldo scritto più le righe dopo di esso senza saldo (l'app confronta con tutte le righe), non quello dell'ultimo mese in ordine di data.
             $saldoFinale = $saldo ?? ($saldoFinale === null ? null : $saldoFinale + $netto);
-            if ($saldo !== null) {
-                $saldiMensili[substr($data, 0, 7)] = $saldo;
+            // Saldo di fine mese: quello dopo l'ultima riga del mese nell'ordine del foglio (con le ultime righe senza saldo, il corrente).
+            if ($saldoFinale !== null) {
+                $saldiMensili[substr($data, 0, 7)] = [count($movimenti) - 1, $saldoFinale];
             }
         }
         if ($movimenti === []) {
             throw new EstrattoNonValido('Nella scheda «Cassa» non ci sono movimenti con data e importo.');
         }
+        $saldiMensili = $this->saldiConfrontabili($movimenti, $saldiMensili);
 
         return new Estratto($movimenti, $saldoIniziale, $saldoFinale, $saldiMensili);
+    }
+
+    /**
+     * Il saldo del foglio è per ordine di riga, quello dell'app per data: un mese è confrontabile solo se, fino alla sua ultima riga, il foglio ha
+     * esattamente le righe fino a quel mese. Con le righe fuori ordine di data il saldo di quel mese si lascia fuori (un dubbio falso sul movimento).
+     *
+     * @param  list<RigaEstratto>  $movimenti
+     * @param  array<string, array{0: int, 1: int}>  $ultime  mese → [indice dell'ultima riga del mese, saldo dopo di essa]
+     * @return array<string, int>
+     */
+    private function saldiConfrontabili(array $movimenti, array $ultime): array
+    {
+        $mesi = array_map(fn (RigaEstratto $r) => substr($r->data, 0, 7), $movimenti);
+        $confrontabili = [];
+        foreach ($ultime as $mese => [$k, $saldo]) {
+            if (max(array_slice($mesi, 0, $k + 1)) === $mese && ($k === count($mesi) - 1 || min(array_slice($mesi, $k + 1)) > $mese)) {
+                $confrontabili[$mese] = $saldo;
+            }
+        }
+
+        return $confrontabili;
     }
 
     /** @return ?array{0: int, 1: array<string, int>} la riga dell'intestazione e le colonne; null se mancano data, causale e un importo */

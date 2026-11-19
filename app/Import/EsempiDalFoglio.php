@@ -8,7 +8,7 @@ namespace App\Import;
  * Un modulo puro, che non conosce il database: la tabella di conversione la passa il chiamante.
  *
  * Si leggono solo le colonne in elenco esplicito, riconosciute dal nome dell'intestazione (data, causale, nuova causale, descrizione o dettaglio, entrate e uscite
- * o importo): le altre (nome, email, saldo…) non si guardano mai, e le email dentro la descrizione e la causale dell'estratto si tolgono. I nomi di persona scritti nella
+ * o importo): le altre (nome, email, saldo…) non si guardano mai, e le email dentro la descrizione e la causale dell'estratto si tolgono, gli IBAN si mascherano. I nomi di persona scritti nella
  * descrizione libera non si possono togliere qui.
  * shortcut: i nomi nella descrizione restano finché non c'è il mascheratore (#65); da rivedere con il primo foglio vero. Le intestazioni sono un'ipotesi sulle schede del foglio.
  */
@@ -43,7 +43,7 @@ final class EsempiDalFoglio
                 }
                 $conv = $conversione[$causale] ?? null;
                 [$verso, $importo] = self::importo($riga, $c);
-                $descrizione = Foglio::senzaEmail($riga[$c['descrizione'] ?? -1] ?? '');
+                $descrizione = Iban::maschera(Foglio::senzaEmail($riga[$c['descrizione'] ?? -1] ?? ''));
 
                 $motivo = match (true) {
                     $data === null => 'senza_data',
@@ -61,7 +61,7 @@ final class EsempiDalFoglio
 
                     continue;
                 }
-                $estratto = Foglio::senzaEmail($riga[$c['causale'] ?? -1] ?? ''); // anche la causale dell'estratto (PayPal) può avere un'email
+                $estratto = Iban::maschera(Foglio::senzaEmail($riga[$c['causale'] ?? -1] ?? '')); // anche la causale dell'estratto (PayPal) può avere un'email o un IBAN
                 $esempi[] = [
                     'verso' => $verso, 'causale' => $estratto === '' ? null : $estratto, 'descrizione' => $descrizione, 'importo' => $importo, 'data' => $data,
                     'tipologia_id' => $conv['tipologia_id'], 'area' => $conv['area'], 'attivita_id' => $conv['attivita_id'], 'iniziativa_id' => $conv['iniziativa_id'],

@@ -6,6 +6,8 @@ use App\Euro;
 use DOMDocument;
 use DOMElement;
 use DOMNode;
+use Illuminate\Container\Container;
+use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 
 /**
@@ -26,6 +28,17 @@ final class Foglio
 
     private const MAX_COLONNE = 60;
 
+    /** Le righe vuote ripetute di un .ods non contano in `MAX_RIGHE` (un foglio formattato ne ha a blocchi), ma la memoria ha un suo limite. */
+    private const MAX_RIGHE_VUOTE = 200_000;
+
+    private const MAX_FOGLI = 50;
+
+    /** La somma dei byte decompressi di tutte le parti lette, comprese quelle lette più volte (fogli che puntano alla stessa parte). */
+    private const MAX_TOTALE = 60_000_000;
+
+    /** I byte decompressi già letti dal file in corso. */
+    private static int $letti = 0;
+
     private const NS_ODS = ['office' => 'urn:oasis:names:tc:opendocument:xmlns:office:1.0', 'table' => 'urn:oasis:names:tc:opendocument:xmlns:table:1.0', 'text' => 'urn:oasis:names:tc:opendocument:xmlns:text:1.0'];
 
     private const NS_XLSX = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
@@ -43,7 +56,8 @@ final class Foglio
      */
     public static function leggi(string $contenuto): array
     {
-        $percorso = tempnam(sys_get_temp_dir(), 'foglio');
+        self::$letti = 0;
+        $percorso = tempnam(self::cartellaTemporanea(), 'foglio');
         file_put_contents($percorso, $contenuto);
         try {
             $zip = new ZipArchive;
@@ -60,6 +74,31 @@ final class Foglio
         }
     }
 
+    /**
+     * Dove si scrive il file caricato per aprirlo con lo zip. Nell'app, sotto `storage` (come `backup-tmp`: su Aruba `open_basedir` può vietare `/tmp`);
+     * fuori dall'app (i test dei moduli puri) la cartella temporanea del sistema. I file che un processo morto ha lasciato (nomi di persona dentro) oltre l'ora si tolgono.
+     */
+    private static function cartellaTemporanea(): string
+    {
+        if (! Container::getInstance()->bound('filesystem')) {
+            return sys_get_temp_dir();
+        }
+        $disco = Storage::disk('local');
+        $disco->makeDirectory('foglio-tmp');
+        foreach ($disco->files('foglio-tmp') as $file) {
+            if ($disco->lastModified($file) < time() - 3600) {
+                $disco->delete($file);
+            }
+        }
+
+        return $disco->path('foglio-tmp');
+    }
+
+    private static function troppeColonne(): FoglioNonValido
+    {
+        return new FoglioNonValido('Il foglio ha dei valori oltre la '.self::MAX_COLONNE.'ª colonna: non so leggerlo. Togli le colonne in più.');
+    }
+
     private static function nonValido(): FoglioNonValido
     {
         return new FoglioNonValido('Il file non è un foglio di calcolo leggibile: carica un .xlsx o un .ods.');
@@ -68,9 +107,11 @@ final class Foglio
     private static function xml(ZipArchive $zip, string $nome): DOMDocument
     {
         $stat = $zip->statName($nome);
+        if ($stat !== false && (self::$letti += $stat['size']) > self::MAX_TOTALE) {
+            throw new FoglioNonValido('Il foglio è troppo grande.');
+        }
         $testo = $stat === false || $stat['size'] > self::MAX_XML ? false : $zip->getFromName($nome);
-        // Niente DTD né entità: l'XML di un foglio vero non ne ha, e l'espansione delle entità è un attacco noto.
-        if ($testo === false || stripos($testo, '<!DOCTYPE') !== false || stripos($testo, '<!ENTITY') !== false) {
+        if ($testo === false) {
             throw self::nonValido();
         }
         $doc = new DOMDocument;
@@ -79,7 +120,9 @@ final class Foglio
         libxml_clear_errors();
         libxml_use_internal_errors($prima);
 
-        return $ok ? $doc : throw self::nonValido();
+        // Niente DTD né entità: l'XML di un foglio vero non ne ha, e l'espansione delle entità è un attacco noto. Si guarda l'albero e non i byte
+        // (una parte in UTF-16 li nasconde); senza `LIBXML_NOENT` le entità non si espandono mai.
+        return $ok && $doc->doctype === null ? $doc : throw self::nonValido();
     }
 
     // ---- ods --------------------------------------------------------------------------------------------------------------------
@@ -87,17 +130,28 @@ final class Foglio
     private static function ods(ZipArchive $zip): array
     {
         $fogli = [];
-        foreach (self::xml($zip, 'content.xml')->getElementsByTagNameNS(self::NS_ODS['table'], 'table') as $tabella) {
+        $tabelle = self::xml($zip, 'content.xml')->getElementsByTagNameNS(self::NS_ODS['table'], 'table');
+        foreach ($tabelle as $tabella) {
+            // Calc non scrive tabelle dentro le celle; con quelle, una riga si leggerebbe una volta per ogni tabella che la contiene (80 tabelle annidate occupano un worker).
+            for ($p = $tabella->parentNode; $p !== null; $p = $p->parentNode) {
+                if ($p instanceof DOMElement && $p->localName === 'table' && $p->namespaceURI === self::NS_ODS['table']) {
+                    throw new FoglioNonValido('Il foglio ha tabelle dentro le tabelle: non so leggerlo.');
+                }
+            }
+        }
+        foreach ($tabelle as $tabella) {
             $righe = [];
+            $piene = $vuote = 0;
             // Tutte le righe discendenti, in ordine: anche quelle in `table-row-group` (raggruppate) e `table-header-rows` (ripetute in stampa).
-            // shortcut: le sottotabelle dentro una cella (Calc non le scrive) contano come fogli a sé e le loro righe anche come righe della tabella madre; da gestire se arrivano da file veri.
             foreach ($tabella->getElementsByTagNameNS(self::NS_ODS['table'], 'table-row') as $riga) {
                 $celle = self::celleOds($riga);
                 // Le righe ripetute (un milione di vuote, di norma, fino in fondo al foglio) si espandono al più di 100: le vuote in coda le toglie `pulisci`.
-                for ($i = 0; $i < min(100, max(1, (int) $riga->getAttributeNS(self::NS_ODS['table'], 'number-rows-repeated'))); $i++) {
+                $ripetute = min(100, max(1, (int) $riga->getAttributeNS(self::NS_ODS['table'], 'number-rows-repeated')));
+                for ($i = 0; $i < $ripetute; $i++) {
                     $righe[] = $celle;
                 }
-                if (count($righe) > self::MAX_RIGHE) {
+                $celle === [] ? $vuote += $ripetute : $piene += $ripetute;
+                if ($piene > self::MAX_RIGHE || $vuote > self::MAX_RIGHE_VUOTE) {
                     throw new FoglioNonValido('Il foglio ha troppe righe.');
                 }
             }
@@ -121,8 +175,12 @@ final class Foglio
                 'date' => substr($cella->getAttributeNS(self::NS_ODS['office'], 'date-value'), 0, 10),
                 default => ($t = self::testoOds($cella)) === '' ? null : $t,
             };
+            // Una cella con un valore oltre l'ultima colonna ammessa non si perde in silenzio (potrebbe essere il Saldo): si rifiuta il foglio.
+            if ($valore !== null && count($celle) >= self::MAX_COLONNE) {
+                throw self::troppeColonne();
+            }
             $ripetuta = max(1, (int) $cella->getAttributeNS(self::NS_ODS['table'], 'number-columns-repeated'));
-            // Come l'xlsx: si espande fino a MAX_COLONNE colonne in tutto e il resto si ignora, vuote o no.
+            // Si espande fino a MAX_COLONNE colonne in tutto: le ripetizioni oltre si troncano.
             for ($i = 0; $i < $ripetuta && count($celle) < self::MAX_COLONNE; $i++) {
                 $celle[] = $valore;
             }
@@ -179,17 +237,27 @@ final class Foglio
         }
         $date = self::stiliData($zip);
 
+        $schede = $cartella->getElementsByTagNameNS(self::NS_XLSX, 'sheet');
+        if ($schede->length > self::MAX_FOGLI) {
+            throw new FoglioNonValido('Il file ha troppi fogli: ne leggo al più '.self::MAX_FOGLI.'.');
+        }
         $fogli = [];
-        foreach ($cartella->getElementsByTagNameNS(self::NS_XLSX, 'sheet') as $foglio) {
+        foreach ($schede as $foglio) {
             $destinazione = $relazioni[$foglio->getAttributeNS(self::NS_REL, 'id')] ?? throw self::nonValido();
             $destinazione = str_starts_with($destinazione, 'xl/') ? $destinazione : 'xl/'.$destinazione;
             $righe = [];
+            $numero = 0;
             foreach (self::xml($zip, $destinazione)->getElementsByTagNameNS(self::NS_XLSX, 'row') as $riga) {
-                $numero = (int) $riga->getAttribute('r') ?: count($righe) + 1;
+                $numero = (int) $riga->getAttribute('r') ?: $numero + 1;
+                $celle = self::celleXlsx($riga, $condivise, $date);
+                // Una riga senza valori (formattata, o in fondo al foglio) non pesa: il tetto vale per quelle con dei dati.
+                if (array_filter($celle, fn ($v) => $v !== null) === []) {
+                    continue;
+                }
                 if ($numero > self::MAX_RIGHE) {
                     throw new FoglioNonValido('Il foglio ha troppe righe.');
                 }
-                $righe[$numero - 1] = self::celleXlsx($riga, $condivise, $date);
+                $righe[$numero - 1] = $celle;
             }
             $fogli[$foglio->getAttribute('name')] = self::pulisci($righe === [] ? [] : array_replace(array_fill(0, max(array_keys($righe)) + 1, []), $righe));
         }
@@ -210,9 +278,6 @@ final class Foglio
             foreach (str_split($lettere[1] ?? 'A') as $l) {
                 $colonna = $colonna * 26 + ord($l) - 64;
             }
-            if ($colonna > self::MAX_COLONNE) {
-                continue;
-            }
             $v = null;
             foreach ($c->childNodes as $figlio) {
                 if ($figlio instanceof DOMElement && $figlio->localName === 'v') {
@@ -230,6 +295,12 @@ final class Foglio
                 isset($date[(int) $c->getAttribute('s')]) => gmdate('Y-m-d', (int) (floor((float) $v) - 25569) * 86400),
                 default => self::numero($v),
             };
+            if ($colonna > self::MAX_COLONNE) {
+                // Una cella vuota (solo formattata) si ignora; una con un valore no: sarebbe una colonna persa in silenzio.
+                $valore === null ? null : throw self::troppeColonne();
+
+                continue;
+            }
             $celle = array_replace(array_fill(0, $colonna, null), $celle);
             $celle[$colonna - 1] = $valore;
         }
