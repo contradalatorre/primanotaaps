@@ -11,6 +11,9 @@
         <a href="{{ route('modello-d', $anno) }}" class="link">Modello D {{ $anno }}</a> ·
         <a href="{{ route('esercizio.iniziative', $anno) }}" class="link">Conti per iniziativa {{ $anno }}</a>
     </p>
+    @unless ($storico)
+        @include('esercizio.esporta', ['quale' => 'rendiconto'])
+    @endunless
 
     @if ($storico)
         <p class="avviso" role="status" data-merlo="rendiconto-storico">

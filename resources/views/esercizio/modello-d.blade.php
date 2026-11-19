@@ -33,6 +33,7 @@
         <a href="{{ route('esercizio.rendiconto', $anno) }}" class="link">Rendiconto per l’assemblea {{ $anno }}</a>
         @can('gestire_esercizio') · <a href="{{ route('esercizio.saldi', $anno) }}" class="link">Saldi di apertura {{ $anno }}</a> @endcan
     </p>
+    @include('esercizio.esporta', ['quale' => 'modello-d'])
 
     @if (! $precedente && $storicoCaricabile)
         <p class="nota" data-merlo="modello-d-senza-precedente">Esercizio storico {{ $anno - 1 }} non caricato: la colonna dell’esercizio precedente resta vuota.
