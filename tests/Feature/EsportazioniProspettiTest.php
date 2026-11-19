@@ -258,4 +258,13 @@ class EsportazioniProspettiTest extends TestCase
         $complessivo = collect($fogli['Modello D'])->first(fn (array $riga) => ($riga[0] ?? null) === 'Avanzo/disavanzo complessivo');
         $this->assertSame([450.0, 500.0], [$complessivo[1], $complessivo[2]]);
     }
+
+    public function test_le_pagine_dei_prospetti_portano_ai_file_con_la_stessa_scelta_sulle_proposte(): void
+    {
+        $this->actingAs($this->tesoriere)->get('/esercizi/2026/modello-d?proposte=1')->assertOk()
+            ->assertSee('href="http://localhost/esercizi/2026/modello-d/pdf?proposte=1"', false)
+            ->assertSee('href="http://localhost/esercizi/2026/imputazioni.csv?proposte=1"', false)
+            ->assertSee('href="http://localhost/esercizi/2026/movimenti.csv"', false);
+        $this->actingAs($this->tesoriere)->get('/esercizi/2026/rendiconto')->assertOk()->assertSee('href="http://localhost/esercizi/2026/rendiconto/xlsx"', false);
+    }
 }
