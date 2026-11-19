@@ -157,7 +157,11 @@ final class Foglio
                 for ($i = 0; $i < $ripetute; $i++) {
                     $righe[] = $celle;
                 }
-                $celle === [] ? $vuote += $ripetute : $piene += $ripetute;
+                if ($celle === []) {
+                    $vuote += $ripetute;
+                } else {
+                    $piene += $ripetute;
+                }
                 if ($piene > self::MAX_RIGHE || $vuote > self::MAX_RIGHE_VUOTE) {
                     throw new FoglioNonValido('Il foglio ha troppe righe.');
                 }
@@ -304,7 +308,9 @@ final class Foglio
             };
             if ($colonna > self::MAX_COLONNE) {
                 // Una cella vuota (solo formattata) si ignora; una con un valore no: sarebbe una colonna persa in silenzio.
-                self::vuota($valore) ?: throw self::troppeColonne();
+                if (! self::vuota($valore)) {
+                    throw self::troppeColonne();
+                }
 
                 continue;
             }

@@ -243,9 +243,10 @@ class ImportEstrattiController extends Controller
             if ($decisione === 'importa_a_parte' && $conto->chiuso()) {
                 $this->rifiuta('Il conto è chiuso: non si importano nuovi movimenti.');
             }
-            // Come la conferma: passata la data di passaggio il foglio non porta più movimenti (mai due fonti per lo stesso periodo).
-            if ($decisione === 'importa_a_parte' && $conto->importaDalFoglio() && $conto->foglioChiuso()) {
-                $this->rifiutaFoglioChiuso($conto);
+            // Nel foglio la chiave non contiene la descrizione: la riga importata a parte avrebbe la stessa chiave dell'originale, il file la conterebbe una
+            // volta e l'app due, e il saldo finale non tornerebbe più (la conferma si bloccherebbe per sempre). Una riga corretta nel foglio si tiene com'è.
+            if ($decisione === 'importa_a_parte' && $conto->importaDalFoglio()) {
+                $this->rifiuta('Nel foglio della cassa una riga corretta non si importa a parte: tieni il movimento già presente (o annulla l’import e ricarica il foglio).');
             }
 
             if ($decisione === 'importa_a_parte') {
@@ -259,10 +260,7 @@ class ImportEstrattiController extends Controller
                 $movimento = (new Movimento)->forceFill($import->attributiMovimento($riga, $request->user()->id));
                 $movimento->save();
                 $this->registraMovimenti($request->user(), collect([$movimento]), 'importato', null);
-                // Come alla conferma: la cassa del foglio ha la sua tabella di conversione (e i suoi dubbi) al posto delle regole.
-                $conto->importaDalFoglio()
-                    ? Conversioni::applicaAiNuovi($request->user(), $movimento->newCollection([$movimento->refresh()]))
-                    : Regole::applicaAiNuovi($request->user(), collect([$movimento->refresh()]));
+                Regole::applicaAiNuovi($request->user(), collect([$movimento->refresh()]));
             }
             $conflitto->update(['decisione' => $decisione, 'deciso_da' => $request->user()->id, 'deciso_il' => now()]);
             RegistroModifica::registra($request->user(), $import, 'conflitto_deciso', null, ['conflitto' => $conflitto->id, 'decisione' => $decisione]);

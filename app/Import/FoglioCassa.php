@@ -52,7 +52,7 @@ class FoglioCassa implements FormatoImport
         $movimenti = [];
         $visti = [];
         $saldoIniziale = null;
-        $saldiMensili = [];
+        $ultimiDelMese = [];
         $saldoFinale = null;
         foreach ($righe as $i => $riga) {
             if ($i <= $intestazione) {
@@ -103,13 +103,13 @@ class FoglioCassa implements FormatoImport
             $saldoFinale = $saldo ?? ($saldoFinale === null ? null : $saldoFinale + $netto);
             // Saldo di fine mese: quello dopo l'ultima riga del mese nell'ordine del foglio (con le ultime righe senza saldo, il corrente).
             if ($saldoFinale !== null) {
-                $saldiMensili[substr($data, 0, 7)] = [count($movimenti) - 1, $saldoFinale];
+                $ultimiDelMese[substr($data, 0, 7)] = [count($movimenti) - 1, $saldoFinale];
             }
         }
         if ($movimenti === []) {
             throw new EstrattoNonValido('Nella scheda «Cassa» non ci sono movimenti con data e importo.');
         }
-        $saldiMensili = $this->saldiConfrontabili($movimenti, $saldiMensili);
+        $saldiMensili = $this->saldiConfrontabili($movimenti, $ultimiDelMese);
 
         return new Estratto($movimenti, $saldoIniziale, $saldoFinale, $saldiMensili);
     }

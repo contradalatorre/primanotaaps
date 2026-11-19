@@ -149,52 +149,25 @@ class ImportFoglioCassaTest extends TestCase
         $this->assertSame(['foglio-tmp/di-un-caricamento-in-corso'], $disco->files('foglio-tmp')); // i resti oltre l'ora si tolgono, il file letto non resta
     }
 
-    public function test_importare_a_parte_una_riga_in_conflitto_del_foglio_passa_dalla_tabella_di_conversione(): void
+    public function test_nel_foglio_una_riga_in_conflitto_non_si_importa_a_parte_perche_la_chiave_sarebbe_doppia(): void
     {
         $this->importa(self::foglio());
         $righe = self::righe();
-        $righe[0][2] = 'Bolletta luce di gennaio'; // conflitto: stessa chiave, altra descrizione
+        $righe[0][2] = 'Bolletta luce di gennaio'; // stessa chiave, altra descrizione
         $this->carica(self::foglio($righe))->assertSessionHasNoErrors();
-        $this->post('/import/'.ImportEstratto::latest('id')->value('id').'/conferma')->assertSessionHasNoErrors();
-
-        $conflitto = ImportConflitto::firstOrFail();
-        $this->post("/import/conflitti/{$conflitto->id}/decisione", ['decisione' => 'importa_a_parte'])->assertRedirect()->assertSessionHasNoErrors();
-
-        $nuovo = Movimento::where('descrizione', 'Bolletta luce di gennaio')->firstOrFail();
-        $this->assertSame('proposto', $nuovo->stato); // la tabella ha la sua proposta, come per le righe nuove
-        $this->assertSame($this->riga('Assicurazioni')->id, $nuovo->conversione_causale_id);
-    }
-
-    public function test_passata_la_data_di_passaggio_un_conflitto_del_foglio_non_si_importa_a_parte(): void
-    {
-        $this->importa(self::foglio());
-        $righe = self::righe();
-        $righe[0][2] = 'Bolletta luce di gennaio';
-        $this->carica(self::foglio($righe))->assertSessionHasNoErrors();
-        $this->post('/import/'.ImportEstratto::latest('id')->value('id').'/conferma')->assertSessionHasNoErrors();
+        $import = ImportEstratto::latest('id')->firstOrFail();
+        $this->post("/import/{$import->id}/conferma")->assertSessionHasNoErrors();
         $conflitto = ImportConflitto::firstOrFail();
 
-        $this->cassa->update(['passaggio_il' => '2026-05-31']); // oggi è il 2/06
+        $this->get("/import/{$import->id}")->assertSee('Tieni il movimento già presente')->assertDontSee('Importa anche questa riga');
         $this->post("/import/conflitti/{$conflitto->id}/decisione", ['decisione' => 'importa_a_parte'])->assertSessionHasErrors('estratto');
-
         $this->assertSame(4, Movimento::count());
         $this->assertNull($conflitto->refresh()->decisione);
-    }
 
-    public function test_importare_a_parte_una_riga_del_foglio_con_una_causale_fuori_dalla_tabella_la_lascia_in_dubbio(): void
-    {
-        $this->importa(self::foglio());
-        $righe = self::righe();
-        $righe[3][2] = 'Cosa strana corretta'; // la causale «mai vista» non è nella tabella
-        $this->carica(self::foglio($righe))->assertSessionHasNoErrors();
-        $this->post('/import/'.ImportEstratto::latest('id')->value('id').'/conferma')->assertSessionHasNoErrors();
-
-        $conflitto = ImportConflitto::firstOrFail();
-        $this->post("/import/conflitti/{$conflitto->id}/decisione", ['decisione' => 'importa_a_parte'])->assertRedirect()->assertSessionHasNoErrors();
-
-        $nuovo = Movimento::where('descrizione', 'Cosa strana corretta')->firstOrFail();
-        $this->assertSame('da_classificare', $nuovo->stato);
-        $this->assertTrue($nuovo->inDubbio());
+        // Tenere il presente funziona, e il foglio ricaricato continua a confermarsi (il saldo finale torna).
+        $this->post("/import/conflitti/{$conflitto->id}/decisione", ['decisione' => 'tieni_esistente'])->assertSessionHasNoErrors();
+        $this->importa(self::foglio($righe));
+        $this->assertSame(4, Movimento::count());
     }
 
     public function test_una_riga_sparita_dal_foglio_si_segnala_con_un_dubbio_e_non_si_cancella(): void
