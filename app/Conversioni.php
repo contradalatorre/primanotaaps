@@ -174,8 +174,11 @@ final class Conversioni
         if ($tipologia && $area === null && $iniziativa === null) {
             $errori['area'] = 'Scegli l’area, o l’iniziativa che la porta.';
         }
-        if ($tipologia && $area !== null && ! DB::table('voci_modello_d')->where(['esercizio' => now()->year, 'area' => $area, 'tipologia_id' => $tipologia->id])->exists()) {
-            $errori['tipologia_id'] ??= "La tipologia «{$tipologia->nome}» non è ammessa nell’area $area per il ".now()->year.'.';
+        // La voce deve esserci per l'anno dei movimenti che portano questa causale (a cavallo d'anno, non per quello di oggi), in ognuno se sono di più.
+        // Senza movimenti non c'è un anno da guardare: la voce si controlla all'import, sull'anno di ciascun movimento (`Classificazione`).
+        $manca = $tipologia && $area !== null ? collect(self::anniDellaCausale($riga->causale))->first(fn (int $anno) => ! DB::table('voci_modello_d')->where(['esercizio' => $anno, 'area' => $area, 'tipologia_id' => $tipologia->id])->exists()) : null;
+        if ($manca !== null) {
+            $errori['tipologia_id'] ??= "La tipologia «{$tipologia->nome}» non è ammessa nell’area $area per il $manca.";
         }
         if ($attivita && $area !== $attivita->area->value) {
             $errori['attivita_id'] = "L’attività «{$attivita->nome}» non è dell’area $area.";
@@ -189,6 +192,18 @@ final class Conversioni
         if ($errori !== []) {
             throw ValidationException::withMessages($errori);
         }
+    }
+
+    /** @return list<int> gli anni dei movimenti importati dal foglio della cassa che portano questa causale; nessuno se non ce ne sono */
+    private static function anniDellaCausale(string $causale): array
+    {
+        // shortcut: la chiave si confronta in PHP (non c'è in SQL), sulle coppie causale/anno distinte della cassa; da rivedere se diventano migliaia.
+        $chiave = EsempiDalFoglio::chiave($causale);
+
+        return Movimento::whereNotNull('import_estratto_id')->whereNotNull('causale')->whereHas('conto', fn (Builder $c) => $c->where('formato_import', 'foglio_cassa'))
+            ->distinct()->get(['causale', DB::raw('year(data) as anno')])
+            ->filter(fn (Movimento $m) => EsempiDalFoglio::chiave($m->causale) === $chiave)
+            ->pluck('anno')->map(fn ($a) => (int) $a)->unique()->sort()->values()->all();
     }
 
     /** @return Collection<string, ConversioneCausale> per chiave della causale (minuscola, senza prefisso) */

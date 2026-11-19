@@ -105,6 +105,63 @@ class FoglioCassaTest extends TestCase
         $this->assertStringContainsString('3456', $estratto->righe[0]->descrizione);
     }
 
+    public function test_la_causale_del_foglio_perde_email_e_iban_come_la_descrizione(): void
+    {
+        $estratto = self::leggi(self::cassa([new DateTimeImmutable('2026-03-01'), '-> Rimborso a persona@example.org IT60X0542811101000000123456', 'Bonifico', null, null, 10, 490]));
+
+        $this->assertSame('Rimborso a '.str_repeat('*', 23).'3456', $estratto->righe[0]->causale);
+        $this->assertStringNotContainsString('persona@example.org', json_encode($estratto->righe));
+    }
+
+    public function test_un_importo_negativo_nelle_colonne_entrate_o_uscite_si_rifiuta_con_il_numero_di_riga(): void
+    {
+        foreach ([[null, -80.5], [-20, null]] as [$entrata, $uscita]) {
+            try {
+                self::leggi(self::cassa([new DateTimeImmutable('2026-03-01'), 'Utenze', 'Storno', null, $entrata, $uscita, 500]));
+                $this->fail('Doveva rifiutare: un\'uscita negativa non diventa un\'entrata.');
+            } catch (EstrattoNonValido $e) {
+                $this->assertStringContainsString('Riga 4', $e->getMessage());
+            }
+        }
+    }
+
+    public function test_una_rettifica_del_saldo_iniziale_dopo_i_movimenti_resta_un_movimento(): void
+    {
+        $estratto = self::leggi(self::cassa(
+            [new DateTimeImmutable('2026-03-01'), 'Utenze', 'Bolletta', null, null, 10, 490],
+            [new DateTimeImmutable('2026-03-05'), 'Rettifiche', 'Rettifica saldo iniziale', null, 5, null, 495],
+        ));
+
+        $this->assertSame(50000, $estratto->saldoIniziale);
+        $this->assertSame(['Bolletta', 'Rettifica saldo iniziale'], array_map(fn ($r) => $r->descrizione, $estratto->righe));
+        $this->assertSame(49500, $estratto->saldoFinale);
+    }
+
+    public function test_il_saldo_del_mese_e_quello_dell_ultima_riga_del_mese_anche_se_le_ultime_non_hanno_saldo(): void
+    {
+        $estratto = self::leggi(self::cassa(
+            [new DateTimeImmutable('2026-03-01'), 'Utenze', 'Prima', null, null, 10, 490],
+            [new DateTimeImmutable('2026-03-15'), 'Utenze', 'Senza saldo', null, null, 5, null],
+            [new DateTimeImmutable('2026-03-20'), 'Utenze', 'Anche questa', null, 2, null, null],
+        ));
+
+        $this->assertSame(['2026-03' => 48700], $estratto->saldiMensili); // 500 - 10 - 5 + 2, come l'app
+    }
+
+    public function test_con_le_righe_fuori_ordine_di_data_il_saldo_dei_mesi_toccati_non_si_confronta(): void
+    {
+        $estratto = self::leggi(self::cassa(
+            [new DateTimeImmutable('2026-03-01'), 'Utenze', 'Prima', null, null, 10, 490],
+            [new DateTimeImmutable('2026-04-01'), 'Utenze', 'Aprile', null, null, 10, 480],
+            [new DateTimeImmutable('2026-03-15'), 'Utenze', 'Marzo scritta dopo', null, null, 10, 470],
+            [new DateTimeImmutable('2026-05-02'), 'Utenze', 'Maggio', null, null, 10, 460],
+        ));
+
+        // Il saldo del foglio è per ordine di riga, quello dell'app per data: per marzo e aprile non sono confrontabili (si evita un dubbio falso), per maggio sì.
+        $this->assertSame(['2026-05' => 46000], $estratto->saldiMensili);
+        $this->assertSame(46000, $estratto->saldoFinale);
+    }
+
     public function test_righe_identiche_dello_stesso_giorno_hanno_chiavi_diverse_e_stabili_se_ne_arriva_un_altra(): void
     {
         $uguale = [new DateTimeImmutable('2026-03-01'), 'Utenze', 'Caffè', 'F1', null, 2, 0];

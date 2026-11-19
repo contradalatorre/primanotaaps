@@ -243,6 +243,11 @@ class ImportEstrattiController extends Controller
             if ($decisione === 'importa_a_parte' && $conto->chiuso()) {
                 $this->rifiuta('Il conto è chiuso: non si importano nuovi movimenti.');
             }
+            // Nel foglio la chiave non contiene la descrizione: la riga importata a parte avrebbe la stessa chiave dell'originale, il file la conterebbe una
+            // volta e l'app due, e il saldo finale non tornerebbe più (la conferma si bloccherebbe per sempre). Una riga corretta nel foglio si tiene com'è.
+            if ($decisione === 'importa_a_parte' && $conto->importaDalFoglio()) {
+                $this->rifiuta('Nel foglio della cassa una riga corretta non si importa a parte: tieni il movimento già presente (o annulla l’import e ricarica il foglio).');
+            }
 
             if ($decisione === 'importa_a_parte') {
                 $riga = $conflitto->rigaEstratto();

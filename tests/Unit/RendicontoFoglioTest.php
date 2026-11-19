@@ -66,7 +66,8 @@ class RendicontoFoglioTest extends TestCase
     {
         $importi = ['entrate:A1' => 1234.56, 'uscite:A1' => 50.5, 'uscite:I1' => 100];
         $righe = self::foglio($importi, extra: ['cassa' => 800]);
-        $righe = array_map(fn ($r) => count($r) === 3 ? [$r[0], $r[1], [$r[2], 12]] : $r, $righe); // la colonna dell'anno precedente ripetuta in dodici
+        // L'importo ripetuto in dodici colonne e, dopo la ripetizione, la cella dell'anno precedente (una ripetizione in fondo alla riga non coglie lo slittamento).
+        $righe = array_map(fn ($r) => count($r) === 3 ? [$r[0], [$r[1], 12], $r[2]] : $r, $righe);
         $ultima = count($righe) - 1;
         $righe[$ultima - 1] = [...$righe[$ultima - 1], [null, 20_000_000]]; // la riga «Cassa»: vuote ripetute fino in fondo
 
@@ -76,6 +77,9 @@ class RendicontoFoglioTest extends TestCase
         ));
 
         $this->assertSame(RendicontoFoglio::leggi(self::foglio($importi, extra: ['cassa' => 800])), RendicontoFoglio::leggi($fogli[ImportStorico::FOGLIO]));
+        // Il rendiconto legge solo il primo numero dopo l'etichetta: la cella dopo la ripetizione si vede solo nella riga grezza (A1 ha 1234,56 nella prima colonna).
+        $riga = collect($fogli[ImportStorico::FOGLIO])->first(fn ($r) => ($r[1] ?? null) === 1234.56);
+        $this->assertSame([...array_fill(0, 12, 1234.56), 999], array_slice($riga, 1));
     }
 
     public function test_riconosce_le_voci_dall_intestazione_di_sezione_e_dal_numero_e_non_dall_etichetta(): void

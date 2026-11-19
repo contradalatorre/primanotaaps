@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Classificazione;
 use App\Giroconti;
+use App\Import\Foglio;
 use App\Models\Attivita;
 use App\Models\Conto;
 use App\Models\ConversioneCausale;
@@ -21,6 +22,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\FogliInventati;
 use Tests\TestCase;
+use ZipArchive;
 
 /** L'import ripetibile della cassa dal foglio (#64, #19): fogli inventati, caricati come fa il Tesoriere. */
 class ImportFoglioCassaTest extends TestCase
@@ -127,6 +129,47 @@ class ImportFoglioCassaTest extends TestCase
         $this->get("/import/{$import->id}")->assertSee('Bolletta luce di gennaio');
     }
 
+    public function test_il_file_caricato_si_apre_da_una_cartella_sotto_storage_e_non_resta_li_nemmeno_se_il_foglio_non_e_valido(): void
+    {
+        $disco = Storage::disk('local');
+        $disco->put('foglio-tmp/rimasto-da-un-processo-morto', 'nomi di persona');
+        touch($disco->path('foglio-tmp/rimasto-da-un-processo-morto'), time() - 2 * 3600);
+        $disco->put('foglio-tmp/di-un-caricamento-in-corso', 'x');
+
+        $this->assertSame(['Cassa', 'Mappatura'], collect(array_keys(Foglio::leggi(self::foglio())))->sort()->values()->all());
+        // Uno zip che non è un foglio passa il controllo del tipo e arriva al lettore, che lo rifiuta dopo aver scritto il file.
+        $percorso = tempnam(sys_get_temp_dir(), 'zip');
+        $zip = new ZipArchive;
+        $zip->open($percorso, ZipArchive::OVERWRITE);
+        $zip->addFromString('nota.txt', 'niente fogli qui');
+        $zip->close();
+        $this->carica(file_get_contents($percorso), nome: 'cassa.xlsx')->assertSessionHasErrors('estratto');
+        unlink($percorso);
+
+        $this->assertSame(['foglio-tmp/di-un-caricamento-in-corso'], $disco->files('foglio-tmp')); // i resti oltre l'ora si tolgono, il file letto non resta
+    }
+
+    public function test_nel_foglio_una_riga_in_conflitto_non_si_importa_a_parte_perche_la_chiave_sarebbe_doppia(): void
+    {
+        $this->importa(self::foglio());
+        $righe = self::righe();
+        $righe[0][2] = 'Bolletta luce di gennaio'; // stessa chiave, altra descrizione
+        $this->carica(self::foglio($righe))->assertSessionHasNoErrors();
+        $import = ImportEstratto::latest('id')->firstOrFail();
+        $this->post("/import/{$import->id}/conferma")->assertSessionHasNoErrors();
+        $conflitto = ImportConflitto::firstOrFail();
+
+        $this->get("/import/{$import->id}")->assertSee('Tieni il movimento già presente')->assertDontSee('Importa anche questa riga');
+        $this->post("/import/conflitti/{$conflitto->id}/decisione", ['decisione' => 'importa_a_parte'])->assertSessionHasErrors('estratto');
+        $this->assertSame(4, Movimento::count());
+        $this->assertNull($conflitto->refresh()->decisione);
+
+        // Tenere il presente funziona, e il foglio ricaricato continua a confermarsi (il saldo finale torna).
+        $this->post("/import/conflitti/{$conflitto->id}/decisione", ['decisione' => 'tieni_esistente'])->assertSessionHasNoErrors();
+        $this->importa(self::foglio($righe));
+        $this->assertSame(4, Movimento::count());
+    }
+
     public function test_una_riga_sparita_dal_foglio_si_segnala_con_un_dubbio_e_non_si_cancella(): void
     {
         $this->importa(self::foglio());
@@ -145,7 +188,51 @@ class ImportFoglioCassaTest extends TestCase
         $tessere = Movimento::where('descrizione', 'Quote tessere')->firstOrFail();
         $this->assertNull($tessere->eliminato_il);
         $this->assertTrue($tessere->inDubbio());
+        // Il confronto mese per mese non conta la riga sparita: gennaio torna, e non nasce un secondo dubbio sullo stesso movimento.
+        $this->assertSame(1, $tessere->note()->dubbioAperto()->count());
         $this->get("/import/{$import->id}")->assertSee('Quote tessere');
+    }
+
+    public function test_una_scheda_che_la_cassa_non_legge_non_rifiuta_il_foglio_con_colonne_oltre_il_tetto(): void
+    {
+        $largo = [['a', [null, 59], 'saldo']]; // un valore oltre la 60ª colonna
+        $cassa = [['Data', 'Nuova causale', 'Descrizione', 'Entrate', 'Uscite'], ['15/01/2026', 'Tesseramento ord', 'Quote tessere', 120]];
+
+        $this->carica(self::ods(['Mappatura' => $largo, 'Cassa' => $cassa]), nome: 'cassa.ods')->assertSessionHasNoErrors();
+        $this->carica(self::ods(['Mappatura' => [['x']], 'Cassa' => $largo]), nome: 'cassa.ods')->assertSessionHasErrors();
+        $this->assertStringContainsString('«Cassa»', session('errors')->first());
+        $this->carica(self::ods(['Mappatura' => [['x']]]), nome: 'cassa.ods')->assertSessionHasErrors();
+        $this->assertStringContainsString('non c’è la scheda «Cassa»', session('errors')->first());
+    }
+
+    public function test_la_voce_ammessa_della_tabella_si_controlla_sull_anno_dei_movimenti_della_cassa_e_non_su_quello_di_oggi(): void
+    {
+        $this->importa(self::foglio()); // movimenti del 2026
+        $this->travelTo('2027-01-10 10:00'); // le voci del Modello D ci sono solo per il 2026
+
+        $this->salvaRiga('Assicurazioni', ['tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id'), 'area' => 'E'])->assertSessionHasNoErrors();
+
+        $this->assertSame('Utenze', $this->riga('Assicurazioni')->tipologia->nome);
+    }
+
+    public function test_la_voce_ammessa_si_controlla_solo_sugli_anni_dei_movimenti_che_portano_quella_causale(): void
+    {
+        $import = $this->importa(self::foglio()); // Assicurazioni e Tesseramento ord, del 2026: le voci ci sono solo per il 2026
+        Movimento::factory()->create(['conto_id' => $this->cassa->id, 'import_estratto_id' => $import->id, 'data' => '2025-12-20', 'causale' => 'Tesseramento ord', 'manuale' => false]);
+        $utenze = Tipologia::where('nome', 'Utenze')->value('id');
+
+        // Il 2025 è dei movimenti di un'altra causale: per Assicurazioni non conta.
+        $this->salvaRiga('Assicurazioni', ['tipologia_id' => $utenze, 'area' => 'E'])->assertSessionHasNoErrors();
+        // Per Tesseramento ord sì, e il messaggio dice l'anno.
+        $this->salvaRiga('Tesseramento ord', ['tipologia_id' => Tipologia::where('nome', 'Erogazioni liberali')->value('id'), 'area' => 'A'])->assertSessionHasErrors('tipologia_id');
+        $this->assertStringContainsString('2025', session('errors')->first('tipologia_id'));
+    }
+
+    public function test_senza_movimenti_con_quella_causale_la_voce_non_si_controlla_per_anno(): void
+    {
+        $this->travelTo('2027-01-10 10:00'); // nessun import: non c'è un anno da controllare, e quello di oggi non ha le voci
+
+        $this->salvaRiga('Assicurazioni', ['tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id'), 'area' => 'E'])->assertSessionHasNoErrors();
     }
 
     public function test_la_causale_della_tabella_diventa_una_proposta_con_la_sua_fonte(): void
@@ -443,6 +530,8 @@ class ImportFoglioCassaTest extends TestCase
         $righe = [...self::righe(), [new DateTimeImmutable('2026-01-12'), 'Tesseramento ord', 'Scritta in fondo', null, 10, null, 739.5]]; // fuori ordine di data: l'ultima riga ha il saldo 739,50
         $this->importa(self::foglio($righe));
         $this->assertSame(5, Movimento::count());
+        // Il saldo di gennaio del foglio (739,50) conta anche febbraio: con le righe fuori ordine non si confronta, e non nasce un dubbio falso.
+        $this->assertSame(0, Movimento::whereHas('note', fn ($q) => $q->where('testo', 'like', 'Controllo del foglio%'))->count());
     }
 
     public function test_un_saldo_finale_che_non_torna_blocca_la_conferma_e_non_entra_nulla(): void

@@ -30,6 +30,12 @@ final class ImportStorico
         'avanzo_investimenti' => 'Avanzo/disavanzo da investimenti e disinvestimenti', 'avanzo_complessivo' => 'Avanzo/disavanzo complessivo',
     ];
 
+    /** Le schede che l'import legge (le altre del file non si aprono): il rendiconto e quelle dei conti. */
+    public static function letta(string $scheda): bool
+    {
+        return $scheda === self::FOGLIO || EsempiDalFoglio::eSchedaDiUnConto($scheda);
+    }
+
     /**
      * @param  array<string, list<list<mixed>>>  $fogli  quelli di `Foglio::leggi`
      * @return array{voci: array<string, int>, nonRiconosciute: list<array{riga: int, etichetta: string, importo: int}>, saldi: array{cassa: ?int, depositi: ?int}, totali: array<string, int>, esempi: list<array<string, mixed>>, scartate: array<string, int>, schede: list<string>, colonnaVuota: list<int>}
