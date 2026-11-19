@@ -1,6 +1,6 @@
 {{-- Le differenze dalla versione approvata (#59): le voci del Modello D e i test che oggi sono diversi da come l'assemblea li ha approvati. Vuole $differenze (`Differenze::tra`). --}}
 @php($euro = fn (?int $c) => $c === null ? '—' : \App\Euro::formatta($c))
-@php($esito = fn (?string $e) => $e === null ? '—' : (\App\Esercizio\Differenze::ESITI[$e] ?? $e))
+@php($esito = fn (?string $e) => $e === null ? '—' : (\App\Esercizio\Secondarieta::ETICHETTE[$e] ?? $e))
 <section data-merlo="differenze-approvata">
     <h2>Differenze dalla versione approvata</h2>
     <p class="nota">Confronto con le sole imputazioni confermate, come nell’approvazione.</p>

@@ -28,9 +28,6 @@ class DatiEsercizio extends Model
         return self::where('esercizio', $esercizio)->first() ?? new self(['esercizio' => $esercizio, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'stato' => 'aperto', 'versione' => 1]);
     }
 
-    /** @var list<string> gli stati dell'esercizio (#12): `depositato` ci si arriva con #60, da qui non c'è un passaggio */
-    public const STATI = ['aperto', 'approvato', 'depositato'];
-
     /** Dopo l'approvazione i prospetti sono quelli che l'assemblea ha visto: le modifiche sono ammesse, con avviso, e le regole non toccano più i movimenti. */
     public function approvato(): bool
     {

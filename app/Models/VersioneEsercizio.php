@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 /**
  * Una versione approvata di un esercizio (glossario: Approvazione; #12, #59): i prospetti e i test com'erano il giorno dell'approvazione. Una riapertura
@@ -41,9 +42,15 @@ class VersioneEsercizio extends Model
         return $this->approvata_il->copy()->addDays(30);
     }
 
-    /** La segnalazione è dovuta se la secondarietà non è rispettata, e il promemoria resta finché non si registra l'invio. */
-    public function segnalazioneDaFare(): bool
+    /**
+     * Le segnalazioni al RUNTS ancora da registrare: la secondarietà non è rispettata nell'ultima versione dell'esercizio e l'invio non c'è. Anche se l'esercizio è stato
+     * riaperto, il promemoria resta: l'obbligo nato con un esito approvato non si dimentica (come il rientro).
+     *
+     * @return Collection<int, self>
+     */
+    public static function segnalazioniDaFare(): Collection
     {
-        return $this->riaperta_il === null && $this->esito_secondarieta === 'non_rispettato' && $this->segnalazione_inviata_il === null;
+        return self::where('esito_secondarieta', 'non_rispettato')->whereNull('segnalazione_inviata_il')->orderBy('esercizio')->get()
+            ->filter(fn (self $v) => $v->numero === self::ultima($v->esercizio)->numero)->values();
     }
 }

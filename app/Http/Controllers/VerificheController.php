@@ -72,7 +72,9 @@ class VerificheController extends Controller
     {
         $criterio = $request->validate(['criterio' => ['required', Rule::in(['a', 'b'])]])['criterio'];
 
-        DatiEsercizio::sottoBlocco($request->user(), $anno, function (DatiEsercizio $dati) use ($request, $criterio, $anno) {
+        // Anche l'esercizio prima è bloccato (in ordine di anno): il rientro viene dalla sua versione approvata, che una riapertura concorrente può togliere.
+        DatiEsercizio::sottoBlocchi($request->user(), [$anno - 1, $anno], function (array $tutti) use ($request, $criterio, $anno) {
+            $dati = $tutti[$anno];
             // Il criterio si fissa con l'approvazione (#59), e dopo una secondarietà non rispettata l'esercizio successivo usa lo stesso criterio (art. 4 DM 107/2021).
             if ($dati->approvato()) {
                 throw ValidationException::withMessages(['criterio' => "L'esercizio $anno è approvato: il criterio di secondarietà è fissato."]);

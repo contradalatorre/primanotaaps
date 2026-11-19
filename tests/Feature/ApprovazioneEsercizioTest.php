@@ -284,6 +284,29 @@ class ApprovazioneEsercizioTest extends TestCase
         $this->assertSame(24, Verifiche::secondarieta(2027)['criteri']['a']['soglia']);
     }
 
+    /** Il rientro non si aggira con un criterio confermato prima dell'approvazione dell'anno prima: la soglia ridotta vale, mai a favore dell'ente. */
+    public function test_un_criterio_confermato_prima_dell_approvazione_dell_anno_prima_non_evita_il_rientro(): void
+    {
+        $this->esercizioConB();
+        $this->confermaCriterio('a')->assertSessionHasNoErrors();
+        $this->come($this->tesoriere)->post('/esercizi/2027/apertura')->assertRedirect();
+        $this->imputa('entrata', 2500, '2027-03-01', 'Sponsorizzazioni e pubblicità', 'B');
+        $this->imputa('entrata', 7500, '2027-03-01', 'Quote associative');
+        $this->confermaCriterio('b', 2027)->assertSessionHasNoErrors(); // il 2026 non è ancora approvato: il 66% si può scegliere
+
+        $this->approva()->assertRedirect(); // il 2026 non rispetta il 30%: il 2027 rientra con lo stesso criterio, il 30%
+
+        $s = Verifiche::secondarieta(2027);
+        $this->assertSame('a', $s['confermato']);
+        $this->assertSame(24, $s['criteri']['a']['soglia']);
+        $this->assertSame('non_rispettato', $s['esito']);
+
+        $this->travelTo('2028-02-01 10:00');
+        $this->approva(2027, '2028-01-20')->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('a', DatiEsercizio::per(2027)->criterio_secondarieta, 'Il criterio fissato è quello del rientro');
+        $this->assertSame('non_rispettato', VersioneEsercizio::where('esercizio', 2027)->sole()->esito_secondarieta);
+    }
+
     public function test_dopo_una_secondarieta_rispettata_o_senza_approvazione_la_soglia_e_quella_di_legge(): void
     {
         $this->esercizioConB();
@@ -314,6 +337,19 @@ class ApprovazioneEsercizioTest extends TestCase
         $this->assertSame('RUNTS-123', VersioneEsercizio::sole()->segnalazione_protocollo);
         $this->come($this->tesoriere)->get('/')->assertOk()->assertDontSeeText('entro il 10/05/2027');
         $this->assertDatabaseHas('registro_modifiche', ['oggetto_tipo' => 'esercizio', 'oggetto_id' => 2026, 'azione' => 'segnalazione_runts']);
+    }
+
+    public function test_la_riapertura_non_cancella_l_obbligo_della_segnalazione(): void
+    {
+        $this->esercizioConB();
+        $this->confermaCriterio('a');
+        $this->approva(2026, '2027-04-10')->assertRedirect();
+        $this->come($this->amministratore)->post('/esercizi/2026/riapertura', ['motivazione' => 'Errore su un giustificativo'])->assertRedirect();
+
+        $this->come($this->tesoriere)->get('/')->assertOk()->assertSeeText('entro il 10/05/2027');
+        $this->come($this->tesoriere)->post('/esercizi/2026/segnalazione-runts', ['data' => '2027-04-15', 'protocollo' => 'RUNTS-9'])->assertSessionHasNoErrors();
+        $this->assertSame('RUNTS-9', VersioneEsercizio::sole()->segnalazione_protocollo);
+        $this->come($this->tesoriere)->get('/')->assertOk()->assertDontSeeText('entro il 10/05/2027');
     }
 
     public function test_con_la_secondarieta_rispettata_non_c_e_nessun_promemoria(): void

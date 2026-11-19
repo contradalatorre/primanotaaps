@@ -86,8 +86,8 @@
             @endcan
         @endunless
 
-        @if ($vigente && $vigente->esito_secondarieta === 'non_rispettato')
-            @include('esercizio.segnalazione', ['versione' => $vigente])
+        @if ($versioni->first()?->esito_secondarieta === 'non_rispettato') {{-- l'ultima versione, anche se riaperta: l'obbligo resta --}}
+            @include('esercizio.segnalazione', ['versione' => $versioni->first()])
         @endif
 
         <section data-merlo="approvazione-storico">

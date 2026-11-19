@@ -17,7 +17,10 @@ final class Segnalazione
         $criterio = $versione->criterio_secondarieta;
         $c = $istantanea['secondarieta']['criteri'][$criterio];
         $intestazione = $istantanea['modello_d']['intestazione'];
-        $punti = $c['rapporto'] === null ? 'l’intero valore' : number_format($c['rapporto'] - $c['soglia'], 2, ',', '.').' punti percentuali';
+        // I punti sforati per eccesso, come in `Secondarieta::sogliaDiRientro`: il testo non può dichiarare meno di quanto si sottrae alla soglia (mai a favore dell'ente).
+        $den = $c['denominatore']['importo'];
+        $punti = $c['rapporto'] === null || $den <= 0 ? 'l’intero valore'
+            : number_format((intdiv(10000 * $c['numeratore']['importo'] + $den - 1, $den) - $c['sogliaCentesimiDiPunto']) / 100, 2, ',', '.').' punti percentuali';
         $rapporto = $c['rapporto'] === null ? 'non calcolabile (nessun costo di riferimento)' : number_format($c['rapporto'], 2, ',', '.').'%';
         $di = $criterio === 'a' ? 'delle entrate complessive' : 'dei costi complessivi';
 

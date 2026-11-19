@@ -9,8 +9,6 @@ namespace App\Esercizio;
  */
 final class Differenze
 {
-    public const ESITI = ['rispettato' => 'Rispettato', 'vicino' => 'Vicino alla soglia', 'non_rispettato' => 'Non rispettato'];
-
     /**
      * @param  array{modello_d: array, catena: array, secondarieta: array}  $istantanea
      * @return array{voci: array<string, array{etichetta: string, importo: int}>, esiti: array<string, array{etichetta: string, esito: string}>}

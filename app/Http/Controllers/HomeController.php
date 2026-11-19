@@ -20,9 +20,7 @@ class HomeController extends Controller
 
         return view('home', [
             // Il promemoria della segnalazione al RUNTS (#17, #59) resta finché non si registra l'invio, per chi gestisce l'esercizio.
-            'segnalazioni' => $utente->can('gestire_esercizio')
-                ? VersioneEsercizio::whereNull('riaperta_il')->where('esito_secondarieta', 'non_rispettato')->whereNull('segnalazione_inviata_il')->orderBy('esercizio')->get()
-                : collect(),
+            'segnalazioni' => $utente->can('gestire_esercizio') ? VersioneEsercizio::segnalazioniDaFare() : collect(),
             'secondarieta' => $secondarieta !== null && $secondarieta['esito'] !== 'rispettato' ? $secondarieta : null,
             'daVedere' => $utente->can('note') && $utente->can('vedere') ? Menzione::daVedere($utente) : collect(),
             'orfane' => $utente->can('importare_e_confermare') ? Giroconti::orfane() : collect(),

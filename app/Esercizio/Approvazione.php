@@ -24,7 +24,10 @@ final class Approvazione
      */
     public static function approva(User $utente, int $anno, string $data): VersioneEsercizio
     {
-        return DatiEsercizio::sottoBlocco($utente, $anno, function (DatiEsercizio $dati) use ($utente, $anno, $data) {
+        // Si bloccano anche i due esercizi prima, in ordine di anno: il rientro, la tolleranza del 6% e il confronto si leggono dalle loro versioni, e una riapertura
+        // concorrente non deve cambiarle sotto la lettura (su MySQL, REPEATABLE READ, si legge dopo i blocchi).
+        return DatiEsercizio::sottoBlocchi($utente, [$anno - 2, $anno - 1, $anno], function (array $tutti) use ($utente, $anno, $data) {
+            $dati = $tutti[$anno];
             if ($dati->stato !== 'aperto') {
                 self::rifiuta('stato', "L'esercizio $anno è già approvato: per cambiarlo lo si riapre, e l'approvazione successiva è la versione ".($dati->versione + 1).'.');
             }
@@ -89,11 +92,12 @@ final class Approvazione
         }, Permesso::RiaprireEsercizio);
     }
 
-    /** L'invio della segnalazione al RUNTS (art. 4 DM 107/2021): la data e, se c'è, il protocollo. Solo per una versione vigente con la secondarietà non rispettata. */
+    /** L'invio della segnalazione al RUNTS (art. 4 DM 107/2021): la data e, se c'è, il protocollo. Solo per l'ultima versione approvata, con la secondarietà non rispettata:
+     * anche se poi riaperta, perché l'obbligo nato con un esito approvato non si dimentica (come il rientro, `Verifiche::rientro`). */
     public static function segnala(User $utente, int $anno, string $data, ?string $protocollo): void
     {
-        DatiEsercizio::sottoBlocco($utente, $anno, function (DatiEsercizio $dati) use ($utente, $anno, $data, $protocollo) {
-            $versione = $dati->approvato() ? VersioneEsercizio::where('esercizio', $anno)->where('numero', $dati->versione)->lockForUpdate()->first() : null;
+        DatiEsercizio::sottoBlocco($utente, $anno, function () use ($utente, $anno, $data, $protocollo) {
+            $versione = VersioneEsercizio::where('esercizio', $anno)->orderByDesc('numero')->lockForUpdate()->first();
             if ($versione === null || $versione->esito_secondarieta !== 'non_rispettato') {
                 self::rifiuta('stato', "Per l'esercizio $anno non c'è una segnalazione da registrare.");
             }

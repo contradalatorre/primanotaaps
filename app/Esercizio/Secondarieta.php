@@ -31,6 +31,9 @@ final class Secondarieta
      */
     public static function calcola(array $modelloD, bool $figurativiDichiarati, int $sogliaVicino, ?string $confermato, ?array $rientro = null): array
     {
+        // Dopo un non rispettato il criterio è quello del rientro (art. 4 DM 107/2021): una conferma diversa, fatta prima che l'anno prima fosse approvato, non vale
+        // (altrimenti si eviterebbe la soglia ridotta, a favore dell'ente).
+        $confermato = $rientro !== null && $confermato !== null ? $rientro['criterio'] : $confermato;
         $b = $modelloD['aree']['B']['entrate']['totale'];
         $entrate = $modelloD['gestione']['entrate'];
         $distacco = current(array_filter($modelloD['aree']['E']['entrate']['righe'], fn (array $r) => $r['voce'] === 'E1')); // entrate da distacco del personale
