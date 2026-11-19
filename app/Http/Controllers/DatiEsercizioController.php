@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Esercizio\SchemaModelloD;
 use App\Euro;
 use App\Models\DatiEsercizio;
+use App\Models\DestinazioneAvanzo;
 use App\Models\RegistroModifica;
 use App\Models\RigaFigurativa;
 use Illuminate\Http\RedirectResponse;
@@ -25,6 +26,7 @@ class DatiEsercizioController extends Controller
             'anno' => $anno,
             'dati' => DatiEsercizio::per($anno),
             'figurativi' => RigaFigurativa::where('esercizio', $anno)->orderBy('id')->get(),
+            'destinazioni' => DestinazioneAvanzo::where('esercizio', $anno)->orderBy('id')->get(),
             'areeFigurative' => SchemaModelloD::figurativi(),
         ]);
     }
@@ -98,6 +100,43 @@ class DatiEsercizioController extends Controller
         });
 
         return redirect()->route('dati-esercizio', $anno)->with('ok', 'Riga figurativa aggiunta.');
+    }
+
+    /**
+     * La destinazione dell'avanzo (#56): righe con descrizione, importo e nota, proposte all'assemblea. Compaiono solo nel rendiconto per
+     * l'assemblea, che non porta nomi di persone (storia 143): la descrizione e la nota non li devono contenere. Un importo oltre l'avanzo non si blocca: il residuo esce negativo.
+     */
+    public function aggiungiDestinazione(Request $request, int $anno): RedirectResponse
+    {
+        $campi = $request->validate([
+            'descrizione' => ['required', 'string', 'max:200'],
+            'importo' => ['required', 'string', 'max:30'],
+            'nota' => ['nullable', 'string', 'max:200'],
+        ]);
+        $importo = Euro::daTesto($campi['importo']);
+        if ($importo === null || $importo <= 0) {
+            throw ValidationException::withMessages(['importo' => 'Scrivi un importo in euro maggiore di zero, per esempio 1.234,56.']);
+        }
+
+        DatiEsercizio::sottoBlocco($request->user(), $anno, function () use ($request, $anno, $campi, $importo) {
+            $riga = DestinazioneAvanzo::create(['esercizio' => $anno, 'descrizione' => trim($campi['descrizione']), 'importo' => $importo, 'nota' => filled($campi['nota'] ?? null) ? trim($campi['nota']) : null]);
+            RegistroModifica::registra($request->user(), $riga, 'creata', null, $riga->istantanea());
+        });
+
+        return redirect()->to(route('dati-esercizio', $anno).'#destinazione')->with('ok', 'Destinazione dell’avanzo aggiunta.');
+    }
+
+    public function eliminaDestinazione(Request $request, int $anno, int $riga): RedirectResponse
+    {
+        DatiEsercizio::sottoBlocco($request->user(), $anno, function () use ($request, $anno, $riga) {
+            // Letta a blocco preso: una riga già eliminata da un'altra richiesta è un 404, non un secondo registro.
+            $riga = DestinazioneAvanzo::where('esercizio', $anno)->findOrFail($riga);
+            $prima = $riga->istantanea();
+            $riga->delete();
+            RegistroModifica::registra($request->user(), $riga, 'eliminata', $prima, null);
+        });
+
+        return redirect()->to(route('dati-esercizio', $anno).'#destinazione')->with('ok', 'Destinazione dell’avanzo eliminata.');
     }
 
     public function eliminaFigurativo(Request $request, int $anno, int $riga): RedirectResponse

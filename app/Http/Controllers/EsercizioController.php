@@ -42,6 +42,25 @@ class EsercizioController extends Controller
         ]);
     }
 
+    /**
+     * Il rendiconto per l'assemblea a schermo (#56), dal vivo come il Modello D; `per=voce` lo raggruppa per voce Modello D → tipologia.
+     * Un esercizio storico (#63) non ha movimenti né rendiconto: solo il Modello D dai suoi importi.
+     */
+    public function rendiconto(Request $request, int $anno)
+    {
+        $storico = EsercizioStorico::where('esercizio', $anno)->exists();
+        $proposte = $request->boolean('proposte');
+
+        return view('esercizio.rendiconto', [
+            'anno' => $anno,
+            'proposte' => $proposte,
+            'perVoce' => $request->query('per') === 'voce',
+            'storico' => $storico,
+            'r' => $storico ? null : Prospetto::rendiconto($anno, $proposte),
+            'aggiornatoAl' => now(),
+        ]);
+    }
+
     /** Le imputazioni dietro una cifra: `chiavi` sono le righe del Modello D che la compongono («entrate:A1,uscite:A2»). */
     public function imputazioni(Request $request, int $anno)
     {

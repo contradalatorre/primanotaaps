@@ -22,10 +22,8 @@ final class Calcolo
      */
     public static function modelloD(array $imputazioni, array $saldi, array $figurativi, array $impostazioni = []): array
     {
-        $anomalie = [];
         $importi = ['entrate' => [], 'uscite' => []];
         $senzaRiga = ['entrate' => 0, 'uscite' => 0];
-        $perAnomalia = [];
 
         foreach ($imputazioni as $i) {
             if (SchemaModelloD::conosce($i->lato, $i->voce)) {
@@ -34,13 +32,8 @@ final class Calcolo
                 continue;
             }
             $senzaRiga[$i->lato] += $i->importo;
-            $perAnomalia[$i->lato.'|'.($i->voce ?? '')][] = $i->importo;
         }
-        foreach ($perAnomalia as $chiave => $somme) {
-            [$lato, $voce] = explode('|', $chiave);
-            $anomalie[] = count($somme).' imputazioni in '.$lato.' per '.Euro::formatta(array_sum($somme)).' € '
-                .($voce === '' ? 'senza voce Modello D' : 'con la voce «'.$voce.'», che non è nello schema').': non sono nel prospetto.';
-        }
+        $anomalie = self::avvisiSenzaRiga($imputazioni);
 
         $aree = [];
         foreach (SchemaModelloD::AREE as $area => $titolo) {
@@ -92,6 +85,31 @@ final class Calcolo
             'senzaRiga' => $senzaRiga,
             'anomalie' => $anomalie,
         ];
+    }
+
+    /**
+     * Gli avvisi per le imputazioni che il Modello D non sa collocare (senza voce, o con una voce fuori schema), uno per lato e voce. Valgono
+     * per tutto ciò che ha `lato`, `voce` e `importo` (`Imputata`, `RigaRendiconto`): rendiconto e Modello D dicono la stessa cosa.
+     *
+     * @param  iterable<object{lato: string, voce: ?string, importo: int}>  $imputazioni
+     * @return list<string>
+     */
+    public static function avvisiSenzaRiga(iterable $imputazioni): array
+    {
+        $perAnomalia = [];
+        foreach ($imputazioni as $i) {
+            if (! SchemaModelloD::conosce($i->lato, $i->voce)) {
+                $perAnomalia[$i->lato.'|'.($i->voce ?? '')][] = $i->importo;
+            }
+        }
+        $avvisi = [];
+        foreach ($perAnomalia as $chiave => $somme) {
+            [$lato, $voce] = explode('|', $chiave);
+            $avvisi[] = count($somme).' imputazioni in '.$lato.' per '.Euro::formatta(array_sum($somme)).' € '
+                .($voce === '' ? 'senza voce Modello D' : 'con la voce «'.$voce.'», che non è nello schema').': non sono nel prospetto.';
+        }
+
+        return $avvisi;
     }
 
     /** @return array{importo: int, chiavi: list<string>} */

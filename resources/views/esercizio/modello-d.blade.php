@@ -29,7 +29,8 @@
     <p class="nota">
         <a href="{{ route('modello-d', $anno - 1) }}" class="link">Esercizio {{ $anno - 1 }}</a> ·
         <a href="{{ route('modello-d', $anno + 1) }}" class="link">Esercizio {{ $anno + 1 }}</a> ·
-        <a href="{{ route('esercizio.iniziative', $anno) }}" class="link">Conti per iniziativa {{ $anno }}</a>
+        <a href="{{ route('esercizio.iniziative', $anno) }}" class="link">Conti per iniziativa {{ $anno }}</a> ·
+        <a href="{{ route('esercizio.rendiconto', $anno) }}" class="link">Rendiconto per l’assemblea {{ $anno }}</a>
         @can('gestire_esercizio') · <a href="{{ route('esercizio.saldi', $anno) }}" class="link">Saldi di apertura {{ $anno }}</a> @endcan
     </p>
 
