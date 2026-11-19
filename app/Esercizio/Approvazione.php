@@ -59,6 +59,21 @@ final class Approvazione
         });
     }
 
+    /**
+     * Com'è l'esercizio per chi guarda un prospetto: aperto (provvisorio) oppure approvato, con la versione vigente e le differenze dalla versione approvata
+     * (solo le imputazioni confermate, come l'approvazione). Per un esercizio aperto non si calcola nulla.
+     *
+     * @return array{versione: ?VersioneEsercizio, numero: int, differenze: ?array{voci: list<array>, esiti: list<array>}}
+     */
+    public static function situazione(int $anno): array
+    {
+        $dati = DatiEsercizio::per($anno);
+        $versione = $dati->approvato() ? VersioneEsercizio::vigente($anno) : null;
+        $differenze = $versione === null ? null : Differenze::tra(Differenze::impronta($versione->istantanea), Differenze::impronta(Verifiche::istantanea($anno)));
+
+        return ['versione' => $versione, 'numero' => $dati->versione, 'differenze' => $differenze];
+    }
+
     /** Riaprire un esercizio approvato (solo chi ha `riaprire_esercizio`, l'Amministratore): la versione precedente resta nello storico e la nuova approvazione sarà la successiva. */
     public static function riapri(User $utente, int $anno, string $motivazione): void
     {

@@ -329,6 +329,68 @@ class ApprovazioneEsercizioTest extends TestCase
         return $this->utenteCon('Lettore esterno', ['scade_il' => now()->addMonth()], ['email' => 'revisore@esterno.example']);
     }
 
+    public function test_un_esercizio_aperto_e_provvisorio_e_senza_differenze(): void
+    {
+        $this->esercizio2026();
+
+        foreach (['/esercizi/2026/modello-d', '/esercizi/2026/rendiconto', '/esercizi/2026/test'] as $pagina) {
+            $this->come($this->tesoriere)->get($pagina)->assertOk()->assertSeeText('Provvisorio – aggiornato al 20/04/2027 10:00')->assertDontSeeText('Differenze dalla versione approvata');
+        }
+    }
+
+    public function test_dopo_l_approvazione_i_prospetti_mostrano_le_differenze_dalla_versione_approvata(): void
+    {
+        $this->esercizio2026();
+        $this->approva()->assertRedirect();
+
+        foreach (['/esercizi/2026/modello-d', '/esercizi/2026/rendiconto', '/esercizi/2026/test'] as $pagina) {
+            $this->come($this->tesoriere)->get($pagina)->assertOk()
+                ->assertSeeText('Approvato il 20/04/2027 · versione 1')->assertDontSeeText('Provvisorio')
+                ->assertSeeText('Nessuna differenza');
+        }
+
+        // Una correzione tardiva: 20,00 € di entrate in più nell'area A.
+        $this->imputa('entrata', 2000, '2026-07-01', 'Somministrazione');
+
+        foreach (['/esercizi/2026/modello-d', '/esercizi/2026/rendiconto', '/esercizi/2026/test'] as $pagina) {
+            $this->come($this->tesoriere)->get($pagina)->assertOk()
+                ->assertSeeText('Differenze dalla versione approvata')
+                ->assertSeeText('Totale entrate della gestione')->assertSeeText('800,00')->assertSeeText('820,00')->assertSeeText('20,00')
+                ->assertDontSeeText('Nessuna differenza');
+        }
+    }
+
+    public function test_dopo_la_riapertura_il_prospetto_torna_provvisorio_con_la_nuova_versione(): void
+    {
+        $this->esercizio2026();
+        $this->approva()->assertRedirect();
+        $this->come($this->amministratore)->post('/esercizi/2026/riapertura', ['motivazione' => 'Errore'])->assertRedirect();
+
+        $this->come($this->tesoriere)->get('/esercizi/2026/modello-d')->assertOk()->assertSeeText('Provvisorio')->assertSeeText('Esercizio riaperto: versione 2')->assertDontSeeText('Differenze dalla versione approvata');
+    }
+
+    public function test_il_confronto_dell_anno_dopo_legge_la_versione_approvata_e_non_i_dati_di_oggi(): void
+    {
+        $this->esercizio2026();
+        $this->approva()->assertRedirect();
+        $this->imputa('entrata', 2000, '2026-07-01', 'Somministrazione'); // dopo l'approvazione
+
+        $colonna = collect(Verifiche::pagina(2027)['confronto'])->firstWhere('etichetta', '2026');
+
+        $this->assertSame(80000, $colonna['entrate'], 'Il 2026 vale per come è stato approvato');
+        $this->assertSame(82000, Verifiche::pagina(2026)['confronto'][2]['entrate'], 'L’esercizio guardato è sempre dal vivo');
+    }
+
+    public function test_un_esercizio_riaperto_nel_confronto_torna_ai_dati_di_oggi(): void
+    {
+        $this->esercizio2026();
+        $this->approva()->assertRedirect();
+        $this->imputa('entrata', 2000, '2026-07-01', 'Somministrazione');
+        $this->come($this->amministratore)->post('/esercizi/2026/riapertura', ['motivazione' => 'Errore'])->assertRedirect();
+
+        $this->assertSame(82000, collect(Verifiche::pagina(2027)['confronto'])->firstWhere('etichetta', '2026')['entrate']);
+    }
+
     public function test_un_esercizio_aperto_non_si_riapre(): void
     {
         $this->come($this->amministratore)->post('/esercizi/2026/riapertura', ['motivazione' => 'Errore'])->assertSessionHasErrors('stato');
