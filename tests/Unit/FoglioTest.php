@@ -83,6 +83,31 @@ class FoglioTest extends TestCase
         $this->assertLessThanOrEqual(2, count($righe)); // le righe vuote ripetute sono sparite
     }
 
+    public function test_una_cella_non_vuota_ripetuta_oltre_dieci_volte_non_fa_slittare_le_colonne_dopo(): void
+    {
+        $righe = Foglio::leggi(self::ods(['F' => [['Data', [0, 12], 'Quote', 10, null, 110]]]))['F'];
+
+        $this->assertSame(['Data', ...array_fill(0, 12, 0), 'Quote', 10, null, 110], $righe[0]);
+    }
+
+    public function test_le_celle_ripetute_si_espandono_fino_al_tetto_delle_colonne_e_il_resto_si_ignora(): void
+    {
+        $righe = Foglio::leggi(self::ods(['F' => [['a', [1, 100_000], 'b'], ['x', [null, 20_000_000], 'y']]]))['F'];
+
+        $this->assertSame(['a', ...array_fill(0, 59, 1)], $righe[0]); // come l'xlsx: oltre la sessantesima colonna non si legge
+        $this->assertSame(['x', ...array_fill(0, 59, null)], array_pad($righe[1], 60, null));
+    }
+
+    public function test_le_righe_raggruppate_o_ripetute_in_stampa_si_leggono_in_ordine(): void
+    {
+        $righe = Foglio::leggi(self::ods(
+            ['F' => [['Data', 'Importo'], ['r1', 1], ['r2', 2], ['r3', 3], ['r4', 4], ['r5', 5]]],
+            [['table-header-rows', 0, 0], ['table-row-group', 2, 3], ['table-row-group', 5, 5]],
+        ))['F'];
+
+        $this->assertSame([['Data', 'Importo'], ['r1', 1], ['r2', 2], ['r3', 3], ['r4', 4], ['r5', 5]], $righe);
+    }
+
     public function test_un_file_che_non_e_un_foglio_si_rifiuta_con_un_messaggio(): void
     {
         foreach (['testo semplice', "PK\x03\x04non uno zip vero"] as $byte) {

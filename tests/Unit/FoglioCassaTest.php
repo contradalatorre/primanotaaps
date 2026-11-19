@@ -53,6 +53,31 @@ class FoglioCassaTest extends TestCase
         $this->assertSame(-1000, $estratto->righe[0]->importo);
     }
 
+    public function test_un_ods_con_l_intestazione_nelle_righe_ripetute_in_stampa_e_i_movimenti_raggruppati_non_perde_righe(): void
+    {
+        $fogli = self::cassa(
+            [new DateTimeImmutable('2026-03-01'), 'Utenze', 'Prima', null, null, 10, 490],
+            [new DateTimeImmutable('2026-03-02'), 'Utenze', 'In mezzo', null, null, 10, 480, [null, 20_000_000]], // dopo il saldo, vuote ripetute fino in fondo, come le scrive Calc
+            [new DateTimeImmutable('2026-03-03'), 'Utenze', 'In fondo', null, null, 10, 470],
+        );
+
+        // intestazione (riga 1) nelle righe ripetute in stampa; la seconda riga di movimento e l'ultima, con il totale, in due gruppi
+        $estratto = (new FoglioCassa)->leggi(self::ods($fogli, [['table-header-rows', 1, 1], ['table-row-group', 4, 4], ['table-row-group', 5, 6]]));
+
+        $this->assertSame(['Prima', 'In mezzo', 'In fondo'], array_map(fn ($r) => $r->descrizione, $estratto->righe));
+        $this->assertSame(47000, $estratto->saldoFinale);
+    }
+
+    public function test_un_ods_con_una_colonna_ripetuta_oltre_dieci_volte_non_sposta_importo_e_saldo(): void
+    {
+        $intestazione = ['Data', ...array_map(fn ($n) => "Socio $n", range(1, 12)), 'Nuova causale', 'Entrate', 'Uscite', 'Saldo'];
+        $fogli = ['Cassa' => [$intestazione, [new DateTimeImmutable('2026-01-05'), [0, 12], 'Quote', 10, null, 110]]];
+
+        $riga = (new FoglioCassa)->leggi(self::ods($fogli))->righe[0];
+
+        $this->assertSame(['Quote', 1000], [$riga->causale, $riga->importo]);
+    }
+
     /** @return array<string, array{0: string}> */
     public static function formati(): array
     {

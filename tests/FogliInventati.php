@@ -63,23 +63,35 @@ trait FogliInventati
         return $byte;
     }
 
-    /** @param array<string, list<list<mixed>>> $fogli nome → righe */
-    protected static function ods(array $fogli): string
+    /**
+     * @param  array<string, list<list<mixed>>>  $fogli  nome → righe; una cella `[valore, n]` si ripete n volte (`number-columns-repeated`)
+     * @param  list<array{string, int, int}>  $contenitori  [elemento, prima riga, ultima riga]: le righe tra le due (da 0, comprese) finiscono in quell'elemento,
+     *                                                      p.es. `table-row-group` o `table-header-rows`, in ogni foglio
+     */
+    protected static function ods(array $fogli, array $contenitori = []): string
     {
+        $cella = function (mixed $valore, int $ripeti = 1) use (&$cella): string {
+            $r = $ripeti > 1 ? ' table:number-columns-repeated="'.$ripeti.'"' : '';
+
+            return match (true) {
+                is_array($valore) => $cella($valore[0], $valore[1]),
+                $valore === null => '<table:table-cell'.$r.'/>',
+                $valore instanceof DateTimeInterface => '<table:table-cell'.$r.' office:value-type="date" office:date-value="'.$valore->format('Y-m-d').'"><text:p>'.$valore->format('d/m/Y').'</text:p></table:table-cell>',
+                is_string($valore) => '<table:table-cell'.$r.' office:value-type="string"><text:p>'.htmlspecialchars($valore, ENT_XML1).'</text:p></table:table-cell>',
+                default => '<table:table-cell'.$r.' office:value-type="float" office:value="'.$valore.'"><text:p>'.$valore.'</text:p></table:table-cell>',
+            };
+        };
         $tabelle = '';
         foreach ($fogli as $nome => $righe) {
             $tabelle .= '<table:table table:name="'.htmlspecialchars($nome, ENT_XML1).'">';
-            foreach ($righe as $celle) {
-                $tabelle .= '<table:table-row>';
-                foreach ($celle as $valore) {
-                    $tabelle .= match (true) {
-                        $valore === null => '<table:table-cell/>',
-                        $valore instanceof DateTimeInterface => '<table:table-cell office:value-type="date" office:date-value="'.$valore->format('Y-m-d').'"><text:p>'.$valore->format('d/m/Y').'</text:p></table:table-cell>',
-                        is_string($valore) => '<table:table-cell office:value-type="string"><text:p>'.htmlspecialchars($valore, ENT_XML1).'</text:p></table:table-cell>',
-                        default => '<table:table-cell office:value-type="float" office:value="'.$valore.'"><text:p>'.$valore.'</text:p></table:table-cell>',
-                    };
+            foreach ($righe as $i => $celle) {
+                foreach ($contenitori as [$elemento, $da]) {
+                    $i === $da && $tabelle .= '<table:'.$elemento.'>';
                 }
-                $tabelle .= '</table:table-row>';
+                $tabelle .= '<table:table-row>'.implode('', array_map(fn ($c) => $cella($c), $celle)).'</table:table-row>';
+                foreach ($contenitori as [$elemento, , $a]) {
+                    $i === $a && $tabelle .= '</table:'.$elemento.'>';
+                }
             }
             $tabelle .= '</table:table>';
         }

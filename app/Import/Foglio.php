@@ -89,10 +89,9 @@ final class Foglio
         $fogli = [];
         foreach (self::xml($zip, 'content.xml')->getElementsByTagNameNS(self::NS_ODS['table'], 'table') as $tabella) {
             $righe = [];
-            foreach ($tabella->childNodes as $riga) {
-                if (! $riga instanceof DOMElement || $riga->localName !== 'table-row') {
-                    continue;
-                }
+            // Tutte le righe discendenti, in ordine: anche quelle in `table-row-group` (raggruppate) e `table-header-rows` (ripetute in stampa).
+            // shortcut: le sottotabelle dentro una cella (Calc non le scrive) contano come fogli a sé e le loro righe anche come righe della tabella madre; da gestire se arrivano da file veri.
+            foreach ($tabella->getElementsByTagNameNS(self::NS_ODS['table'], 'table-row') as $riga) {
                 $celle = self::celleOds($riga);
                 // Le righe ripetute (un milione di vuote, di norma, fino in fondo al foglio) si espandono al più di 100: le vuote in coda le toglie `pulisci`.
                 for ($i = 0; $i < min(100, max(1, (int) $riga->getAttributeNS(self::NS_ODS['table'], 'number-rows-repeated'))); $i++) {
@@ -123,11 +122,9 @@ final class Foglio
                 default => ($t = self::testoOds($cella)) === '' ? null : $t,
             };
             $ripetuta = max(1, (int) $cella->getAttributeNS(self::NS_ODS['table'], 'number-columns-repeated'));
-            for ($i = 0; $i < ($valore === null ? $ripetuta : min($ripetuta, 10)); $i++) {
+            // Come l'xlsx: si espande fino a MAX_COLONNE colonne in tutto e il resto si ignora, vuote o no.
+            for ($i = 0; $i < $ripetuta && count($celle) < self::MAX_COLONNE; $i++) {
                 $celle[] = $valore;
-                if (count($celle) > self::MAX_COLONNE && $valore !== null) {
-                    throw new FoglioNonValido('Il foglio ha troppe colonne.');
-                }
             }
         }
         while ($celle !== [] && end($celle) === null) {
