@@ -203,6 +203,26 @@ class ImportFoglioCassaTest extends TestCase
         $this->assertSame('Utenze', $this->riga('Assicurazioni')->tipologia->nome);
     }
 
+    public function test_la_voce_ammessa_si_controlla_solo_sugli_anni_dei_movimenti_che_portano_quella_causale(): void
+    {
+        $import = $this->importa(self::foglio()); // Assicurazioni e Tesseramento ord, del 2026: le voci ci sono solo per il 2026
+        Movimento::factory()->create(['conto_id' => $this->cassa->id, 'import_estratto_id' => $import->id, 'data' => '2025-12-20', 'causale' => 'Tesseramento ord', 'manuale' => false]);
+        $utenze = Tipologia::where('nome', 'Utenze')->value('id');
+
+        // Il 2025 è dei movimenti di un'altra causale: per Assicurazioni non conta.
+        $this->salvaRiga('Assicurazioni', ['tipologia_id' => $utenze, 'area' => 'E'])->assertSessionHasNoErrors();
+        // Per Tesseramento ord sì, e il messaggio dice l'anno.
+        $this->salvaRiga('Tesseramento ord', ['tipologia_id' => Tipologia::where('nome', 'Erogazioni liberali')->value('id'), 'area' => 'A'])->assertSessionHasErrors('tipologia_id');
+        $this->assertStringContainsString('2025', session('errors')->first('tipologia_id'));
+    }
+
+    public function test_senza_movimenti_con_quella_causale_la_voce_non_si_controlla_per_anno(): void
+    {
+        $this->travelTo('2027-01-10 10:00'); // nessun import: non c'è un anno da controllare, e quello di oggi non ha le voci
+
+        $this->salvaRiga('Assicurazioni', ['tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id'), 'area' => 'E'])->assertSessionHasNoErrors();
+    }
+
     public function test_la_causale_della_tabella_diventa_una_proposta_con_la_sua_fonte(): void
     {
         $this->importa(self::foglio());
