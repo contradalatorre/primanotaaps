@@ -255,7 +255,10 @@ class ImportEstrattiController extends Controller
                 $movimento = (new Movimento)->forceFill($import->attributiMovimento($riga, $request->user()->id));
                 $movimento->save();
                 $this->registraMovimenti($request->user(), collect([$movimento]), 'importato', null);
-                Regole::applicaAiNuovi($request->user(), collect([$movimento->refresh()]));
+                // Come alla conferma: la cassa del foglio ha la sua tabella di conversione (e i suoi dubbi) al posto delle regole.
+                $conto->importaDalFoglio()
+                    ? Conversioni::applicaAiNuovi($request->user(), $movimento->newCollection([$movimento->refresh()]))
+                    : Regole::applicaAiNuovi($request->user(), collect([$movimento->refresh()]));
             }
             $conflitto->update(['decisione' => $decisione, 'deciso_da' => $request->user()->id, 'deciso_il' => now()]);
             RegistroModifica::registra($request->user(), $import, 'conflitto_deciso', null, ['conflitto' => $conflitto->id, 'decisione' => $decisione]);

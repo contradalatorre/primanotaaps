@@ -174,8 +174,10 @@ final class Conversioni
         if ($tipologia && $area === null && $iniziativa === null) {
             $errori['area'] = 'Scegli l’area, o l’iniziativa che la porta.';
         }
-        if ($tipologia && $area !== null && ! DB::table('voci_modello_d')->where(['esercizio' => now()->year, 'area' => $area, 'tipologia_id' => $tipologia->id])->exists()) {
-            $errori['tipologia_id'] ??= "La tipologia «{$tipologia->nome}» non è ammessa nell’area $area per il ".now()->year.'.';
+        // La voce deve esserci per l'anno dei movimenti della cassa (a cavallo d'anno, non per quello di oggi), in ognuno se sono di più.
+        $manca = $tipologia && $area !== null ? collect(self::anniDellaCassa())->first(fn (int $anno) => ! DB::table('voci_modello_d')->where(['esercizio' => $anno, 'area' => $area, 'tipologia_id' => $tipologia->id])->exists()) : null;
+        if ($manca !== null) {
+            $errori['tipologia_id'] ??= "La tipologia «{$tipologia->nome}» non è ammessa nell’area $area per il $manca.";
         }
         if ($attivita && $area !== $attivita->area->value) {
             $errori['attivita_id'] = "L’attività «{$attivita->nome}» non è dell’area $area.";
@@ -189,6 +191,15 @@ final class Conversioni
         if ($errori !== []) {
             throw ValidationException::withMessages($errori);
         }
+    }
+
+    /** @return list<int> gli anni dei movimenti importati dal foglio della cassa; quello di oggi se non ce n'è ancora */
+    private static function anniDellaCassa(): array
+    {
+        $anni = Movimento::whereNotNull('import_estratto_id')->whereHas('conto', fn (Builder $c) => $c->where('formato_import', 'foglio_cassa'))
+            ->distinct()->orderBy('anno')->selectRaw('year(data) as anno')->pluck('anno')->map(fn ($a) => (int) $a)->all();
+
+        return $anni ?: [now()->year];
     }
 
     /** @return Collection<string, ConversioneCausale> per chiave della causale (minuscola, senza prefisso) */

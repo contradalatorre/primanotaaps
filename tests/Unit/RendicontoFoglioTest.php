@@ -66,7 +66,8 @@ class RendicontoFoglioTest extends TestCase
     {
         $importi = ['entrate:A1' => 1234.56, 'uscite:A1' => 50.5, 'uscite:I1' => 100];
         $righe = self::foglio($importi, extra: ['cassa' => 800]);
-        $righe = array_map(fn ($r) => count($r) === 3 ? [$r[0], $r[1], [$r[2], 12]] : $r, $righe); // la colonna dell'anno precedente ripetuta in dodici
+        // L'importo ripetuto in dodici colonne e, dopo la ripetizione, la cella dell'anno precedente (una ripetizione in fondo alla riga non coglie lo slittamento).
+        $righe = array_map(fn ($r) => count($r) === 3 ? [$r[0], [$r[1], 12], $r[2]] : $r, $righe);
         $ultima = count($righe) - 1;
         $righe[$ultima - 1] = [...$righe[$ultima - 1], [null, 20_000_000]]; // la riga «Cassa»: vuote ripetute fino in fondo
 

@@ -127,6 +127,38 @@ class ImportFoglioCassaTest extends TestCase
         $this->get("/import/{$import->id}")->assertSee('Bolletta luce di gennaio');
     }
 
+    public function test_importare_a_parte_una_riga_in_conflitto_del_foglio_passa_dalla_tabella_di_conversione(): void
+    {
+        $this->importa(self::foglio());
+        $righe = self::righe();
+        $righe[0][2] = 'Bolletta luce di gennaio'; // conflitto: stessa chiave, altra descrizione
+        $this->carica(self::foglio($righe))->assertSessionHasNoErrors();
+        $this->post('/import/'.ImportEstratto::latest('id')->value('id').'/conferma')->assertSessionHasNoErrors();
+
+        $conflitto = ImportConflitto::firstOrFail();
+        $this->post("/import/conflitti/{$conflitto->id}/decisione", ['decisione' => 'importa_a_parte'])->assertRedirect()->assertSessionHasNoErrors();
+
+        $nuovo = Movimento::where('descrizione', 'Bolletta luce di gennaio')->firstOrFail();
+        $this->assertSame('proposto', $nuovo->stato); // la tabella ha la sua proposta, come per le righe nuove
+        $this->assertSame($this->riga('Assicurazioni')->id, $nuovo->conversione_causale_id);
+    }
+
+    public function test_importare_a_parte_una_riga_del_foglio_con_una_causale_fuori_dalla_tabella_la_lascia_in_dubbio(): void
+    {
+        $this->importa(self::foglio());
+        $righe = self::righe();
+        $righe[3][2] = 'Cosa strana corretta'; // la causale «mai vista» non è nella tabella
+        $this->carica(self::foglio($righe))->assertSessionHasNoErrors();
+        $this->post('/import/'.ImportEstratto::latest('id')->value('id').'/conferma')->assertSessionHasNoErrors();
+
+        $conflitto = ImportConflitto::firstOrFail();
+        $this->post("/import/conflitti/{$conflitto->id}/decisione", ['decisione' => 'importa_a_parte'])->assertRedirect()->assertSessionHasNoErrors();
+
+        $nuovo = Movimento::where('descrizione', 'Cosa strana corretta')->firstOrFail();
+        $this->assertSame('da_classificare', $nuovo->stato);
+        $this->assertTrue($nuovo->inDubbio());
+    }
+
     public function test_una_riga_sparita_dal_foglio_si_segnala_con_un_dubbio_e_non_si_cancella(): void
     {
         $this->importa(self::foglio());
@@ -145,7 +177,19 @@ class ImportFoglioCassaTest extends TestCase
         $tessere = Movimento::where('descrizione', 'Quote tessere')->firstOrFail();
         $this->assertNull($tessere->eliminato_il);
         $this->assertTrue($tessere->inDubbio());
+        // Il confronto mese per mese non conta la riga sparita: gennaio torna, e non nasce un secondo dubbio sullo stesso movimento.
+        $this->assertSame(1, $tessere->note()->dubbioAperto()->count());
         $this->get("/import/{$import->id}")->assertSee('Quote tessere');
+    }
+
+    public function test_la_voce_ammessa_della_tabella_si_controlla_sull_anno_dei_movimenti_della_cassa_e_non_su_quello_di_oggi(): void
+    {
+        $this->importa(self::foglio()); // movimenti del 2026
+        $this->travelTo('2027-01-10 10:00'); // le voci del Modello D ci sono solo per il 2026
+
+        $this->salvaRiga('Assicurazioni', ['tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id'), 'area' => 'E'])->assertSessionHasNoErrors();
+
+        $this->assertSame('Utenze', $this->riga('Assicurazioni')->tipologia->nome);
     }
 
     public function test_la_causale_della_tabella_diventa_una_proposta_con_la_sua_fonte(): void
