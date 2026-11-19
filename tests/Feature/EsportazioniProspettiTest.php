@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Esercizio\Pdf;
+use App\Esercizio\Tabelle;
 use App\Import\Foglio;
 use App\Models\Attivita;
 use App\Models\Conto;
@@ -12,7 +14,7 @@ use App\Models\ImpostazioniAssociazione;
 use App\Models\Imputazione;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
-use App\Models\Nota;
+use App\Models\RegistroAccesso;
 use App\Models\Ruolo;
 use App\Models\Tipologia;
 use App\Models\User;
@@ -83,10 +85,22 @@ class EsportazioniProspettiTest extends TestCase
 
         $r = $this->scarica('/esercizi/2026/rendiconto/pdf');
 
-        $r->assertDownload('RendicontoAssemblea_2026_ContradaLaTorre.pdf');
+        $r->assertDownload('Rendiconto_2026_ContradaLaTorre.pdf');
         $r->assertHeader('Content-Type', 'application/pdf');
         $this->assertStringStartsWith('%PDF-', $r->getContent());
         $this->assertStringNotContainsString('pdfaid', $r->getContent()); // il provvisorio non è PDF/A: non lo si deposita per sbaglio
+        $this->assertSame(1, RegistroAccesso::where('evento', 'esportazione_rendiconto_pdf')->where('user_id', $this->tesoriere->id)->count()); // ogni esportazione va nel registro degli accessi
+    }
+
+    public function test_il_pdf_porta_provvisorio_nell_intestazione_di_ogni_pagina_e_data_versione_e_pagina_nel_piede(): void
+    {
+        $ora = now();
+        $html = Pdf::html('Rendiconto per l’assemblea · 2026', Tabelle::intestazione(['denominazione' => 'Contrada La Torre'], 'Rendiconto per l’assemblea · 2026', false, false, $ora), [], Tabelle::piede(2026, $ora, 1, false));
+
+        $this->assertStringContainsString('Contrada La Torre', $html['intestazione']);
+        $this->assertStringContainsString('Provvisorio – aggiornato al 20/12/2026 09:30', $html['intestazione']);
+        $this->assertStringContainsString('Generato il 20/12/2026 09:30 · Esercizio 2026 · versione 1 (provvisoria) · Pagina {PAGENO} di {nbpg}', $html['piede']);
+        $this->assertStringNotContainsStringIgnoringCase('opacity', $html['corpo'].$html['intestazione']); // niente filigrana né trasparenze
     }
 
     public function test_il_modello_d_in_pdf_e_in_xlsx_ha_il_suo_nome_e_nell_xlsx_l_intestazione_i_totali_e_il_dettaglio(): void

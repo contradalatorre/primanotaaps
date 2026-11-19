@@ -2,6 +2,7 @@
 
 namespace App\Esercizio;
 
+use Illuminate\Support\Facades\File;
 use RuntimeException;
 use ZipArchive;
 
@@ -25,7 +26,9 @@ final class Xlsx
      */
     public static function crea(array $fogli): string
     {
-        $percorso = tempnam(sys_get_temp_dir(), 'xlsx');
+        // ZipArchive scrive su file: nello spazio dell'app (ADR 0001), non in una cartella di sistema; il file si toglie sempre.
+        File::ensureDirectoryExists(storage_path('app/xlsx'));
+        $percorso = tempnam(storage_path('app/xlsx'), 'xlsx');
         try {
             $zip = new ZipArchive;
             $zip->open($percorso, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true || throw new RuntimeException('Non riesco a creare il file temporaneo.');

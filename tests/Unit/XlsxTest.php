@@ -5,7 +5,7 @@ namespace Tests\Unit;
 use App\Esercizio\Importo;
 use App\Esercizio\Xlsx;
 use App\Import\Foglio;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 /** Il writer di fogli .xlsx (#58): ciò che scrive si rilegge con `Foglio`, che è il lettore dell'app. Dati inventati. */
 class XlsxTest extends TestCase

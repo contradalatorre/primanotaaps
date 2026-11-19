@@ -9,6 +9,7 @@ use App\Esercizio\Tabelle;
 use App\Esercizio\Xlsx;
 use App\Models\EsercizioStorico;
 use App\Models\ImpostazioniAssociazione;
+use App\Models\RegistroAccesso;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Str;
@@ -44,7 +45,7 @@ class EsportazioniController extends Controller
         $proposte = $request->boolean('proposte');
         $sezioni = Tabelle::rendiconto(Prospetto::rendiconto($anno, $proposte), $request->user()->can('gestire_esercizio'));
 
-        return $this->consegna($request, $formato, 'RendicontoAssemblea', 'Rendiconto', $anno, 'Rendiconto per l’assemblea · '.$anno, $sezioni, false, $proposte, true);
+        return $this->consegna($request, $formato, 'Rendiconto', 'Rendiconto', $anno, 'Rendiconto per l’assemblea · '.$anno, $sezioni, false, $proposte, true);
     }
 
     public function elenco(Request $request, int $anno, string $tipo): Response
@@ -52,7 +53,7 @@ class EsportazioniController extends Controller
         $conNote = $request->user()->can('note');
         $elenco = $tipo === 'imputazioni' ? Elenchi::imputazioni($anno, $request->boolean('proposte'), $conNote) : Elenchi::movimenti($anno, $conNote);
 
-        return $this->scarica(Elenchi::csv($elenco), 'text/csv; charset=UTF-8', $this->nome(ucfirst($tipo), $anno, 'csv'));
+        return $this->scarica($request, Elenchi::csv($elenco), 'text/csv; charset=UTF-8', $this->nome(ucfirst($tipo), $anno, 'csv'));
     }
 
     /** @param  list<array>  $sezioni */
@@ -62,7 +63,7 @@ class EsportazioniController extends Controller
         $intestazione = Tabelle::intestazione(ImpostazioniAssociazione::per($anno)?->only(['denominazione', 'codice_fiscale', 'numero_runts']) ?? [], $titolo, $storico, $proposte, $ora);
 
         if ($formato === 'pdf') {
-            return $this->scarica(Pdf::crea($titolo, $intestazione, $sezioni, Tabelle::piede($anno, $ora, self::VERSIONE, $storico), $largo), 'application/pdf', $this->nome($prefisso, $anno, 'pdf'));
+            return $this->scarica($request, Pdf::crea($titolo, $intestazione, $sezioni, Tabelle::piede($anno, $ora, self::VERSIONE, $storico), $largo), 'application/pdf', $this->nome($prefisso, $anno, 'pdf'));
         }
 
         // Il foglio «Dettaglio» per il commercialista: tutte le imputazioni dell'esercizio, le stesse del prospetto.
@@ -72,7 +73,7 @@ class EsportazioniController extends Controller
             'Dettaglio' => [['celle' => $dettaglio['colonne'], 'grassetto' => true], ...array_map(fn (array $riga) => ['celle' => $riga], $dettaglio['righe'])],
         ]);
 
-        return $this->scarica($xlsx, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $this->nome($prefisso, $anno, 'xlsx'));
+        return $this->scarica($request, $xlsx, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $this->nome($prefisso, $anno, 'xlsx'));
     }
 
     /** «Rendiconto_2026_ContradaLaTorre.pdf»: l'ente dalla denominazione delle impostazioni, ridotta a lettere e cifre. */
@@ -83,8 +84,11 @@ class EsportazioniController extends Controller
         return $prefisso.'_'.$anno.'_'.($ente ?: 'Associazione').'.'.$estensione;
     }
 
-    private function scarica(string $contenuto, string $tipo, string $nome): Response
+    /** Ogni esportazione va nel registro degli accessi (glossario): «esportazione_modellod_pdf», «esportazione_imputazioni_csv». */
+    private function scarica(Request $request, string $contenuto, string $tipo, string $nome): Response
     {
+        RegistroAccesso::registra('esportazione_'.strtolower(strtok($nome, '_')).'_'.pathinfo($nome, PATHINFO_EXTENSION), $request, $request->user());
+
         return response($contenuto, 200, ['Content-Type' => $tipo, 'Content-Disposition' => 'attachment; filename="'.$nome.'"']);
     }
 }

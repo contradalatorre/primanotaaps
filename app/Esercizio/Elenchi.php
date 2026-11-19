@@ -20,6 +20,8 @@ final class Elenchi
 {
     private const NOTE = ['Note', 'Numero note', 'Dubbio aperto'];
 
+    private const STATI = ['da_classificare' => 'Da classificare', 'proposto' => 'Proposto', 'confermato' => 'Confermato'];
+
     /** @return array{colonne: list<string>, righe: list<list<string|int|Importo|null>>} */
     public static function imputazioni(int $anno, bool $proposte, bool $conNote): array
     {
@@ -75,8 +77,6 @@ final class Elenchi
 
         return (string) stream_get_contents($csv);
     }
-
-    private const STATI = ['da_classificare' => 'Da classificare', 'proposto' => 'Proposto', 'confermato' => 'Confermato'];
 
     private static function firmato(string $lato, int $importo): Importo
     {
