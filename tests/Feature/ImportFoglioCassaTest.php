@@ -193,6 +193,18 @@ class ImportFoglioCassaTest extends TestCase
         $this->get("/import/{$import->id}")->assertSee('Quote tessere');
     }
 
+    public function test_una_scheda_che_la_cassa_non_legge_non_rifiuta_il_foglio_con_colonne_oltre_il_tetto(): void
+    {
+        $largo = [['a', [null, 59], 'saldo']]; // un valore oltre la 60ª colonna
+        $cassa = [['Data', 'Nuova causale', 'Descrizione', 'Entrate', 'Uscite'], ['15/01/2026', 'Tesseramento ord', 'Quote tessere', 120]];
+
+        $this->carica(self::ods(['Mappatura' => $largo, 'Cassa' => $cassa]), nome: 'cassa.ods')->assertSessionHasNoErrors();
+        $this->carica(self::ods(['Mappatura' => [['x']], 'Cassa' => $largo]), nome: 'cassa.ods')->assertSessionHasErrors();
+        $this->assertStringContainsString('«Cassa»', session('errors')->first());
+        $this->carica(self::ods(['Mappatura' => [['x']]]), nome: 'cassa.ods')->assertSessionHasErrors();
+        $this->assertStringContainsString('non c’è la scheda «Cassa»', session('errors')->first());
+    }
+
     public function test_la_voce_ammessa_della_tabella_si_controlla_sull_anno_dei_movimenti_della_cassa_e_non_su_quello_di_oggi(): void
     {
         $this->importa(self::foglio()); // movimenti del 2026

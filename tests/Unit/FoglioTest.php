@@ -109,14 +109,15 @@ class FoglioTest extends TestCase
     {
         foreach ([
             'ods' => fn () => Foglio::leggi(self::ods(['Saldi' => [['a', [null, 59], 'saldo']]])),
+            'ods, dopo una ripetizione troncata' => fn () => Foglio::leggi(self::ods(['Saldi' => [['a', [null, 100], 'saldo']]])), // la colonna vera è la 102ª
             'xlsx' => fn () => Foglio::leggi(self::xlsxGrezzo(['<worksheet xmlns="'.self::NS.'"><sheetData><row r="1"><c r="BI1" t="str"><v>saldo</v></c></row></sheetData></worksheet>'])),
         ] as $formato => $leggi) {
             try {
                 $leggi();
                 $this->fail($formato.': il foglio andava rifiutato');
             } catch (FoglioNonValido $e) {
-                $this->assertStringContainsString($formato === 'ods' ? '«Saldi»' : '«F1»', $e->getMessage(), $formato);
-                $this->assertStringContainsString('colonna BI', $e->getMessage(), $formato);
+                $this->assertStringContainsString(str_starts_with($formato, 'ods') ? '«Saldi»' : '«F1»', $e->getMessage(), $formato);
+                $this->assertStringContainsString($formato === 'ods, dopo una ripetizione troncata' ? 'colonna CX' : 'colonna BI', $e->getMessage(), $formato);
             }
         }
     }
@@ -134,6 +135,7 @@ class FoglioTest extends TestCase
 
         $this->assertSame([['x']], array_values($fogli)[0]);
         $this->assertCount(1, $fogli); // l'altra scheda non c'è nel risultato
+        $this->assertSame([], Foglio::leggi($contenuto, fn () => false)); // nessuna scheda letta non è un file illeggibile: lo dice chi chiama
     }
 
     public function test_un_valore_xlsx_oltre_la_sessantesima_colonna_si_rifiuta_ma_una_cella_vuota_no(): void

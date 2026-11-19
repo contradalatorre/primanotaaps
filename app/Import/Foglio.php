@@ -179,13 +179,14 @@ final class Foglio
             $fogli[$nome] = self::pulisci($righe);
         }
 
-        return $fogli ?: throw self::nonValido();
+        return $fogli ?: ($lette !== null ? [] : throw self::nonValido()); // con un filtro, nessuna scheda letta lo dice il chiamante
     }
 
     /** @return list<string|int|float|null> la riga senza le celle vuote in coda; [] se è tutta vuota */
     private static function celleOds(DOMElement $riga, string $scheda): array
     {
         $celle = [];
+        $posizione = 0; // la colonna vera, anche oltre quelle che si espandono
         foreach ($riga->childNodes as $cella) {
             if (! $cella instanceof DOMElement || ! in_array($cella->localName, ['table-cell', 'covered-table-cell'], true)) {
                 continue;
@@ -198,9 +199,10 @@ final class Foglio
             };
             // Una cella con un valore oltre l'ultima colonna ammessa non si perde in silenzio (potrebbe essere il Saldo): si rifiuta il foglio.
             if (! self::vuota($valore) && count($celle) >= self::MAX_COLONNE) {
-                throw self::troppeColonne($scheda, count($celle) + 1);
+                throw self::troppeColonne($scheda, $posizione + 1);
             }
             $ripetuta = max(1, (int) $cella->getAttributeNS(self::NS_ODS['table'], 'number-columns-repeated'));
+            $posizione += $ripetuta;
             // Si espande fino a MAX_COLONNE colonne in tutto: le ripetizioni oltre si troncano.
             for ($i = 0; $i < $ripetuta && count($celle) < self::MAX_COLONNE; $i++) {
                 $celle[] = $valore;
@@ -287,7 +289,7 @@ final class Foglio
             $fogli[$nome] = self::pulisci($righe === [] ? [] : array_replace(array_fill(0, max(array_keys($righe)) + 1, []), $righe));
         }
 
-        return $fogli ?: throw self::nonValido();
+        return $fogli ?: ($lette !== null ? [] : throw self::nonValido());
     }
 
     /** @return list<string|int|float|null> */
