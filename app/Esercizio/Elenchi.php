@@ -64,14 +64,14 @@ final class Elenchi
     {
         $csv = fopen('php://temp', 'w+');
         fwrite($csv, "\xEF\xBB\xBF");
-        fputcsv($csv, $elenco['colonne'], ';');
+        fputcsv($csv, $elenco['colonne'], ';', '"', ''); // senza il carattere di escape: Excel legge il CSV come l'RFC 4180
         foreach ($elenco['righe'] as $riga) {
             fputcsv($csv, array_map(fn ($c) => match (true) {
                 $c instanceof Importo => str_replace('.', ',', $c->decimale()),
                 // Un testo che comincia come una formula (una descrizione bancaria `=...`) in Excel si eseguirebbe: lo si apre con un apice.
                 is_string($c) && ! is_numeric($c) && preg_match('/^[=+\-@\t\r]/', $c) => "'".$c,
                 default => $c ?? '',
-            }, $riga), ';');
+            }, $riga), ';', '"', '');
         }
         rewind($csv);
 

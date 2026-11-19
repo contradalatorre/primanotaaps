@@ -33,7 +33,8 @@ class EsportazioniController extends Controller
         // Un esercizio storico (#63) non ha movimenti: il suo Modello D è ricalcolato dagli importi caricati dal foglio, come nella pagina.
         $proprio = EsercizioStorico::where('esercizio', $anno)->first();
         $m = $proprio?->prospetto() ?? Prospetto::modelloD($anno, $proposte);
-        $sezioni = Tabelle::modelloD($m, EsercizioStorico::modelloD($anno - 1), $anno, $proprio !== null);
+        $impedimenti = $proprio ? [] : array_column(Prospetto::impedimenti($anno), 'testo');
+        $sezioni = Tabelle::modelloD($m, EsercizioStorico::modelloD($anno - 1), $anno, $proprio !== null, $impedimenti);
 
         return $this->consegna($request, $formato, 'ModelloD', 'Modello D', $anno, 'Modello D · Rendiconto per cassa '.$anno, $sezioni, $proprio !== null, $proposte, false);
     }

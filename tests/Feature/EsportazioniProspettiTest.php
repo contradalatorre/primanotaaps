@@ -118,6 +118,7 @@ class EsportazioniProspettiTest extends TestCase
         $this->assertSame(['Provvisorio – aggiornato al 20/12/2026 09:30. Solo le imputazioni confermate.'], $fogli['Modello D'][3]);
         $complessivo = collect($fogli['Modello D'])->first(fn (array $riga) => ($riga[0] ?? null) === 'Avanzo/disavanzo complessivo');
         $this->assertSame(450.0, $complessivo[1]); // 800,00 − 350,00
+        $this->assertContains(['«Cassa contanti» non è mai stato riconciliato (ultimo movimento del 02/06/2026)'], $fogli['Modello D']); // gli impedimenti, accanto al provvisorio
         // Il Dettaglio ha tutte le imputazioni dell'esercizio: l'intestazione e le due righe, uscite col meno.
         $this->assertCount(3, $fogli['Dettaglio']);
         $this->assertSame([800.0, -350.0], [$fogli['Dettaglio'][1][3], $fogli['Dettaglio'][2][3]]);

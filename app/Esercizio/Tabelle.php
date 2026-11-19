@@ -21,9 +21,10 @@ final class Tabelle
      * @param  array  $m  il Modello D di `Calcolo::modelloD`
      * @param  ?array  $prec  quello dell'esercizio precedente, per la sua colonna
      * @param  bool  $storico  un esercizio storico non ha i saldi iniziali: la quadratura non si dice
+     * @param  list<string>  $impedimenti  cosa manca per chiudere l'esercizio (`Prospetto::impedimenti`): accanto al prospetto provvisorio, come nella pagina
      * @return list<Sezione>
      */
-    public static function modelloD(array $m, ?array $prec, int $anno, bool $storico = false): array
+    public static function modelloD(array $m, ?array $prec, int $anno, bool $storico = false, array $impedimenti = []): array
     {
         $colonne = fn (string $primo, string $importo = 'Importo (€)') => [$primo, $importo, ...($prec ? ['Esercizio '.($anno - 1).' (€)'] : [])];
         $riga = fn (string $etichetta, ?int $importo, ?int $precedente = null, bool $grassetto = false) => [
@@ -83,7 +84,7 @@ final class Tabelle
                 .Euro::formatta($m['avanzoComplessivo']['importo']).' € (differenza di '.Euro::formatta($m['quadratura']['differenza']).' €).';
         }
 
-        return [...$sezioni, ...self::avvisi($avvisi)];
+        return [...$sezioni, ...self::avvisi($avvisi), ...self::avvisi($impedimenti, 'Impedimenti')];
     }
 
     /**
@@ -200,8 +201,8 @@ final class Tabelle
     }
 
     /** @param list<string> $avvisi */
-    private static function avvisi(array $avvisi): array
+    private static function avvisi(array $avvisi, string $titolo = 'Avvisi'): array
     {
-        return $avvisi === [] ? [] : [['titolo' => 'Avvisi', 'colonne' => [], 'righe' => array_map(fn (string $a) => ['celle' => [$a], 'grassetto' => false], array_values($avvisi))]];
+        return $avvisi === [] ? [] : [['titolo' => $titolo, 'colonne' => [], 'righe' => array_map(fn (string $a) => ['celle' => [$a], 'grassetto' => false], array_values($avvisi))]];
     }
 }
