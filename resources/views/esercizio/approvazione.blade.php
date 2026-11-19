@@ -39,6 +39,16 @@
             @endforelse
         </section>
 
+        <section data-merlo="approvazione-chiusura">
+            <h2>Saldi iniziali del {{ $anno + 1 }}</h2>
+            <p class="nota">Si calcolano dalla chiusura del {{ $anno }}, al 31/12: non si inseriscono a mano.</p>
+            <ul class="elenco">
+                @foreach ($chiusura as $riga => $importo)
+                    <li>{{ \App\Models\Conto::RIGHE_MODELLO_D[$riga] }}: {{ \App\Euro::formatta($importo) }} €</li>
+                @endforeach
+            </ul>
+        </section>
+
         @unless ($dati->approvato())
             @php($criterio = $s['confermato'] ?? $s['proposto'])
             <section data-merlo="approvazione-modulo">

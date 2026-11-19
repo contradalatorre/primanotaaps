@@ -26,6 +26,8 @@ class ApprovazioneController extends Controller
             'dati' => $dati,
             'storico' => EsercizioStorico::where('esercizio', $anno)->exists(),
             'controllo' => Prospetto::impedimenti($anno),
+            // La chiusura per riga del Modello D (cassa, depositi): sono i saldi iniziali dell'esercizio dopo, che il Modello D calcola dai conti.
+            'chiusura' => collect(Prospetto::saldi($anno))->groupBy('riga')->map(fn ($saldi) => $saldi->sum('finale'))->sortKeys()->all(),
             's' => Verifiche::secondarieta($anno),
             'versioni' => VersioneEsercizio::where('esercizio', $anno)->orderByDesc('numero')->get(),
         ]);

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Esercizio\Prospetto;
 use App\Esercizio\Verifiche;
 use App\Import\Foglio;
 use App\Models\Attivita;
@@ -438,6 +439,23 @@ class ApprovazioneEsercizioTest extends TestCase
         $this->come($this->amministratore)->post('/esercizi/2026/riapertura', ['motivazione' => 'Errore'])->assertRedirect();
 
         $this->assertSame(82000, collect(Verifiche::pagina(2027)['confronto'])->firstWhere('etichetta', '2026')['entrate']);
+    }
+
+    /** I saldi iniziali dell'esercizio dopo sono la chiusura di questo, per riga del Modello D: nessun inserimento a mano, e la pagina li mostra. */
+    public function test_i_saldi_iniziali_dell_esercizio_successivo_sono_la_chiusura(): void
+    {
+        $banca = Conto::factory()->create(['nome' => 'Banca', 'tipo' => 'banca', 'riga_modello_d' => 'depositi', 'aperto_il' => '2026-01-01', 'saldo_iniziale' => 100000]);
+        $this->esercizio2026(); // in cassa: 800,00 − 350,00
+        Movimento::factory()->create(['conto_id' => $banca->id, 'verso' => 'uscita', 'importo' => 25000, 'data' => '2026-09-01', 'inserito_da' => $this->tesoriere->id, 'stato' => 'confermato']);
+        $this->approva()->assertRedirect();
+
+        $perRiga = fn (int $anno, string $campo) => collect(Prospetto::saldi($anno))->groupBy('riga')->map(fn ($saldi) => $saldi->sum($campo))->sortKeys()->all();
+        $this->assertSame(['cassa' => 45000, 'depositi' => 75000], $perRiga(2026, 'finale'));
+        $this->assertSame($perRiga(2026, 'finale'), $perRiga(2027, 'iniziale'));
+        $this->assertSame(Prospetto::modelloD(2026)['liquidita']['totale'], Prospetto::modelloD(2027)['liquidita']['iniziale']);
+
+        $this->come($this->tesoriere)->get('/esercizi/2026/approvazione')->assertOk()
+            ->assertSeeText('Saldi iniziali del 2027')->assertSeeText('450,00')->assertSeeText('750,00');
     }
 
     public function test_un_esercizio_aperto_non_si_riapre(): void
