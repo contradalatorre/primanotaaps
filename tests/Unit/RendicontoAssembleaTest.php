@@ -95,10 +95,9 @@ class RendicontoAssembleaTest extends TestCase
         $this->assertSame(30000, $cultura['uscite']['totale']);
         $this->assertSame(50000, $cultura['risultato']['totale']);
         $this->assertSame(50000, $r['aree']['A']['risultato']['totale']);
-        $this->assertSame(['conti' => [1 => 50000, 2 => 30000 - 90], 'totale' => 80000 - 90 - 30000 + 30000], $r['totali']['entrate'] + ['totale' => 80000 - 90 - 30000 + 30000] === [] ? [] : ['conti' => [1 => 50000, 2 => 30000 - 90], 'totale' => 79910]);
-        $this->assertSame(80000, $r['totali']['entrate']['totale']);
-        $this->assertSame(30090, $r['totali']['uscite']['totale']);
-        $this->assertSame(49910, $r['totali']['risultato']['totale']);
+        $this->assertSame(['conti' => [1 => 50000, 2 => 30000], 'totale' => 80000], $r['totali']['entrate']);
+        $this->assertSame(['conti' => [1 => 30000, 2 => 90], 'totale' => 30090], $r['totali']['uscite']);
+        $this->assertSame(['conti' => [1 => 20000, 2 => 29910], 'totale' => 49910], $r['totali']['risultato']);
     }
 
     public function test_le_aree_senza_imputazioni_non_compaiono_e_le_aree_seguono_l_ordine_del_modello(): void
@@ -132,22 +131,23 @@ class RendicontoAssembleaTest extends TestCase
     public function test_riepilogo_per_conto_con_giroconti_fuori_dai_totali_e_quadratura(): void
     {
         [$righe] = $this->esercizio();
-        // Cassa: 10,00 + 800,00 entrate − 300,00 uscite + 100,00 giroconto in entrata − 200,00 in uscita.
+        // Cassa: 10,00 + 500,00 entrate − 300,00 uscite + 100,00 giroconto in entrata − 200,00 in uscita = 110,00.
+        // Banca: 50,00 + 300,00 − 0,90 + 200,00 in entrata − 100,00 in uscita = 449,10.
         $conti = [
-            $this->conto(1, 'Cassa', iniziale: 1000, finale: 1000 + 50000 - 30000 + 10000 - 20000),
-            $this->conto(2, 'Banca', iniziale: 5000, finale: 5000 + 30000 - 90 + 20000, giroIn: 20000),
+            $this->conto(1, 'Cassa', iniziale: 1000, finale: 11000, giroIn: 10000, giroOut: 20000),
+            $this->conto(2, 'Banca', iniziale: 5000, finale: 44910, giroIn: 20000, giroOut: 10000),
         ];
 
-        $c = RendicontoAssemblea::calcola($righe, $conti, [])['riepilogo']['conti'];
+        $r = RendicontoAssemblea::calcola($righe, $conti, []);
+        $c = $r['riepilogo']['conti'];
 
-        $this->assertSame([1000, 50000, 30000, 0, 0, 21000, 0], [$c[1]['iniziale'], $c[1]['entrate'], $c[1]['uscite'], $c[1]['giroconti_entrata'], $c[1]['giroconti_uscita'], $c[1]['finale'], $c[1]['nonClassificato']]
-            === [1000, 50000, 30000, 0, 0, 21000, 0] ? [1000, 50000, 30000, 0, 0, 21000, 0] : []);
-        $this->assertSame(50000, $c[1]['entrate']);
-        $this->assertSame(30000, $c[1]['uscite']);
-        $this->assertSame(10000, $c[1]['giroconti_entrata']);
-        $this->assertSame(20000, $c[1]['giroconti_uscita']);
-        // Iniziale 10,00 + 500,00 − 300,00 + 100,00 − 200,00 = 110,00; il saldo finale è 110,00: quadra.
-        $this->assertSame(0, $c[1]['nonClassificato']);
+        $this->assertSame(['iniziale' => 1000, 'entrate' => 50000, 'uscite' => 30000, 'giroconti_entrata' => 10000, 'giroconti_uscita' => 20000, 'finale' => 11000, 'nonClassificato' => 0],
+            array_intersect_key($c[1], array_flip(['iniziale', 'entrate', 'uscite', 'giroconti_entrata', 'giroconti_uscita', 'finale', 'nonClassificato'])));
+        $this->assertSame(30000, $c[2]['entrate']);
+        $this->assertSame(90, $c[2]['uscite']); // la commissione in D1 è un'uscita del conto
+        $this->assertSame(0, $c[2]['nonClassificato']);
+        // I giroconti non sono né entrate né uscite: restano fuori dai totali del prospetto.
+        $this->assertSame(80000, $r['totali']['entrate']['totale']);
     }
 
     public function test_il_denaro_non_spiegato_dalle_imputazioni_compare_come_non_classificato(): void
