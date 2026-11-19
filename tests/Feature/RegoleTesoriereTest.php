@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Regole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -172,15 +173,18 @@ class RegoleTesoriereTest extends TestCase
     /** #59: le regole propongono solo sui movimenti di esercizi aperti; dopo l'approvazione (o con il deposito) l'esercizio non si tocca. */
     public function test_le_regole_non_toccano_i_movimenti_di_un_esercizio_approvato(): void
     {
-        $chiuso = $this->movimento('Bolletta ENEL dicembre', 1250, 'uscita', ['data' => '2025-12-01']);
-        $aperto = $this->movimento('Bolletta ENEL maggio', 1250, 'uscita', ['data' => '2026-05-01']);
-        $dati = DatiEsercizio::create(['esercizio' => 2025, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'stato' => 'approvato', 'versione' => 1]);
+        // Voci e predefiniti delle iniziative ci sono per il 2026 e, copiati, per il 2027: senza la voce di quell'anno la regola non potrebbe proporre comunque.
+        DB::statement('insert into voci_modello_d (esercizio, area, tipologia_id, voce) select 2027, area, tipologia_id, voce from voci_modello_d where esercizio = 2026');
+        DB::statement('insert into iniziativa_esercizio (iniziativa_id, esercizio, area, attivita_id) select iniziativa_id, 2027, area, attivita_id from iniziativa_esercizio where esercizio = 2026');
+        $chiuso = $this->movimento('Bolletta ENEL dicembre', 1250, 'uscita', ['data' => '2026-12-01']);
+        $aperto = $this->movimento('Bolletta ENEL maggio', 1250, 'uscita', ['data' => '2027-05-01']);
+        $dati = DatiEsercizio::create(['esercizio' => 2026, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'stato' => 'approvato', 'versione' => 1]);
 
-        $this->assertSame([$aperto->id], Regole::anteprima($this->dati(), null)['presi']->pluck('movimento.id')->all(), 'L’anteprima non nomina il movimento del 2025');
+        $this->assertSame([$aperto->id], Regole::anteprima($this->dati(), null)['presi']->pluck('movimento.id')->all(), 'L’anteprima non nomina il movimento del 2026');
         $regola = $this->creaRegola();
 
         $this->assertSame($regola->id, $aperto->refresh()->regola_id);
-        $this->assertSame('da_classificare', $chiuso->refresh()->stato, 'Il 2025 è approvato: la regola non lo propone');
+        $this->assertSame('da_classificare', $chiuso->refresh()->stato, 'Il 2026 è approvato: la regola non lo propone');
         $this->assertNull($chiuso->regola_id);
 
         $dati->update(['stato' => 'depositato']);
@@ -188,7 +192,8 @@ class RegoleTesoriereTest extends TestCase
         $this->assertSame('da_classificare', $chiuso->refresh()->stato, 'Nemmeno dopo il deposito');
 
         $dati->update(['stato' => 'aperto']);
-        $this->actingAs($this->tesoriere)->put("/regole/{$regola->id}", $this->dati())->assertSessionHasNoErrors();
+        // Una regola identica non riscrive proposte: la si cambia davvero (un'altra tipologia).
+        $this->actingAs($this->tesoriere)->put("/regole/{$regola->id}", $this->dati(['tipologia_id' => $this->tipologia('Materiali e beni di consumo')]))->assertSessionHasNoErrors();
         $this->assertSame($regola->id, $chiuso->refresh()->regola_id, 'Riaperto, torna ad avere le proposte delle regole');
     }
 
