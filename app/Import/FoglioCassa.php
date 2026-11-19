@@ -42,7 +42,7 @@ class FoglioCassa implements FormatoImport
         } catch (FoglioNonValido $e) {
             throw new EstrattoNonValido($e->getMessage());
         }
-        $nome = collect(array_keys($fogli))->first(fn ($n) => preg_match('/^cassa/i', (string) $n));
+        $nome = array_key_first($fogli); // la prima scheda «Cassa»: le altre non si sono lette
         if ($nome === null) {
             throw new EstrattoNonValido('Nel foglio non c’è la scheda «Cassa».');
         }
