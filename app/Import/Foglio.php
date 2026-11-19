@@ -52,7 +52,7 @@ final class Foglio
 
     /**
      * @param  string  $contenuto  i byte del file
-     * @param  ?Closure(string): bool  $lette  quali schede leggere, dal nome; le altre non si aprono e non sono nel risultato (e non possono rifiutare il file)
+     * @param  ?Closure(string): bool  $lette  quali schede leggere, dal nome; le altre non si leggono e non sono nel risultato (le loro colonne in più non rifiutano il file)
      * @return array<string, list<list<string|int|float|null>>> nome del foglio → righe
      *
      * @throws FoglioNonValido

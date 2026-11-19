@@ -197,6 +197,7 @@ final class Conversioni
     /** @return list<int> gli anni dei movimenti importati dal foglio della cassa che portano questa causale; nessuno se non ce ne sono */
     private static function anniDellaCausale(string $causale): array
     {
+        // shortcut: la chiave si confronta in PHP (non c'è in SQL), sulle coppie causale/anno distinte della cassa; da rivedere se diventano migliaia.
         $chiave = EsempiDalFoglio::chiave($causale);
 
         return Movimento::whereNotNull('import_estratto_id')->whereNotNull('causale')->whereHas('conto', fn (Builder $c) => $c->where('formato_import', 'foglio_cassa'))

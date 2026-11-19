@@ -14,6 +14,7 @@ use RuntimeException;
  * `eliminaTutto` cancella gli spazi di *tutti*, e i prefissi `p<id>_` dipendono dagli id degli utenti, uguali in ogni processo: due processi di
  * test sullo stesso database (due `phpunit` nello stesso progetto Compose) se li cancellerebbero a vicenda («p591_migrations» mancante).
  * Per questo un test ha lo spazio di prova per sé dal setUp al tearDown, con un `GET_LOCK` di MySQL: l'altro processo aspetta il suo turno (#87).
+ * Il lock copre solo lo spazio di prova: il database di test vero (`RefreshDatabase`) resta da un solo processo per volta per progetto Compose.
  */
 trait ConSpazioDiProva
 {
@@ -22,7 +23,12 @@ trait ConSpazioDiProva
     protected function setUpConSpazioDiProva(): void
     {
         $this->prendiBloccoProva();
-        $this->prova()->eliminaTutto();
+        try {
+            $this->prova()->eliminaTutto();
+        } catch (\Throwable $e) {
+            $this->rilasciaBloccoProva(); // se il setUp fallisce il tearDown può non partire, e il blocco resterebbe al test dopo
+            throw $e;
+        }
     }
 
     protected function tearDownConSpazioDiProva(): void

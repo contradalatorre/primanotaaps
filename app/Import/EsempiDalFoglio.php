@@ -74,7 +74,12 @@ final class EsempiDalFoglio
 
     public static function eSchedaDiUnConto(string $nome): bool
     {
-        return (bool) preg_match('/^(cassa|banca|paypal)/i', $nome);
+        return self::eSchedaDellaCassa($nome) || preg_match('/^(banca|paypal)/i', $nome) === 1;
+    }
+
+    public static function eSchedaDellaCassa(string $nome): bool
+    {
+        return (bool) preg_match('/^cassa/i', $nome);
     }
 
     /** La chiave con cui si cerca una causale nella tabella di conversione: senza il prefisso «->» o «→», in minuscolo, senza spazi ai lati. */

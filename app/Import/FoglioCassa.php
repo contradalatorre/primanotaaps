@@ -38,7 +38,7 @@ class FoglioCassa implements FormatoImport
     public function leggi(string $contenuto): Estratto
     {
         try {
-            $fogli = Foglio::leggi($contenuto, fn (string $scheda) => (bool) preg_match('/^cassa/i', $scheda));
+            $fogli = Foglio::leggi($contenuto, EsempiDalFoglio::eSchedaDellaCassa(...));
         } catch (FoglioNonValido $e) {
             throw new EstrattoNonValido($e->getMessage());
         }
