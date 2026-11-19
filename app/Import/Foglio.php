@@ -90,6 +90,7 @@ final class Foglio
         foreach (self::xml($zip, 'content.xml')->getElementsByTagNameNS(self::NS_ODS['table'], 'table') as $tabella) {
             $righe = [];
             // Tutte le righe discendenti, in ordine: anche quelle in `table-row-group` (raggruppate) e `table-header-rows` (ripetute in stampa).
+            // shortcut: le sottotabelle dentro una cella (Calc non le scrive) contano come fogli a sé e le loro righe anche come righe della tabella madre; da gestire se arrivano da file veri.
             foreach ($tabella->getElementsByTagNameNS(self::NS_ODS['table'], 'table-row') as $riga) {
                 $celle = self::celleOds($riga);
                 // Le righe ripetute (un milione di vuote, di norma, fino in fondo al foglio) si espandono al più di 100: le vuote in coda le toglie `pulisci`.

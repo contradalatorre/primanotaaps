@@ -57,7 +57,7 @@ class FoglioCassaTest extends TestCase
     {
         $fogli = self::cassa(
             [new DateTimeImmutable('2026-03-01'), 'Utenze', 'Prima', null, null, 10, 490],
-            [new DateTimeImmutable('2026-03-02'), 'Utenze', 'In mezzo', null, null, 10, 480],
+            [new DateTimeImmutable('2026-03-02'), 'Utenze', 'In mezzo', null, null, 10, 480, [null, 20_000_000]], // dopo il saldo, vuote ripetute fino in fondo, come le scrive Calc
             [new DateTimeImmutable('2026-03-03'), 'Utenze', 'In fondo', null, null, 10, 470],
         );
 
