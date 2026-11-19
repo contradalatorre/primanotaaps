@@ -150,7 +150,8 @@ class RendicontoAssembleaPaginaTest extends TestCase
 
         $pagina->assertSeeText('«Cassa contanti» non è mai stato riconciliato.');
         $pagina->assertSeeText('«Conto corrente» è riconciliato solo fino al 31/05/2026: da allora il saldo è cambiato di 200,00 €.');
-        $pagina->assertSeeText('fino al 31/05/2026 · differenza 200,00');
+        // Il saldo riconciliato (1.000,00 al 31/05) accanto alla differenza dal saldo finale (1.200,00).
+        $pagina->assertSeeInOrder(['Conto corrente</td>', '1.200,00', '0,00', '<td class="text-right">1.000,00</td>', 'fino al 31/05/2026 · differenza 200,00'], false);
     }
 
     public function test_un_conto_riconciliato_al_31_12_non_ha_avviso_e_un_conto_chiuso_conta_alla_sua_chiusura(): void

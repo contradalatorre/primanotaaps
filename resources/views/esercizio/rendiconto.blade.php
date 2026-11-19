@@ -94,7 +94,7 @@
                         <tr>
                             <th scope="col">Conto</th><th scope="col" class="text-right">Saldo iniziale</th><th scope="col" class="text-right">Entrate</th><th scope="col" class="text-right">Uscite</th>
                             <th scope="col" class="text-right">Giroconti in entrata</th><th scope="col" class="text-right">Giroconti in uscita</th><th scope="col" class="text-right">Saldo finale</th>
-                            <th scope="col" class="text-right">Non classificato</th><th scope="col">Riconciliato</th>
+                            <th scope="col" class="text-right">Non classificato</th><th scope="col" class="text-right">Saldo riconciliato</th><th scope="col">Riconciliato</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -104,6 +104,7 @@
                                 <td class="text-right">{{ $euro($c['iniziale']) }}</td><td class="text-right">{{ $euro($c['entrate']) }}</td><td class="text-right">{{ $euro($c['uscite']) }}</td>
                                 <td class="text-right">{{ $euro($c['giroconti_entrata']) }}</td><td class="text-right">{{ $euro($c['giroconti_uscita']) }}</td><td class="text-right">{{ $euro($c['finale']) }}</td>
                                 <td class="text-right">{{ $euro($c['nonClassificato']) }}</td>
+                                <td class="text-right">{{ $c['saldoRiconciliato'] === null ? '–' : $euro($c['saldoRiconciliato']) }}</td>
                                 <td>{{ $c['riconciliatoAl'] === null ? 'mai' : ($c['riconciliato'] ? 'sì' : 'fino al '.date('d/m/Y', strtotime($c['riconciliatoAl']))) }}@if ($c['differenzaRiconciliato'] !== null && ! $c['riconciliato']) · differenza {{ $euro($c['differenzaRiconciliato']) }} @endif</td>
                             </tr>
                         @endforeach
@@ -112,7 +113,7 @@
                             <td>Totale</td>
                             <td class="text-right">{{ $euro($t['iniziale']) }}</td><td class="text-right">{{ $euro($t['entrate']) }}</td><td class="text-right">{{ $euro($t['uscite']) }}</td>
                             <td class="text-right">{{ $euro($t['giroconti_entrata']) }}</td><td class="text-right">{{ $euro($t['giroconti_uscita']) }}</td><td class="text-right">{{ $euro($t['finale']) }}</td>
-                            <td class="text-right">{{ $euro($t['nonClassificato']) }}</td><td></td>
+                            <td class="text-right">{{ $euro($t['nonClassificato']) }}</td><td></td><td></td>
                         </tr>
                     </tbody>
                 </table>

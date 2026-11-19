@@ -160,20 +160,20 @@ final class RendicontoAssemblea
      * Riconciliato se lo è fino all'ultimo giorno del conto nell'esercizio (o oltre); altrimenti l'avviso, con quanto il saldo è cambiato
      * dopo l'ultima riconciliazione. Il confronto col saldo riconciliato ha senso solo prima: dopo, quel saldo è di un'altra data.
      *
-     * @return array{riconciliato: bool, riconciliatoAl: ?string, differenzaRiconciliato: ?int, avviso: ?string}
+     * @return array{riconciliato: bool, riconciliatoAl: ?string, saldoRiconciliato: ?int, differenzaRiconciliato: ?int, avviso: ?string}
      */
     private static function riconciliazione(ContoRendiconto $c): array
     {
         if ($c->riconciliatoAl === null) {
-            return ['riconciliato' => false, 'riconciliatoAl' => null, 'differenzaRiconciliato' => null, 'avviso' => '«'.$c->nome.'» non è mai stato riconciliato'];
+            return ['riconciliato' => false, 'riconciliatoAl' => null, 'saldoRiconciliato' => null, 'differenzaRiconciliato' => null, 'avviso' => '«'.$c->nome.'» non è mai stato riconciliato'];
         }
         if ($c->riconciliatoAl >= $c->fino) {
-            return ['riconciliato' => true, 'riconciliatoAl' => $c->riconciliatoAl, 'differenzaRiconciliato' => 0, 'avviso' => null];
+            return ['riconciliato' => true, 'riconciliatoAl' => $c->riconciliatoAl, 'saldoRiconciliato' => $c->finale, 'differenzaRiconciliato' => 0, 'avviso' => null];
         }
         $differenza = $c->finale - ($c->saldoRiconciliato ?? 0);
 
         return [
-            'riconciliato' => false, 'riconciliatoAl' => $c->riconciliatoAl, 'differenzaRiconciliato' => $differenza,
+            'riconciliato' => false, 'riconciliatoAl' => $c->riconciliatoAl, 'saldoRiconciliato' => $c->saldoRiconciliato, 'differenzaRiconciliato' => $differenza,
             'avviso' => '«'.$c->nome.'» è riconciliato solo fino al '.date('d/m/Y', strtotime($c->riconciliatoAl)).': da allora il saldo è cambiato di '.Euro::formatta($differenza).' €',
         ];
     }
