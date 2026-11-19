@@ -10,6 +10,7 @@ use App\Models\RegistroModifica;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * La pagina «Test dell'esercizio» (#53): sempre «provvisoria», calcolata dal vivo, con la spiegazione su tre livelli. La vede
@@ -71,7 +72,15 @@ class VerificheController extends Controller
     {
         $criterio = $request->validate(['criterio' => ['required', Rule::in(['a', 'b'])]])['criterio'];
 
-        DatiEsercizio::sottoBlocco($request->user(), $anno, function (DatiEsercizio $dati) use ($request, $criterio) {
+        DatiEsercizio::sottoBlocco($request->user(), $anno, function (DatiEsercizio $dati) use ($request, $criterio, $anno) {
+            // Il criterio si fissa con l'approvazione (#59), e dopo una secondarietà non rispettata l'esercizio successivo usa lo stesso criterio (art. 4 DM 107/2021).
+            if ($dati->approvato()) {
+                throw ValidationException::withMessages(['criterio' => "L'esercizio $anno è approvato: il criterio di secondarietà è fissato."]);
+            }
+            $rientro = Verifiche::rientro($anno);
+            if ($rientro !== null && $rientro['criterio'] !== $criterio) {
+                throw ValidationException::withMessages(['criterio' => "Dopo la secondarietà non rispettata dell'esercizio ".($anno - 1).' si usa lo stesso criterio ('.$rientro['criterio'].'), con la soglia ridotta.']);
+            }
             $prima = $dati->istantanea();
             $dati->update(['criterio_secondarieta' => $criterio]);
             if ($dati->istantanea() !== $prima) {

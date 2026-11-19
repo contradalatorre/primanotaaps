@@ -7,6 +7,7 @@ use App\Models\EsercizioStorico;
 use App\Models\ImpostazioniAssociazione;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
+use App\Models\VersioneEsercizio;
 
 /**
  * Porta i dati dell'esercizio dal database ai test CTS (`Secondarieta` e `TestNatura`, che non li conoscono). Le imputazioni sono scelte
@@ -37,7 +38,8 @@ final class Verifiche
     {
         $esercizi = [$anno => self::calcolaCatena($anno, $proposte)];
         foreach ([$anno - 1, $anno - 2] as $y) {
-            $esercizi[$y] = self::calcolaCatena($y, $proposte);
+            // Un esercizio approvato vale per com'era il giorno dell'approvazione (#59): una modifica tardiva non cambia né il confronto né le soglie dell'anno dopo.
+            $esercizi[$y] = self::approvata($y) ?? self::calcolaCatena($y, $proposte);
         }
         [$modelloD, $catena] = $esercizi[$anno];
 
@@ -64,13 +66,11 @@ final class Verifiche
     }
 
     /**
-     * I valori e gli esiti degli ultimi tre esercizi affiancati e, durante l'anno, lo stesso periodo dell'anno precedente (#17). Sono sempre
-     * calcolati dal vivo dai movimenti, come l'esercizio guardato: l'esito approvato di un esercizio chiuso non c'è ancora.
-     * shortcut: la storia degli esiti approvati (#59) non esiste, quindi un esercizio chiuso si ricalcola oggi con i dati di oggi e una modifica tardiva
-     * ne cambia l'esito; #59 deve leggere da qui la versione approvata. Nel periodo parziale i figurativi dell'anno intero non si contano (un costo in
-     * meno e nessun provento: mai a favore).
+     * I valori e gli esiti degli ultimi tre esercizi affiancati e, durante l'anno, lo stesso periodo dell'anno precedente (#17). Sono
+     * calcolati dal vivo dai movimenti, come l'esercizio guardato, tranne gli esercizi approvati, che vengono dalla loro versione approvata (#59).
+     * Nel periodo parziale i figurativi dell'anno intero non si contano (un costo in meno e nessun provento: mai a favore).
      *
-     * @param  array<int, array{0: array, 1: array}>  $esercizi  il Modello D e la catena dell'esercizio guardato e dei due precedenti
+     * @param  array<int, array{0: array, 1: array, 2?: array}>  $esercizi  il Modello D, la catena e (se approvato) la secondarietà dell'esercizio guardato e dei due precedenti
      * @return list<array<string, mixed>> le colonne, dalla più vecchia
      */
     private static function confronto(int $anno, bool $proposte, array $esercizi): array
@@ -105,9 +105,9 @@ final class Verifiche
         return ['etichetta' => $etichetta, 'vuota' => $vuota, 'senzaEsiti' => true, 'entrate' => $entrate, 'uscite' => $uscite];
     }
 
-    private static function colonna(string $etichetta, int $anno, array $modelloD, array $catena): array
+    private static function colonna(string $etichetta, int $anno, array $modelloD, array $catena, ?array $s = null): array
     {
-        $s = self::secondarietaDa($anno, $modelloD);
+        $s ??= self::secondarietaDa($anno, $modelloD);
         $criterio = $s['confermato'] ?? $s['proposto']; // quello che il Tesoriere ha confermato, altrimenti il proposto
         $gestione = $modelloD['gestione'];
 
@@ -181,14 +181,55 @@ final class Verifiche
 
     /**
      * Lo stato del 2-bis degli esercizi già approvati (anno → «pareggio», «tolleranza», «non_rispettato»), da cui si conta la tolleranza del 6%.
-     * shortcut: l'approvazione (#59) non c'è ancora e nessun esito è approvato, quindi dal 2027 la tolleranza non si applica (`TestNatura` lo dice);
-     * #59 lo legge dalla versione approvata dei test (`catena.areaA.stato`).
+     * Si legge dalle versioni che oggi valgono, scritte all'approvazione (`catena.areaA.stato`, #59): una riapertura toglie l'esito, e senza un esito
+     * approvato `TestNatura` non applica la tolleranza.
      *
      * @return array<int, string>
      */
     private static function storico2bis(int $anno): array
     {
-        return [];
+        return VersioneEsercizio::where('esercizio', '<', $anno)->whereNull('riaperta_il')->pluck('stato_2bis', 'esercizio')->all();
+    }
+
+    /**
+     * L'esercizio com'era il giorno dell'approvazione, se oggi è approvato: il Modello D, la catena e la secondarietà, come `calcolaCatena` più
+     * la secondarietà salvata.
+     *
+     * @return ?array{0: array, 1: array, 2: array}
+     */
+    private static function approvata(int $anno): ?array
+    {
+        $istantanea = VersioneEsercizio::vigente($anno)?->istantanea;
+
+        return $istantanea === null ? null : [$istantanea['modello_d'], $istantanea['catena'], $istantanea['secondarieta']];
+    }
+
+    /**
+     * Quel che si salva all'approvazione e quel con cui si confronta dopo: il Modello D, i test dell'area A, dell'ente e forfettario, la secondarietà
+     * (senza i dati dell'esercizio, che non servono e non sono dati puri). Solo le imputazioni confermate.
+     *
+     * @return array{modello_d: array, catena: array, secondarieta: array}
+     */
+    public static function istantanea(int $anno): array
+    {
+        [$modelloD, $catena] = self::calcolaCatena($anno, false);
+        $secondarieta = self::secondarietaDa($anno, $modelloD);
+        unset($secondarieta['dati']);
+
+        return ['modello_d' => $modelloD, 'catena' => $catena, 'secondarieta' => $secondarieta];
+    }
+
+    /**
+     * Il rientro dopo una secondarietà non rispettata (art. 4 DM 107/2021): lo stesso criterio e la soglia ridotta, fissati dall'ultima versione approvata
+     * dell'esercizio prima, anche se poi riaperta (un esito approvato non si dimentica: sarebbe a favore dell'ente).
+     *
+     * @return ?array{criterio: string, soglia: int}
+     */
+    public static function rientro(int $anno): ?array
+    {
+        $versione = VersioneEsercizio::ultima($anno - 1);
+
+        return $versione?->soglia_rientro_centesimi_di_punto === null ? null : ['criterio' => $versione->criterio_secondarieta, 'soglia' => $versione->soglia_rientro_centesimi_di_punto];
     }
 
     private static function secondarietaDa(int $anno, array $modelloD): array
@@ -196,7 +237,7 @@ final class Verifiche
         $dati = DatiEsercizio::per($anno);
         $vicino = ImpostazioniAssociazione::per($anno)?->soglia_vicino ?? self::SOGLIA_VICINO_DI_PARTENZA;
 
-        return Secondarieta::calcola($modelloD, $dati->figurativi_dichiarati, $vicino, $dati->criterio_secondarieta) + ['dati' => $dati];
+        return Secondarieta::calcola($modelloD, $dati->figurativi_dichiarati, $vicino, $dati->criterio_secondarieta, self::rientro($anno)) + ['dati' => $dati];
     }
 
     /**

@@ -19,13 +19,14 @@ final class Annotazione
     {
         $k = $secondarieta['confermato'] ?? $secondarieta['proposto'];
         $c = $secondarieta['criteri'][$k];
+        $soglia = Secondarieta::formatta($c['soglia']);
         $di = $k === 'a' ? 'delle entrate della gestione' : 'dei costi complessivi (uscite della gestione e costi figurativi)';
         $percentuale = $c['rapporto'] === null ? 'non calcolabile' : number_format($c['rapporto'], 2, ',', '.').'%';
         $scelta = $secondarieta['confermato'] === null ? 'proposto dall’app, da confermare' : 'confermato dal Tesoriere';
         $quota = $riparto === 'costi_diretti' ? 'quota dei costi diretti' : 'quota dei ricavi';
 
         return implode("\n", [
-            "Secondarietà delle attività diverse (art. 6 CTS, DM 107/2021 art. 3): per l’esercizio $anno si applica il criterio $k ({$c['soglia']}%), $scelta. "
+            "Secondarietà delle attività diverse (art. 6 CTS, DM 107/2021 art. 3): per l’esercizio $anno si applica il criterio $k ({$soglia}%), $scelta. "
                 .'Le entrate delle attività diverse sono '.Euro::formatta($c['numeratore']['importo'])." €, il $percentuale $di: esito «".Secondarieta::ETICHETTE[$c['esito']].'».',
             'Strumentalità: le attività diverse sono strumentali alle attività di interesse generale, che finanziano. [da confermare o correggere a cura dell’organo di amministrazione]',
             "Costi promiscui: le spese generali (uscite di supporto generale, oneri bancari e imposte) sono ripartite sull’area A in base alla $quota di ciascuna area; il criterio è mantenuto negli esercizi.",

@@ -11,7 +11,7 @@
         <section class="da-vedere" aria-label="Test di secondarietà" data-merlo="home-test-secondarieta">
             <h2>Test di secondarietà</h2>
             <p>@include('esercizio.stato-esito', ['esito' => $secondarieta['esito']])
-                — criterio {{ $secondarieta['proposto'] }} ({{ $criterio['soglia'] }}%), con i dati di oggi:
+                — criterio {{ $secondarieta['proposto'] }} ({{ \App\Esercizio\Secondarieta::formatta($criterio['soglia']) }}%), con i dati di oggi:
                 {{ $secondarieta['esito'] === 'non_rispettato' ? 'soglia superata di '.\App\Euro::formatta(-$criterio['margine']).' €' : 'ancora '.\App\Euro::formatta($criterio['margine']).' € sotto il limite' }}.
                 @if ($secondarieta['datoMancante']) Dato mancante: i costi figurativi non sono dichiarati, l’esito potrebbe essere migliore. @endif
             </p>

@@ -19,13 +19,28 @@ class DatiEsercizio extends Model
 
     protected function casts(): array
     {
-        return ['esercizio' => 'integer', 'dipendenti_medi' => 'integer', 'attivo' => 'integer', 'figurativi_dichiarati' => 'boolean', 'saldi_apertura_il' => 'datetime'];
+        return ['esercizio' => 'integer', 'dipendenti_medi' => 'integer', 'attivo' => 'integer', 'figurativi_dichiarati' => 'boolean', 'saldi_apertura_il' => 'datetime', 'versione' => 'integer'];
     }
 
     /** I dati dell'esercizio, o quelli di partenza (non salvati) se nessuno li ha ancora scritti. */
     public static function per(int $esercizio): self
     {
-        return self::where('esercizio', $esercizio)->first() ?? new self(['esercizio' => $esercizio, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false]);
+        return self::where('esercizio', $esercizio)->first() ?? new self(['esercizio' => $esercizio, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'stato' => 'aperto', 'versione' => 1]);
+    }
+
+    /** @var list<string> gli stati dell'esercizio (#12): `depositato` ci si arriva con #60, da qui non c'è un passaggio */
+    public const STATI = ['aperto', 'approvato', 'depositato'];
+
+    /** Dopo l'approvazione i prospetti sono quelli che l'assemblea ha visto: le modifiche sono ammesse, con avviso, e le regole non toccano più i movimenti. */
+    public function approvato(): bool
+    {
+        return in_array($this->stato, ['approvato', 'depositato'], true);
+    }
+
+    /** Gli esercizi approvati o depositati: le regole non propongono sui loro movimenti. */
+    public static function anniApprovati(): array
+    {
+        return self::whereIn('stato', ['approvato', 'depositato'])->pluck('esercizio')->map(fn ($anno) => (int) $anno)->all();
     }
 
     /**

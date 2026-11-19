@@ -32,7 +32,8 @@ class MovimentiController extends Controller
             'movimenti' => Movimento::conNote()->with('conto', 'autore', 'proponente', 'regola', 'conversioneCausale', 'storicoMovimento', 'storicoEsempio', 'giustificativi', 'imputazioni.attivita', 'imputazioni.iniziativa', 'imputazioni.tipologia', 'imputazioni.tag')
                 ->when($conto, fn ($q) => $q->where('conto_id', $conto->id))
                 // «Spese senza giustificativo»: le uscite che non ne hanno nessuno.
-                ->when($request->boolean('senza_giustificativo'), fn ($q) => $q->where('verso', 'uscita')->whereDoesntHave('giustificativi'))
+                ->when($request->boolean('senza_giustificativo'), fn ($q) => $q->speseSenzaGiustificativo())
+                ->when($request->integer('anno') >= 1000, fn ($q) => $q->whereBetween('data', [$request->integer('anno').'-01-01', $request->integer('anno').'-12-31'])) // dall'elenco di controllo dell'approvazione (#59)
                 ->orderByDesc('data')->orderByDesc('id')->paginate(50)->withQueryString(),
         ]);
     }
