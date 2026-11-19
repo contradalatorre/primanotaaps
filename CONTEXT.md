@@ -155,8 +155,12 @@ Il testo in calce al rendiconto con le dichiarazioni dovute (criterio di seconda
 _Avoid_: nota, commento
 
 **Approvazione**:
-La delibera dell'assemblea che approva il rendiconto di un esercizio.
+La delibera dell'assemblea che approva il rendiconto di un esercizio. Nell'app la registra il Tesoriere con la data della delibera: salva la **versione approvata** dei prospetti e dei test e fissa il criterio di secondarietà. Dopo, le modifiche ai movimenti sono ammesse con avviso e i prospetti mostrano le differenze dalla versione approvata.
 _Avoid_: chiusura
+
+**Riapertura**:
+Il ritorno di un esercizio approvato ad aperto, solo dell'Amministratore e con motivazione, per correggere un errore: la versione approvata resta nello storico e la nuova approvazione è la versione successiva.
+_Avoid_: annullamento dell'approvazione
 
 **Deposito**:
 L'invio al RUNTS del rendiconto approvato; da quel momento il rendiconto dell'esercizio è fissato, salvo riapertura per una nuova approvazione.
