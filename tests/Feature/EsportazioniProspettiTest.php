@@ -89,7 +89,7 @@ class EsportazioniProspettiTest extends TestCase
         $r->assertHeader('Content-Type', 'application/pdf');
         $this->assertStringStartsWith('%PDF-', $r->getContent());
         $this->assertStringNotContainsString('pdfaid', $r->getContent()); // il provvisorio non è PDF/A: non lo si deposita per sbaglio
-        $this->assertSame(1, RegistroAccesso::where('evento', 'esportazione_rendiconto_pdf')->where('user_id', $this->tesoriere->id)->count()); // ogni esportazione va nel registro degli accessi
+        $this->assertSame(1, RegistroAccesso::where('evento', 'esportazione_rendiconto_pdf_2026')->where('user_id', $this->tesoriere->id)->count()); // ogni esportazione va nel registro degli accessi, con l'anno
     }
 
     public function test_il_pdf_porta_provvisorio_nell_intestazione_di_ogni_pagina_e_data_versione_e_pagina_nel_piede(): void
@@ -124,16 +124,15 @@ class EsportazioniProspettiTest extends TestCase
         $this->assertSame([800.0, -350.0], [$fogli['Dettaglio'][1][3], $fogli['Dettaglio'][2][3]]);
     }
 
-    public function test_il_rendiconto_in_xlsx_non_ha_descrizioni_di_movimenti_e_il_dettaglio_si(): void
+    public function test_il_rendiconto_in_xlsx_non_ha_il_dettaglio_ne_descrizioni_di_movimenti(): void
     {
         $this->esercizio();
 
-        $fogli = $this->fogli($this->scarica('/esercizi/2026/rendiconto/xlsx'));
+        $fogli = $this->fogli($this->scarica('/esercizi/2026/rendiconto/xlsx')); // spec #27: il rendiconto per l'assemblea non ha mai nomi di persone
 
-        $this->assertSame(['Rendiconto', 'Dettaglio'], array_keys($fogli));
-        $this->assertStringNotContainsString('Incasso serata', json_encode($fogli['Rendiconto']));
+        $this->assertSame(['Rendiconto'], array_keys($fogli));
+        $this->assertStringNotContainsString('Incasso serata', json_encode($fogli));
         $this->assertStringContainsString('Somministrazione', json_encode($fogli['Rendiconto']));
-        $this->assertSame('Incasso serata', $fogli['Dettaglio'][1][10]);
     }
 
     public function test_la_nota_della_destinazione_dell_avanzo_esce_solo_a_chi_gestisce_l_esercizio(): void
@@ -204,7 +203,7 @@ class EsportazioniProspettiTest extends TestCase
             $this->assertNotContains('Note', $this->csv($r)[0]);
             $this->assertStringNotContainsString('riservata', $r->getContent());
         }
-        $dettaglio = $this->fogli($this->scarica('/esercizi/2026/rendiconto/xlsx', $soloVista))['Dettaglio'];
+        $dettaglio = $this->fogli($this->scarica('/esercizi/2026/modello-d/xlsx', $soloVista))['Dettaglio'];
         $this->assertStringNotContainsString('riservata', json_encode($dettaglio));
         $this->assertNotContains('Note', $dettaglio[0]);
     }

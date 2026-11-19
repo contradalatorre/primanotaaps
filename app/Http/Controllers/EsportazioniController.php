@@ -17,7 +17,7 @@ use Illuminate\Support\Str;
 /**
  * Le esportazioni dei prospetti (#58, #18): Modello D e rendiconto per l'assemblea in PDF e XLSX, gli elenchi di imputazioni e movimenti in CSV.
  * Le rotte sono dietro `can:vedere` come le pagine da cui nascono, e ne seguono i permessi: la nota della destinazione dell'avanzo solo con
- * `gestire_esercizio`, le colonne delle note solo con `note`. Il prospetto è quello che la pagina mostra, `?proposte=1` compreso.
+ * `gestire_esercizio`, le colonne delle note solo con `note`. Il prospetto è quello che la pagina mostra, `?proposte=1` compreso; la vista di controllo `per=voce` del rendiconto è solo a schermo, il file è sempre per area → attività → iniziativa.
  * Esercizio aperto: tutto «provvisorio». I file hanno già il nome finale, perché il file firmato non si può rinominare.
  */
 class EsportazioniController extends Controller
@@ -67,12 +67,13 @@ class EsportazioniController extends Controller
             return $this->scarica($request, Pdf::crea($titolo, $intestazione, $sezioni, Tabelle::piede($anno, $ora, self::VERSIONE, $storico), $largo), 'application/pdf', $this->nome($prefisso, $anno, 'pdf'));
         }
 
-        // Il foglio «Dettaglio» per il commercialista: tutte le imputazioni dell'esercizio, le stesse del prospetto.
-        $dettaglio = Elenchi::imputazioni($anno, $proposte, $request->user()->can('note'));
-        $xlsx = Xlsx::crea([
-            $foglio => Tabelle::comeRighe($sezioni, $intestazione),
-            'Dettaglio' => [['celle' => $dettaglio['colonne'], 'grassetto' => true], ...array_map(fn (array $riga) => ['celle' => $riga], $dettaglio['righe'])],
-        ]);
+        $fogli = [$foglio => Tabelle::comeRighe($sezioni, $intestazione)];
+        // Il foglio «Dettaglio» (le imputazioni con le descrizioni dei movimenti) è per il commercialista, solo nel Modello D: il rendiconto per l'assemblea non ha mai nomi di persone (spec #27).
+        if ($prefisso === 'ModelloD') {
+            $dettaglio = Elenchi::imputazioni($anno, $proposte, $request->user()->can('note'));
+            $fogli['Dettaglio'] = [['celle' => $dettaglio['colonne'], 'grassetto' => true], ...array_map(fn (array $riga) => ['celle' => $riga], $dettaglio['righe'])];
+        }
+        $xlsx = Xlsx::crea($fogli);
 
         return $this->scarica($request, $xlsx, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $this->nome($prefisso, $anno, 'xlsx'));
     }
@@ -85,10 +86,11 @@ class EsportazioniController extends Controller
         return $prefisso.'_'.$anno.'_'.($ente ?: 'Associazione').'.'.$estensione;
     }
 
-    /** Ogni esportazione va nel registro degli accessi (glossario): «esportazione_modellod_pdf», «esportazione_imputazioni_csv». */
+    /** Ogni esportazione va nel registro degli accessi (glossario): «esportazione_modellod_pdf_2026», «esportazione_imputazioni_csv_2026» (l'anno dal nome del file). */
     private function scarica(Request $request, string $contenuto, string $tipo, string $nome): Response
     {
-        RegistroAccesso::registra('esportazione_'.strtolower(strtok($nome, '_')).'_'.pathinfo($nome, PATHINFO_EXTENSION), $request, $request->user());
+        $parti = explode('_', pathinfo($nome, PATHINFO_FILENAME));
+        RegistroAccesso::registra('esportazione_'.strtolower($parti[0]).'_'.pathinfo($nome, PATHINFO_EXTENSION).'_'.$parti[1], $request, $request->user());
 
         return response($contenuto, 200, ['Content-Type' => $tipo, 'Content-Disposition' => 'attachment; filename="'.$nome.'"']);
     }
