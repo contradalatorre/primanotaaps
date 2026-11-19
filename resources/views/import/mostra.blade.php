@@ -80,6 +80,7 @@
                             @csrf
                             @foreach (\App\Models\ImportConflitto::DECISIONI as $valore => $etichetta)
                                 @continue($valore === 'tieni_esistente' && $conflitto->movimento->trashed())
+                                @continue($valore === 'importa_a_parte' && $import->conto->importaDalFoglio()) {{-- il foglio non importa a parte: la chiave sarebbe doppia (#87) --}}
                                 <button type="submit" name="decisione" value="{{ $valore }}" class="bottone">{{ $etichetta }}</button>
                             @endforeach
                         </form>

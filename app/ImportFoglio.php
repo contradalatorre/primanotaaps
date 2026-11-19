@@ -32,6 +32,10 @@ final class ImportFoglio
         foreach ($dalDb as $r) {
             $app[$r->mese][$r->verso === 'entrata' ? 0 : 1] = (int) $r->totale;
         }
+        // Le righe sparite restano nell'app ma non contano nel confronto (come nel saldo finale): hanno il loro dubbio, e non ne nasce un secondo sul mese.
+        foreach ($sparite as $m) {
+            $app[$m->data->format('Y-m')][$m->verso === 'entrata' ? 0 : 1] -= $m->importo;
+        }
         foreach ($nuove as $r) {
             $app[substr($r->data, 0, 7)][$r->importo > 0 ? 0 : 1] = ($app[substr($r->data, 0, 7)][$r->importo > 0 ? 0 : 1] ?? 0) + abs($r->importo);
         }

@@ -85,6 +85,15 @@ class EsercizioStoricoTest extends TestCase
         $this->carica(UploadedFile::fake()->createWithContent('x.ods', self::ods(['Cassa' => [['a']]])))->assertSessionHasErrors('foglio');
     }
 
+    public function test_una_scheda_che_l_import_non_legge_non_rifiuta_il_file_anche_con_colonne_oltre_il_tetto(): void
+    {
+        $largo = [['a', [null, 59], 'saldo']]; // un valore oltre la 60ª colonna
+
+        $this->carica($this->foglio('ods', ['Appunti' => $largo]))->assertSessionHasNoErrors();
+        $this->carica($this->foglio('ods', ['Cassa' => $largo]))->assertSessionHasErrors('foglio'); // una che si legge, sì: e dice quale
+        $this->assertStringContainsString('«Cassa»', session('errors')->first('foglio'));
+    }
+
     public function test_i_figurativi_del_foglio_precompilano_l_anteprima_e_non_entrano_tra_le_voci(): void
     {
         $righe = RendicontoFoglioTest::foglio(['entrate:A1' => 1000], extra: ['cassa' => 1, 'depositi' => 2]);

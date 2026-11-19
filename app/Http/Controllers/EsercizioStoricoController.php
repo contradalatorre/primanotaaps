@@ -41,7 +41,7 @@ class EsercizioStoricoController extends Controller
         }
 
         try {
-            $anteprima = ImportStorico::anteprima(Foglio::leggi($request->file('foglio')->get()), $anno);
+            $anteprima = ImportStorico::anteprima(Foglio::leggi($request->file('foglio')->get(), ImportStorico::letta(...)), $anno);
         } catch (FoglioNonValido $errore) {
             throw ValidationException::withMessages(['foglio' => $errore->getMessage()]);
         }
