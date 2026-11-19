@@ -19,6 +19,10 @@
         </section>
     @endif
 
+    @foreach ($segnalazioni as $versione)
+        @include('esercizio.segnalazione', ['versione' => $versione])
+    @endforeach
+
     {{-- Una metà di giroconto senza corrispondenza dopo alcuni giorni si segnala qui (#47): un trasferimento perso emerge. --}}
     @if ($orfane->isNotEmpty())
         <section class="da-vedere" aria-label="Giroconti senza corrispondenza" data-orfane>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Esercizio\Verifiche;
 use App\Giroconti;
 use App\Models\Menzione;
+use App\Models\VersioneEsercizio;
 use Illuminate\Http\Request;
 
 /** La home: il riquadro «Da vedere» (#45) con le menzioni di chi legge le note, e le metà di giroconto senza corrispondenza (#47) per chi le abbina. */
@@ -18,6 +19,10 @@ class HomeController extends Controller
         $secondarieta = $utente->can('vedere') ? Verifiche::secondarieta(today()->year) : null;
 
         return view('home', [
+            // Il promemoria della segnalazione al RUNTS (#17, #59) resta finché non si registra l'invio, per chi gestisce l'esercizio.
+            'segnalazioni' => $utente->can('gestire_esercizio')
+                ? VersioneEsercizio::whereNull('riaperta_il')->where('esito_secondarieta', 'non_rispettato')->whereNull('segnalazione_inviata_il')->orderBy('esercizio')->get()
+                : collect(),
             'secondarieta' => $secondarieta !== null && $secondarieta['esito'] !== 'rispettato' ? $secondarieta : null,
             'daVedere' => $utente->can('note') && $utente->can('vedere') ? Menzione::daVedere($utente) : collect(),
             'orfane' => $utente->can('importare_e_confermare') ? Giroconti::orfane() : collect(),

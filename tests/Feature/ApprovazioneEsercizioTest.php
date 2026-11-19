@@ -48,9 +48,23 @@ class ApprovazioneEsercizioTest extends TestCase
 
         return Imputazione::create([
             'movimento_id' => $m->id, 'importo' => $importo, 'area' => $area, 'tipologia_id' => Tipologia::where('nome', $tipologia)->firstOrFail()->id,
+        ] + ($area === 'A' ? [
             'iniziativa_id' => Iniziativa::where('nome', 'Festa della Torre')->firstOrFail()->id,
             'attivita_id' => Attivita::where('nome', 'Lettera i (art. 5 CTS)')->firstOrFail()->id,
-        ]);
+        ] : []));
+    }
+
+    /** 90,00 di sponsorizzazioni (B) su 250,00 di entrate e 200,00 di uscite: il 30% non regge (36%), il 66% sì (45%). */
+    private function esercizioConB(string $data = '2026-03-01'): void
+    {
+        $this->imputa('entrata', 9000, $data, 'Sponsorizzazioni e pubblicità', 'B');
+        $this->imputa('entrata', 16000, $data, 'Quote associative');
+        $this->imputa('uscita', 20000, $data, 'Utenze', 'E');
+    }
+
+    private function confermaCriterio(string $criterio, int $anno = 2026)
+    {
+        return $this->come($this->tesoriere)->post("/esercizi/$anno/test/criterio", ['criterio' => $criterio]);
     }
 
     private function esercizio2026(): void
@@ -219,6 +233,100 @@ class ApprovazioneEsercizioTest extends TestCase
         $this->assertSame('Una fattura registrata due volte', $v1->motivazione_riapertura);
         $registro = RegistroModifica::where(['oggetto_tipo' => 'esercizio', 'oggetto_id' => 2026, 'azione' => 'riaperto'])->sole();
         $this->assertSame('Una fattura registrata due volte', $registro->motivazione);
+    }
+
+    public function test_l_approvazione_scrive_lo_stato_del_2bis_e_dal_2027_la_tolleranza_del_6_per_cento_si_conta(): void
+    {
+        // Corrispettivi 103,00 contro costi 100,00: oltre il pareggio ma entro il 6%.
+        $this->imputa('entrata', 10300, '2026-06-01', 'Somministrazione');
+        $this->imputa('uscita', 10000, '2026-06-02', 'Acquisti per la somministrazione');
+        $this->assertFalse(Verifiche::pagina(2027)['catena']['areaA']['tolleranza']['disponibile'], 'Senza un esito approvato non si conta');
+
+        $this->approva()->assertRedirect();
+
+        $this->assertSame('tolleranza', VersioneEsercizio::sole()->stato_2bis);
+        $tolleranza = Verifiche::pagina(2027)['catena']['areaA']['tolleranza'];
+        $this->assertTrue($tolleranza['disponibile']);
+        $this->assertSame(1, $tolleranza['usati']);
+
+        $this->come($this->amministratore)->post('/esercizi/2026/riapertura', ['motivazione' => 'Errore'])->assertRedirect();
+        $this->assertFalse(Verifiche::pagina(2027)['catena']['areaA']['tolleranza']['disponibile'], 'Riaperto, l’esito approvato non vale più');
+    }
+
+    public function test_dopo_una_secondarieta_non_rispettata_l_anno_dopo_usa_lo_stesso_criterio_con_la_soglia_ridotta(): void
+    {
+        $this->esercizioConB();
+        $this->confermaCriterio('a')->assertSessionHasNoErrors();
+        $this->approva()->assertRedirect();
+
+        // 90 su 250 è il 36%: sei punti oltre il 30%, il 24% l'anno dopo.
+        $v = VersioneEsercizio::sole();
+        $this->assertSame('non_rispettato', $v->esito_secondarieta);
+        $this->assertSame(2400, $v->soglia_rientro_centesimi_di_punto);
+
+        $this->come($this->tesoriere)->post('/esercizi/2027/apertura')->assertRedirect();
+        $this->imputa('entrata', 2500, '2027-03-01', 'Sponsorizzazioni e pubblicità', 'B');
+        $this->imputa('entrata', 7500, '2027-03-01', 'Quote associative');
+        $s = Verifiche::secondarieta(2027);
+        $this->assertSame('a', $s['proposto']);
+        $this->assertSame(24, $s['criteri']['a']['soglia']);
+        $this->assertSame('non_rispettato', $s['esito'], '25% è sotto il 30% di legge ma sopra il 24% del rientro');
+        $this->assertSame(66, $s['criteri']['b']['soglia']);
+
+        $this->come($this->tesoriere)->get('/esercizi/2027/test')->assertOk()->assertSeeText('24%');
+        $this->confermaCriterio('b', 2027)->assertSessionHasErrors('criterio');
+        $this->confermaCriterio('a', 2027)->assertSessionHasNoErrors();
+
+        // Riaprire il 2026 non cancella l'esito approvato: il rientro resta finché non c'è una nuova approvazione.
+        $this->come($this->amministratore)->post('/esercizi/2026/riapertura', ['motivazione' => 'Errore'])->assertRedirect();
+        $this->assertSame(24, Verifiche::secondarieta(2027)['criteri']['a']['soglia']);
+    }
+
+    public function test_dopo_una_secondarieta_rispettata_o_senza_approvazione_la_soglia_e_quella_di_legge(): void
+    {
+        $this->esercizioConB();
+        $this->assertSame(30, Verifiche::secondarieta(2027)['criteri']['a']['soglia'], 'Il 2026 non è approvato: non c’è un esito su cui ridurre');
+
+        $this->confermaCriterio('b')->assertSessionHasNoErrors(); // il 66% regge: rispettato
+        $this->approva()->assertRedirect();
+
+        $this->assertNull(VersioneEsercizio::sole()->soglia_rientro_centesimi_di_punto);
+        $this->assertSame(30, Verifiche::secondarieta(2027)['criteri']['a']['soglia']);
+        $this->assertNull(Verifiche::secondarieta(2027)['rientro']);
+    }
+
+    public function test_il_promemoria_della_segnalazione_al_runts_resta_in_home_finche_non_si_registra_l_invio(): void
+    {
+        $this->esercizioConB();
+        $this->confermaCriterio('a');
+        $this->approva(2026, '2027-04-10')->assertRedirect();
+
+        $this->come($this->tesoriere)->get('/')->assertOk()
+            ->assertSeeText('Segnalazione al RUNTS')->assertSeeText('entro il 10/05/2027')
+            ->assertSeeText('Bozza del testo')->assertSeeText('Contrada La Torre')->assertSeeText('36,00%')->assertSeeText('superamento di 6,00 punti percentuali')->assertSeeText('soglia ridotta al 24%');
+        $this->come($this->lettoreEsterno())->get('/')->assertOk()->assertDontSeeText('Segnalazione al RUNTS');
+
+        $this->come($this->tesoriere)->post('/esercizi/2026/segnalazione-runts', ['data' => '2027-04-09'])->assertSessionHasErrors('data'); // prima dell'approvazione
+        $this->come($this->tesoriere)->post('/esercizi/2026/segnalazione-runts', ['data' => '2027-04-15', 'protocollo' => 'RUNTS-123'])->assertSessionHasNoErrors();
+
+        $this->assertSame('RUNTS-123', VersioneEsercizio::sole()->segnalazione_protocollo);
+        $this->come($this->tesoriere)->get('/')->assertOk()->assertDontSeeText('entro il 10/05/2027');
+        $this->assertDatabaseHas('registro_modifiche', ['oggetto_tipo' => 'esercizio', 'oggetto_id' => 2026, 'azione' => 'segnalazione_runts']);
+    }
+
+    public function test_con_la_secondarieta_rispettata_non_c_e_nessun_promemoria(): void
+    {
+        $this->esercizioConB();
+        $this->confermaCriterio('b');
+        $this->approva()->assertRedirect();
+
+        $this->come($this->tesoriere)->get('/')->assertOk()->assertDontSeeText('Segnalazione al RUNTS');
+        $this->come($this->tesoriere)->post('/esercizi/2026/segnalazione-runts', ['data' => '2027-04-20'])->assertSessionHasErrors('stato');
+    }
+
+    private function lettoreEsterno(): User
+    {
+        return $this->utenteCon('Lettore esterno', ['scade_il' => now()->addMonth()], ['email' => 'revisore@esterno.example']);
     }
 
     public function test_un_esercizio_aperto_non_si_riapre(): void
