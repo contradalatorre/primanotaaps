@@ -105,6 +105,37 @@ class FoglioTest extends TestCase
         Foglio::leggi(self::ods(['F' => [['a', [null, 59], 'saldo']]])); // la 61ª cella ha un valore
     }
 
+    public function test_l_errore_per_le_colonne_in_piu_dice_la_scheda_e_la_colonna(): void
+    {
+        foreach ([
+            'ods' => fn () => Foglio::leggi(self::ods(['Saldi' => [['a', [null, 59], 'saldo']]])),
+            'xlsx' => fn () => Foglio::leggi(self::xlsxGrezzo(['<worksheet xmlns="'.self::NS.'"><sheetData><row r="1"><c r="BI1" t="str"><v>saldo</v></c></row></sheetData></worksheet>'])),
+        ] as $formato => $leggi) {
+            try {
+                $leggi();
+                $this->fail($formato.': il foglio andava rifiutato');
+            } catch (FoglioNonValido $e) {
+                $this->assertStringContainsString($formato === 'ods' ? '«Saldi»' : '«F1»', $e->getMessage(), $formato);
+                $this->assertStringContainsString('colonna BI', $e->getMessage(), $formato);
+            }
+        }
+    }
+
+    #[DataProvider('formati')]
+    public function test_le_schede_che_l_import_non_legge_non_si_leggono_e_non_fanno_errore(string $formato): void
+    {
+        $largo = [['a', [null, 59], 'saldo']]; // un valore oltre la 60ª colonna
+        $contenuto = $formato === 'ods'
+            ? self::ods(['Cassa' => [['x']], 'Appunti' => $largo])
+            : self::xlsxGrezzo(['<worksheet xmlns="'.self::NS.'"><sheetData><row r="1"><c r="A1" t="str"><v>x</v></c></row></sheetData></worksheet>', '<worksheet xmlns="'.self::NS.'"><sheetData><row r="1"><c r="BI1" t="str"><v>saldo</v></c></row></sheetData></worksheet>']);
+        $lette = fn (string $nome) => in_array($nome, ['Cassa', 'F1'], true);
+
+        $fogli = Foglio::leggi($contenuto, $lette);
+
+        $this->assertSame([['x']], array_values($fogli)[0]);
+        $this->assertCount(1, $fogli); // l'altra scheda non c'è nel risultato
+    }
+
     public function test_un_valore_xlsx_oltre_la_sessantesima_colonna_si_rifiuta_ma_una_cella_vuota_no(): void
     {
         $riga = fn (string $celle) => self::xlsxGrezzo(['<worksheet xmlns="'.self::NS.'"><sheetData><row r="1"><c r="A1" t="str"><v>a</v></c>'.$celle.'</row></sheetData></worksheet>']);

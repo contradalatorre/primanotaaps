@@ -29,7 +29,7 @@ final class EsempiDalFoglio
         };
 
         foreach ($fogli as $nome => $righe) {
-            if (! preg_match('/^(cassa|banca|paypal)/i', (string) $nome) || ($colonne = self::colonne($righe)) === null) {
+            if (! self::eSchedaDiUnConto((string) $nome) || ($colonne = self::colonne($righe)) === null) {
                 continue;
             }
             [$intestazione, $c] = $colonne;
@@ -70,6 +70,11 @@ final class EsempiDalFoglio
         }
 
         return ['esempi' => $esempi, 'scartate' => $scartate, 'schede' => $schede];
+    }
+
+    public static function eSchedaDiUnConto(string $nome): bool
+    {
+        return (bool) preg_match('/^(cassa|banca|paypal)/i', $nome);
     }
 
     /** La chiave con cui si cerca una causale nella tabella di conversione: senza il prefisso «->» o «→», in minuscolo, senza spazi ai lati. */

@@ -3,6 +3,7 @@
 namespace App\Import;
 
 use App\Euro;
+use Closure;
 use DOMDocument;
 use DOMElement;
 use DOMNode;
@@ -51,11 +52,12 @@ final class Foglio
 
     /**
      * @param  string  $contenuto  i byte del file
+     * @param  ?Closure(string): bool  $lette  quali schede leggere, dal nome; le altre non si aprono e non sono nel risultato (e non possono rifiutare il file)
      * @return array<string, list<list<string|int|float|null>>> nome del foglio → righe
      *
      * @throws FoglioNonValido
      */
-    public static function leggi(string $contenuto): array
+    public static function leggi(string $contenuto, ?Closure $lette = null): array
     {
         self::$letti = 0;
         $percorso = tempnam(self::cartellaTemporanea(), 'foglio');
@@ -66,7 +68,7 @@ final class Foglio
                 throw self::nonValido();
             }
             try {
-                return $zip->locateName('content.xml') !== false ? self::ods($zip) : self::xlsx($zip);
+                return $zip->locateName('content.xml') !== false ? self::ods($zip, $lette) : self::xlsx($zip, $lette);
             } finally {
                 $zip->close();
             }
@@ -101,9 +103,13 @@ final class Foglio
         return $valore === null || (is_string($valore) && trim($valore) === '');
     }
 
-    private static function troppeColonne(): FoglioNonValido
+    private static function troppeColonne(string $scheda, int $colonna): FoglioNonValido
     {
-        return new FoglioNonValido('Il foglio ha dei valori oltre la '.self::MAX_COLONNE.'ª colonna: non so leggerlo. Togli le colonne in più.');
+        for ($lettere = ''; $colonna > 0; $colonna = intdiv($colonna - 1, 26)) {
+            $lettere = chr(65 + ($colonna - 1) % 26).$lettere;
+        }
+
+        return new FoglioNonValido("Nella scheda «{$scheda}» c’è un valore nella colonna $lettere, oltre la ".self::MAX_COLONNE.'ª: non so leggerla. Togli le colonne in più.');
     }
 
     private static function nonValido(): FoglioNonValido
@@ -134,7 +140,7 @@ final class Foglio
 
     // ---- ods --------------------------------------------------------------------------------------------------------------------
 
-    private static function ods(ZipArchive $zip): array
+    private static function ods(ZipArchive $zip, ?Closure $lette): array
     {
         $fogli = [];
         $tabelle = self::xml($zip, 'content.xml')->getElementsByTagNameNS(self::NS_ODS['table'], 'table');
@@ -147,11 +153,15 @@ final class Foglio
             }
         }
         foreach ($tabelle as $tabella) {
+            $nome = $tabella->getAttributeNS(self::NS_ODS['table'], 'name');
+            if ($lette !== null && ! $lette($nome)) {
+                continue;
+            }
             $righe = [];
             $piene = $vuote = 0;
             // Tutte le righe discendenti, in ordine: anche quelle in `table-row-group` (raggruppate) e `table-header-rows` (ripetute in stampa).
             foreach ($tabella->getElementsByTagNameNS(self::NS_ODS['table'], 'table-row') as $riga) {
-                $celle = self::celleOds($riga);
+                $celle = self::celleOds($riga, $nome);
                 // Le righe ripetute (un milione di vuote, di norma, fino in fondo al foglio) si espandono al più di 100: le vuote in coda le toglie `pulisci`.
                 $ripetute = min(100, max(1, (int) $riga->getAttributeNS(self::NS_ODS['table'], 'number-rows-repeated')));
                 for ($i = 0; $i < $ripetute; $i++) {
@@ -166,14 +176,14 @@ final class Foglio
                     throw new FoglioNonValido('Il foglio ha troppe righe.');
                 }
             }
-            $fogli[$tabella->getAttributeNS(self::NS_ODS['table'], 'name')] = self::pulisci($righe);
+            $fogli[$nome] = self::pulisci($righe);
         }
 
         return $fogli ?: throw self::nonValido();
     }
 
     /** @return list<string|int|float|null> la riga senza le celle vuote in coda; [] se è tutta vuota */
-    private static function celleOds(DOMElement $riga): array
+    private static function celleOds(DOMElement $riga, string $scheda): array
     {
         $celle = [];
         foreach ($riga->childNodes as $cella) {
@@ -188,7 +198,7 @@ final class Foglio
             };
             // Una cella con un valore oltre l'ultima colonna ammessa non si perde in silenzio (potrebbe essere il Saldo): si rifiuta il foglio.
             if (! self::vuota($valore) && count($celle) >= self::MAX_COLONNE) {
-                throw self::troppeColonne();
+                throw self::troppeColonne($scheda, count($celle) + 1);
             }
             $ripetuta = max(1, (int) $cella->getAttributeNS(self::NS_ODS['table'], 'number-columns-repeated'));
             // Si espande fino a MAX_COLONNE colonne in tutto: le ripetizioni oltre si troncano.
@@ -233,7 +243,7 @@ final class Foglio
 
     // ---- xlsx -------------------------------------------------------------------------------------------------------------------
 
-    private static function xlsx(ZipArchive $zip): array
+    private static function xlsx(ZipArchive $zip, ?Closure $lette): array
     {
         $cartella = self::xml($zip, 'xl/workbook.xml');
         $relazioni = [];
@@ -254,13 +264,17 @@ final class Foglio
         }
         $fogli = [];
         foreach ($schede as $foglio) {
+            $nome = $foglio->getAttribute('name');
+            if ($lette !== null && ! $lette($nome)) {
+                continue;
+            }
             $destinazione = $relazioni[$foglio->getAttributeNS(self::NS_REL, 'id')] ?? throw self::nonValido();
             $destinazione = str_starts_with($destinazione, 'xl/') ? $destinazione : 'xl/'.$destinazione;
             $righe = [];
             $numero = 0;
             foreach (self::xml($zip, $destinazione)->getElementsByTagNameNS(self::NS_XLSX, 'row') as $riga) {
                 $numero = (int) $riga->getAttribute('r') ?: $numero + 1;
-                $celle = self::celleXlsx($riga, $condivise, $date);
+                $celle = self::celleXlsx($riga, $condivise, $date, $nome);
                 // Una riga senza valori (formattata, o in fondo al foglio) non pesa: il tetto vale per quelle con dei dati.
                 if (array_filter($celle, fn ($v) => ! self::vuota($v)) === []) {
                     continue;
@@ -270,14 +284,14 @@ final class Foglio
                 }
                 $righe[$numero - 1] = $celle;
             }
-            $fogli[$foglio->getAttribute('name')] = self::pulisci($righe === [] ? [] : array_replace(array_fill(0, max(array_keys($righe)) + 1, []), $righe));
+            $fogli[$nome] = self::pulisci($righe === [] ? [] : array_replace(array_fill(0, max(array_keys($righe)) + 1, []), $righe));
         }
 
         return $fogli ?: throw self::nonValido();
     }
 
     /** @return list<string|int|float|null> */
-    private static function celleXlsx(DOMElement $riga, array $condivise, array $date): array
+    private static function celleXlsx(DOMElement $riga, array $condivise, array $date, string $scheda): array
     {
         $celle = [];
         foreach ($riga->childNodes as $c) {
@@ -309,7 +323,7 @@ final class Foglio
             if ($colonna > self::MAX_COLONNE) {
                 // Una cella vuota (solo formattata) si ignora; una con un valore no: sarebbe una colonna persa in silenzio.
                 if (! self::vuota($valore)) {
-                    throw self::troppeColonne();
+                    throw self::troppeColonne($scheda, $colonna);
                 }
 
                 continue;
