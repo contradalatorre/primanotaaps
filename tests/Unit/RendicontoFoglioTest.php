@@ -2,13 +2,18 @@
 
 namespace Tests\Unit;
 
+use App\Esercizio\ImportStorico;
 use App\Esercizio\RendicontoFoglio;
 use App\Esercizio\SchemaModelloD;
+use App\Import\Foglio;
 use PHPUnit\Framework\TestCase;
+use Tests\FogliInventati;
 
 /** Il riconoscimento delle voci dal foglio `RUNTS_Rendiconto` (#63): righe inventate, importi in euro nel foglio e in centesimi nel risultato. */
 class RendicontoFoglioTest extends TestCase
 {
+    use FogliInventati;
+
     /**
      * Un foglio come lo scrive il Tesoriere: intestazioni di sezione, righe numerate (sempre tutte), totali. `$importi` è «lato:voce» → euro.
      *
@@ -55,6 +60,21 @@ class RendicontoFoglioTest extends TestCase
         $righe[] = ['Depositi bancari e postali', $extra['depositi'] ?? 0];
 
         return $righe;
+    }
+
+    public function test_un_ods_con_righe_raggruppate_o_ripetute_in_stampa_e_celle_vuote_ripetute_si_legge_come_senza(): void
+    {
+        $importi = ['entrate:A1' => 1234.56, 'uscite:A1' => 50.5, 'uscite:I1' => 100];
+        $righe = self::foglio($importi, extra: ['cassa' => 800]);
+        $ultima = count($righe) - 1;
+        $righe[$ultima - 1] = [...$righe[$ultima - 1], [null, 20_000_000]]; // la riga «Cassa»: vuote ripetute fino in fondo
+
+        $fogli = Foglio::leggi(self::ods(
+            [ImportStorico::FOGLIO => $righe],
+            [['table-header-rows', 0, 1], ['table-row-group', 3, 20], ['table-row-group', $ultima - 1, $ultima]], // intestazione, un gruppo in mezzo, uno in fondo
+        ));
+
+        $this->assertSame(RendicontoFoglio::leggi(self::foglio($importi, extra: ['cassa' => 800])), RendicontoFoglio::leggi($fogli[ImportStorico::FOGLIO]));
     }
 
     public function test_riconosce_le_voci_dall_intestazione_di_sezione_e_dal_numero_e_non_dall_etichetta(): void
