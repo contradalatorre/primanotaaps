@@ -5,6 +5,7 @@ namespace App\Esercizio;
 use App\Euro;
 use App\Giroconti;
 use App\Models\Conto;
+use App\Models\DestinazioneAvanzo;
 use App\Models\ImpostazioniAssociazione;
 use App\Models\Imputazione;
 use App\Models\Movimento;
@@ -98,6 +99,43 @@ final class Prospetto
         $totale = fn (string $lato) => $imputazioni->where('lato', $lato)->sum(fn (array $r) => abs($r['imputazione']->importo));
 
         return ['imputazioni' => $imputazioni, 'entrate' => $totale('entrate'), 'uscite' => $totale('uscite')];
+    }
+
+    /**
+     * Il rendiconto per l'assemblea (#56): le stesse imputazioni del Modello D (`imputazioni`), i conti dell'esercizio con saldi, giroconti e
+     * riconciliazione, e la destinazione dell'avanzo. Un conto con imputazioni ma fuori dal suo periodo (movimento datato prima dell'apertura) è comunque una colonna.
+     */
+    public static function rendiconto(int $anno, bool $proposte = false): array
+    {
+        $imputazioni = self::imputazioni($anno, $proposte);
+        $righe = $imputazioni->map(function (array $r) {
+            $i = $r['imputazione'];
+
+            return new RigaRendiconto($r['lato'], $i->area->value, $i->attivita?->nome, $i->iniziativa?->nome, $i->tipologia?->nome ?? 'Senza tipologia', $r['voce'], $i->movimento->conto_id, abs($i->importo));
+        })->all();
+
+        $conti = self::conti($anno);
+        $conti = $conti->concat(Conto::whereIn('id', $imputazioni->map(fn (array $r) => $r['imputazione']->movimento->conto_id)->unique()->diff($conti->modelKeys()))->get())->sortBy('nome')->values();
+
+        $giroconti = Movimento::inGiroconto()->whereBetween('data', ["$anno-01-01", "$anno-12-31"])
+            ->selectRaw('conto_id, verso, sum(importo) as somma')->groupBy('conto_id', 'verso')->get()
+            ->mapWithKeys(fn ($g) => [$g->conto_id.'|'.$g->verso => (int) $g->somma]);
+
+        $colonne = $conti->map(function (Conto $c) use ($anno, $giroconti) {
+            $fino = $c->chiuso_il !== null && $c->chiuso_il->year === $anno ? $c->chiuso_il->toDateString() : "$anno-12-31";
+            $riconciliatoAl = $c->riconciliatoFinoAl()?->toDateString();
+
+            return new ContoRendiconto(
+                $c->id, $c->nome, $c->saldoAl("$anno-01-01", false), $c->saldoAl($fino),
+                $giroconti->get($c->id.'|entrata', 0), $giroconti->get($c->id.'|uscita', 0),
+                $riconciliatoAl, $riconciliatoAl === null ? null : $c->saldoAl($riconciliatoAl), $fino,
+            );
+        })->all();
+
+        $destinazioni = DestinazioneAvanzo::where('esercizio', $anno)->orderBy('id')->get()
+            ->map(fn (DestinazioneAvanzo $d) => ['descrizione' => $d->descrizione, 'importo' => $d->importo, 'nota' => $d->nota])->all();
+
+        return RendicontoAssemblea::calcola($righe, $colonne, $destinazioni);
     }
 
     /** @return list<Saldo> i conti attivi nell'esercizio: saldo al 1/1 e al 31/12, tutti i movimenti (il denaro c'è comunque, confermato o no) */

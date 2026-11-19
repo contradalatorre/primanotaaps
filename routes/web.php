@@ -73,6 +73,8 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::get('/esercizi/{anno}/forzature', [ForzatureController::class, 'indice'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.forzature'); // #52
         // Conti per iniziativa con preventivo e scostamento (#57).
         Route::get('/esercizi/{anno}/iniziative', [IniziativeController::class, 'conti'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.iniziative');
+        // Il rendiconto per l'assemblea (#56): dal vivo, senza nomi di persone.
+        Route::get('/esercizi/{anno}/rendiconto', [EsercizioController::class, 'rendiconto'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.rendiconto');
     });
     // Forzare la natura commerciale (#52) è di chi classifica; App\Forzature rilegge il permesso a riga bloccata.
     Route::post('/imputazioni/natura', [ForzatureController::class, 'forza'])->middleware('can:importare_e_confermare')->name('natura.forza');
