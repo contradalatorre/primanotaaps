@@ -24,10 +24,19 @@ class VersioneEsercizio extends Model
         ];
     }
 
-    /** L'ultima versione approvata dell'esercizio, anche se poi riaperta: per il rientro dopo una secondarietà non rispettata un esito approvato non si dimentica. */
-    public static function ultima(int $anno): ?self
+    /**
+     * La versione che fissa il rientro dell'anno dopo: tra quelle con una secondarietà non rispettata, la soglia più bassa (la più severa). Anche se poi riaperta
+     * o sostituita da una versione con un altro esito: un esito non rispettato approvato non si dimentica, sarebbe a favore dell'ente.
+     */
+    public static function conRientro(int $anno): ?self
     {
-        return self::where('esercizio', $anno)->orderByDesc('numero')->first();
+        return self::where('esercizio', $anno)->whereNotNull('soglia_rientro_centesimi_di_punto')->orderBy('soglia_rientro_centesimi_di_punto')->first();
+    }
+
+    /** L'ultima versione con la secondarietà non rispettata: è quella che si segnala al RUNTS. */
+    public static function ultimaNonRispettata(int $anno): ?self
+    {
+        return self::where('esercizio', $anno)->where('esito_secondarieta', 'non_rispettato')->orderByDesc('numero')->first();
     }
 
     /** La versione che oggi vale per l'esercizio (approvato o depositato), se c'è. */
@@ -43,14 +52,14 @@ class VersioneEsercizio extends Model
     }
 
     /**
-     * Le segnalazioni al RUNTS ancora da registrare: la secondarietà non è rispettata nell'ultima versione dell'esercizio e l'invio non c'è. Anche se l'esercizio è stato
-     * riaperto, il promemoria resta: l'obbligo nato con un esito approvato non si dimentica (come il rientro).
+     * Le segnalazioni al RUNTS ancora da registrare: l'ultima versione dell'esercizio con la secondarietà non rispettata, se l'invio non c'è. Anche se l'esercizio è stato
+     * riaperto, e anche se la versione dopo ha un altro esito, il promemoria resta: l'obbligo nato con un esito approvato non si dimentica (come il rientro).
      *
      * @return Collection<int, self>
      */
     public static function segnalazioniDaFare(): Collection
     {
-        return self::where('esito_secondarieta', 'non_rispettato')->whereNull('segnalazione_inviata_il')->orderBy('esercizio')->get()
-            ->filter(fn (self $v) => $v->numero === self::ultima($v->esercizio)->numero)->values();
+        return self::where('esito_secondarieta', 'non_rispettato')->distinct()->orderBy('esercizio')->pluck('esercizio')
+            ->map(fn (int $anno) => self::ultimaNonRispettata($anno))->filter(fn (self $v) => $v->segnalazione_inviata_il === null)->values();
     }
 }

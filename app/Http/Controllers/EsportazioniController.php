@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Esercizio\Approvazione;
+use App\Esercizio\Differenze;
 use App\Esercizio\Elenchi;
 use App\Esercizio\Pdf;
 use App\Esercizio\Prospetto;
@@ -59,9 +60,10 @@ class EsportazioniController extends Controller
         $ora = now();
         // Un esercizio approvato non è «provvisorio»: porta la sua versione e dice se i dati di oggi se ne sono allontanati (#59).
         $situazione = Approvazione::situazione($anno);
-        $approvata = $storico ? null : $situazione['versione'];
+        // Con `?proposte=1` il prospetto non è quello approvato (ci sono anche le proposte): esce provvisorio.
+        $approvata = $storico || $proposte ? null : $situazione['versione'];
         $approvazione = $approvata ? 'Approvato il '.$approvata->approvata_il->format('d/m/Y').' · versione '.$approvata->numero : null;
-        $intestazione = Tabelle::intestazione(ImpostazioniAssociazione::per($anno)?->only(['denominazione', 'codice_fiscale', 'numero_runts']) ?? [], $titolo, $storico, $proposte, $ora, $approvazione, $approvata !== null && ($situazione['differenze']['voci'] !== [] || $situazione['differenze']['esiti'] !== []));
+        $intestazione = Tabelle::intestazione(ImpostazioniAssociazione::per($anno)?->only(['denominazione', 'codice_fiscale', 'numero_runts']) ?? [], $titolo, $storico, $proposte, $ora, $approvazione, $approvata !== null && Differenze::presenti($situazione['differenze'], $prefisso === 'Rendiconto' ? ['rendiconto'] : ['voci', 'esiti']));
 
         if ($formato === 'pdf') {
             return $this->scarica($request, Pdf::crea($titolo, $intestazione, $sezioni, Tabelle::piede($anno, $ora, $situazione['numero'], $storico || $approvata !== null), $largo), 'application/pdf', $this->nome($prefisso, $anno, 'pdf'));

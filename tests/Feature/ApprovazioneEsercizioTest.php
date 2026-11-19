@@ -307,6 +307,77 @@ class ApprovazioneEsercizioTest extends TestCase
         $this->assertSame('non_rispettato', VersioneEsercizio::where('esercizio', 2027)->sole()->esito_secondarieta);
     }
 
+    /** Il rientro e la tolleranza del 2027 si leggono dall'esito approvato del 2026: senza il 2026 approvato il 2027 non si approva (altrimenti il rientro salterebbe). */
+    public function test_un_esercizio_si_approva_solo_dopo_quello_prima(): void
+    {
+        $this->esercizioConB();
+        $this->come($this->tesoriere)->post('/esercizi/2027/apertura')->assertRedirect();
+        $this->imputa('entrata', 1000, '2027-03-01', 'Quote associative');
+        $this->travelTo('2028-02-01 10:00');
+
+        $this->approva(2027, '2028-01-20')->assertSessionHasErrors('stato');
+        $this->assertSame(0, VersioneEsercizio::count());
+        $this->assertSame('aperto', DatiEsercizio::per(2027)->stato);
+
+        $this->confermaCriterio('a')->assertSessionHasNoErrors();
+        $this->approva(2026, '2027-04-20')->assertRedirect();
+        $this->approva(2027, '2028-01-20')->assertRedirect()->assertSessionHasNoErrors();
+
+        // L'esercizio prima riaperto torna a bloccare quello dopo, finché non si approva di nuovo.
+        $this->come($this->amministratore)->post('/esercizi/2027/riapertura', ['motivazione' => 'Errore'])->assertRedirect();
+        $this->come($this->amministratore)->post('/esercizi/2026/riapertura', ['motivazione' => 'Errore'])->assertRedirect();
+        $this->approva(2027, '2028-01-21')->assertSessionHasErrors('stato');
+    }
+
+    public function test_dopo_uno_storico_l_esercizio_si_approva_senza_aspettare(): void
+    {
+        EsercizioStorico::create(['esercizio' => 2025, 'importi' => [], 'saldo_cassa' => 0, 'saldo_depositi' => 0, 'figurativi' => [], 'differenze' => []]);
+        $this->esercizio2026();
+
+        $this->approva()->assertRedirect()->assertSessionHasNoErrors();
+    }
+
+    /** Un esercizio storico (#63) non ha un criterio confermato: se un criterio non è rispettato il rientro dell'anno dopo vale (la lettura più severa, mai a favore dell'ente). */
+    public function test_la_secondarieta_non_rispettata_di_uno_storico_riduce_la_soglia_dell_anno_dopo(): void
+    {
+        $storico = fn (array $importi) => EsercizioStorico::updateOrCreate(['esercizio' => 2025], ['importi' => $importi, 'saldo_cassa' => 0, 'saldo_depositi' => 0, 'figurativi' => ['costi' => [], 'proventi' => []], 'differenze' => []]);
+
+        // 90 su 250: il 36% non regge il 30%, il 66% delle uscite (200) sì: il rientro è sul criterio che non regge.
+        $storico(['entrate:B3' => 9000, 'entrate:A1' => 16000, 'uscite:E2' => 20000]);
+        $s = Verifiche::secondarieta(2026);
+        $this->assertSame(['criterio' => 'a', 'soglia' => 2400], $s['rientro']);
+        $this->assertSame(24, $s['criteri']['a']['soglia']);
+        $this->confermaCriterio('b')->assertSessionHasErrors('criterio');
+        $this->confermaCriterio('a')->assertSessionHasNoErrors();
+
+        $storico(['entrate:B3' => 1000, 'entrate:A1' => 24000, 'uscite:E2' => 20000]);
+        $this->assertNull(Verifiche::secondarieta(2026)['rientro']);
+    }
+
+    /** Il criterio fissato alla prima approvazione resta fisso dopo la riapertura, e un esito non rispettato approvato non si dimentica: rientro e segnalazione restano. */
+    public function test_dopo_la_riapertura_il_criterio_resta_e_un_nuovo_esito_non_cancella_rientro_e_segnalazione(): void
+    {
+        $this->esercizioConB();
+        $this->confermaCriterio('a')->assertSessionHasNoErrors();
+        $this->approva(2026, '2027-04-10')->assertRedirect();
+        $this->come($this->amministratore)->post('/esercizi/2026/riapertura', ['motivazione' => 'Errore'])->assertRedirect();
+
+        $this->confermaCriterio('b')->assertSessionHasErrors('criterio');
+        $this->assertSame('a', DatiEsercizio::per(2026)->criterio_secondarieta);
+
+        $this->imputa('entrata', 100000, '2026-04-01', 'Quote associative'); // la correzione: ora il 30% regge
+        $this->approva(2026, '2027-04-12')->assertRedirect();
+        $v2 = VersioneEsercizio::where(['esercizio' => 2026, 'numero' => 2])->sole();
+        $this->assertSame('a', $v2->criterio_secondarieta);
+        $this->assertSame('rispettato', $v2->esito_secondarieta);
+
+        $this->assertSame(['criterio' => 'a', 'soglia' => 2400], Verifiche::rientro(2027));
+        $this->come($this->tesoriere)->get('/')->assertOk()->assertSeeText('entro il 10/05/2027');
+        $this->come($this->tesoriere)->post('/esercizi/2026/segnalazione-runts', ['data' => '2027-04-15', 'protocollo' => 'RUNTS-7'])->assertSessionHasNoErrors();
+        $this->assertSame('RUNTS-7', VersioneEsercizio::where(['esercizio' => 2026, 'numero' => 1])->sole()->segnalazione_protocollo);
+        $this->come($this->tesoriere)->get('/')->assertOk()->assertDontSeeText('entro il 10/05/2027');
+    }
+
     public function test_dopo_una_secondarieta_rispettata_o_senza_approvazione_la_soglia_e_quella_di_legge(): void
     {
         $this->esercizioConB();
@@ -390,10 +461,11 @@ class ApprovazioneEsercizioTest extends TestCase
         // Una correzione tardiva: 20,00 € di entrate in più nell'area A.
         $this->imputa('entrata', 2000, '2026-07-01', 'Somministrazione');
 
-        foreach (['/esercizi/2026/modello-d', '/esercizi/2026/rendiconto', '/esercizi/2026/test'] as $pagina) {
+        // Il Modello D e i test mostrano le voci del Modello D, il rendiconto le sue cifre (per attività, iniziativa, tipologia e conto).
+        foreach (['/esercizi/2026/modello-d' => 'Totale entrate della gestione', '/esercizi/2026/rendiconto' => 'Somministrazione · Cassa contanti', '/esercizi/2026/test' => 'Totale entrate della gestione'] as $pagina => $riga) {
             $this->come($this->tesoriere)->get($pagina)->assertOk()
                 ->assertSeeText('Differenze dalla versione approvata')
-                ->assertSeeText('Totale entrate della gestione')->assertSeeText('800,00')->assertSeeText('820,00')->assertSeeText('20,00')
+                ->assertSeeText($riga)->assertSeeText('800,00')->assertSeeText('820,00')->assertSeeText('20,00')
                 ->assertDontSeeText('Nessuna differenza');
         }
     }
@@ -413,6 +485,34 @@ class ApprovazioneEsercizioTest extends TestCase
 
         $this->come($this->amministratore)->post('/esercizi/2026/riapertura', ['motivazione' => 'Errore'])->assertRedirect();
         $this->assertSame(['Provvisorio – aggiornato al 20/04/2027 10:00. Solo le imputazioni confermate.'], $xlsx());
+    }
+
+    /** Il rendiconto per l'assemblea è nella versione approvata: un'imputazione che cambia solo iniziativa muove il rendiconto e non il Modello D. */
+    public function test_il_rendiconto_si_confronta_con_la_versione_approvata(): void
+    {
+        $imputazione = $this->imputa('entrata', 80000, '2026-06-01', 'Somministrazione');
+        $this->approva()->assertRedirect();
+        $this->assertArrayHasKey('rendiconto', VersioneEsercizio::sole()->istantanea);
+
+        $this->come($this->tesoriere)->get('/esercizi/2026/rendiconto')->assertOk()->assertSeeText('Nessuna differenza');
+        $imputazione->update(['iniziativa_id' => Iniziativa::where('nome', 'Si può fare')->firstOrFail()->id]); // stessa tipologia e stessa voce
+
+        $this->come($this->tesoriere)->get('/esercizi/2026/modello-d')->assertOk()->assertSeeText('Nessuna differenza');
+        $this->come($this->tesoriere)->get('/esercizi/2026/rendiconto')->assertOk()->assertDontSeeText('Nessuna differenza')->assertSeeText('Si può fare')->assertSeeText('Festa della Torre');
+        $intestazione = fn (string $prospetto, string $foglio) => Foglio::leggi($this->come($this->tesoriere)->get("/esercizi/2026/$prospetto/xlsx")->assertOk()->getContent())[$foglio][3][0];
+        $this->assertStringContainsString('Ci sono differenze dalla versione approvata', $intestazione('rendiconto', 'Rendiconto'));
+        $this->assertStringNotContainsString('Ci sono differenze', $intestazione('modello-d', 'Modello D'));
+    }
+
+    /** Con `?proposte=1` il prospetto non è quello approvato (ci sono anche le proposte): esce provvisorio. */
+    public function test_l_esportazione_con_le_proposte_di_un_esercizio_approvato_esce_provvisoria(): void
+    {
+        $this->esercizio2026();
+        $this->approva()->assertRedirect();
+
+        $riga = Foglio::leggi($this->come($this->tesoriere)->get('/esercizi/2026/modello-d/xlsx?proposte=1')->assertOk()->getContent())['Modello D'][3];
+
+        $this->assertSame(['Provvisorio – aggiornato al 20/04/2027 10:00. Con anche le imputazioni proposte, ancora da confermare.'], $riga);
     }
 
     public function test_chi_modifica_un_movimento_di_un_esercizio_approvato_e_avvisato(): void

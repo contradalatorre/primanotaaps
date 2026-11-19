@@ -4,14 +4,14 @@ namespace App\Esercizio;
 
 /**
  * Le differenze di un esercizio dalla sua versione approvata (#59, #12, #18): un modulo puro, senza database, che confronta due «impronte» piatte, cioè le voci del
- * Modello D e i totali in centesimi, e gli esiti dei test. L'impronta si ricava da quello che l'approvazione salva (`Verifiche::istantanea`), così la versione approvata
+ * Modello D e i totali in centesimi, gli esiti dei test e le cifre del rendiconto per l'assemblea (che con lo stesso Modello D può cambiare: iniziativa, attività, conto). L'impronta si ricava da quello che l'approvazione salva (`Verifiche::istantanea`), così la versione approvata
  * e lo stato di oggi si confrontano con la stessa lente. Le cifre che non cambiano non compaiono.
  */
 final class Differenze
 {
     /**
-     * @param  array{modello_d: array, catena: array, secondarieta: array}  $istantanea
-     * @return array{voci: array<string, array{etichetta: string, importo: int}>, esiti: array<string, array{etichetta: string, esito: string}>}
+     * @param  array{modello_d: array, catena: array, secondarieta: array, rendiconto?: array}  $istantanea
+     * @return array{voci: array<string, array{etichetta: string, importo: int}>, esiti: array<string, array{etichetta: string, esito: string}>, rendiconto: array<string, array{etichetta: string, importo: int}>}
      */
     public static function impronta(array $istantanea): array
     {
@@ -51,26 +51,75 @@ final class Differenze
             'areaA' => ['etichetta' => 'Art. 79 c. 2-bis sull’area A', 'esito' => $catena['areaA']['esito']],
             'ente' => ['etichetta' => 'Art. 79 c. 5, natura dell’ente', 'esito' => $catena['ente']['esito']],
             'forfettario' => ['etichetta' => 'Regime forfettario art. 86', 'esito' => $catena['forfettario']['esito']],
-        ]];
+        ], 'rendiconto' => self::improntaRendiconto($istantanea['rendiconto'] ?? null)];
     }
 
     /**
-     * Cosa è diverso: le voci con un importo diverso (o presenti da una parte sola) e i test con un esito diverso, nell'ordine del prospetto.
+     * Le cifre del rendiconto per l'assemblea, una per riga: area, attività, iniziativa, lato, tipologia e conto (solo gli importi diversi da zero, così una riga che manca
+     * da una parte e a zero dall'altra non è una differenza), poi i figurativi non collocati, la destinazione dell'avanzo e i saldi dei conti. Non le date di riconciliazione,
+     * che si muovono da sole.
      *
-     * @param  array{voci: array, esiti: array}  $approvata
-     * @param  array{voci: array, esiti: array}  $attuale
-     * @return array{voci: list<array{etichetta: string, approvato: ?int, attuale: ?int}>, esiti: list<array{etichetta: string, approvato: ?string, attuale: ?string}>}
+     * @return array<string, array{etichetta: string, importo: int}>
+     */
+    private static function improntaRendiconto(?array $r): array
+    {
+        if ($r === null) {
+            return [];
+        }
+        $righe = [];
+        foreach ($r['aree'] as $codice => $area) {
+            foreach ($area['attivita'] as $attivita) {
+                foreach ($attivita['iniziative'] as $iniziativa) {
+                    foreach (['entrate', 'uscite'] as $lato) {
+                        foreach ($iniziativa[$lato]['righe'] as $riga) {
+                            foreach ($riga['conti'] as $conto => $importo) {
+                                if ($importo !== 0) {
+                                    $righe["$codice|{$attivita['nome']}|{$iniziativa['nome']}|$lato|{$riga['tipologia']}|$conto"] = [
+                                        'etichetta' => "Area $codice · {$attivita['nome']} · {$iniziativa['nome']} · ".ucfirst($lato)." · {$riga['tipologia']} · {$r['conti'][$conto]}", 'importo' => $importo,
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        foreach (['entrate', 'uscite'] as $lato) {
+            $righe["senza-riga:$lato"] = ['etichetta' => 'Senza una riga del Modello D · '.ucfirst($lato), 'importo' => $r['senzaRiga'][$lato]];
+        }
+        foreach ($r['destinazione']['righe'] as $i => $destinazione) {
+            $righe["destinazione:$i"] = ['etichetta' => 'Destinazione dell’avanzo · '.$destinazione['descrizione'], 'importo' => $destinazione['importo']];
+        }
+        foreach ($r['riepilogo']['conti'] as $id => $conto) {
+            foreach (['iniziale' => 'saldo iniziale', 'giroconti_entrata' => 'giroconti in entrata', 'giroconti_uscita' => 'giroconti in uscita', 'finale' => 'saldo finale'] as $campo => $nome) {
+                $righe["conto:$id:$campo"] = ['etichetta' => "Conto «{$conto['nome']}» · $nome", 'importo' => $conto[$campo]];
+            }
+        }
+
+        return $righe;
+    }
+
+    /**
+     * Cosa è diverso: le voci del Modello D e le cifre del rendiconto con un importo diverso (o presenti da una parte sola) e i test con un esito diverso, nell'ordine del prospetto.
+     *
+     * @param  array{voci: array, esiti: array, rendiconto: array}  $approvata
+     * @param  array{voci: array, esiti: array, rendiconto: array}  $attuale
+     * @return array{voci: list<array{etichetta: string, approvato: ?int, attuale: ?int}>, esiti: list<array{etichetta: string, approvato: ?string, attuale: ?string}>, rendiconto: list<array{etichetta: string, approvato: ?int, attuale: ?int}>}
      */
     public static function tra(array $approvata, array $attuale): array
     {
-        $voci = [];
-        foreach (array_unique([...array_keys($attuale['voci']), ...array_keys($approvata['voci'])]) as $chiave) {
-            $prima = $approvata['voci'][$chiave]['importo'] ?? null;
-            $dopo = $attuale['voci'][$chiave]['importo'] ?? null;
-            if ($prima !== $dopo) {
-                $voci[] = ['etichetta' => ($attuale['voci'][$chiave] ?? $approvata['voci'][$chiave])['etichetta'], 'approvato' => $prima, 'attuale' => $dopo];
+        $righe = function (string $gruppo) use ($approvata, $attuale) {
+            $diverse = [];
+            foreach (array_unique([...array_keys($attuale[$gruppo]), ...array_keys($approvata[$gruppo])]) as $chiave) {
+                $prima = $approvata[$gruppo][$chiave]['importo'] ?? null;
+                $dopo = $attuale[$gruppo][$chiave]['importo'] ?? null;
+                if ($prima !== $dopo) {
+                    $diverse[] = ['etichetta' => ($attuale[$gruppo][$chiave] ?? $approvata[$gruppo][$chiave])['etichetta'], 'approvato' => $prima, 'attuale' => $dopo];
+                }
             }
-        }
+
+            return $diverse;
+        };
         $esiti = [];
         foreach ($attuale['esiti'] as $chiave => $esito) {
             $prima = $approvata['esiti'][$chiave]['esito'] ?? null;
@@ -79,6 +128,18 @@ final class Differenze
             }
         }
 
-        return ['voci' => $voci, 'esiti' => $esiti];
+        return ['voci' => $righe('voci'), 'esiti' => $esiti, 'rendiconto' => $righe('rendiconto')];
+    }
+
+    /**
+     * Ci sono differenze nei gruppi che un prospetto mostra? Il Modello D e i test guardano `voci` ed `esiti`, il rendiconto per l'assemblea `rendiconto`: la frase
+     * «nessuna differenza» di una pagina vale per quel che la pagina mostra.
+     *
+     * @param  array{voci: array, esiti: array, rendiconto: array}  $differenze
+     * @param  list<string>  $gruppi
+     */
+    public static function presenti(array $differenze, array $gruppi): bool
+    {
+        return array_filter(array_intersect_key($differenze, array_flip($gruppi))) !== [];
     }
 }

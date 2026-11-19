@@ -206,9 +206,9 @@ final class Verifiche
 
     /**
      * Quel che si salva all'approvazione e quel con cui si confronta dopo: il Modello D, i test dell'area A, dell'ente e forfettario, la secondarietà
-     * (senza i dati dell'esercizio, che non servono e non sono dati puri). Solo le imputazioni confermate.
+     * (senza i dati dell'esercizio, che non servono e non sono dati puri) e il rendiconto per l'assemblea. Solo le imputazioni confermate.
      *
-     * @return array{modello_d: array, catena: array, secondarieta: array}
+     * @return array{modello_d: array, catena: array, secondarieta: array, rendiconto: array}
      */
     public static function istantanea(int $anno): array
     {
@@ -216,20 +216,46 @@ final class Verifiche
         $secondarieta = self::secondarietaDa($anno, $modelloD);
         unset($secondarieta['dati']);
 
-        return ['modello_d' => $modelloD, 'catena' => $catena, 'secondarieta' => $secondarieta];
+        return ['modello_d' => $modelloD, 'catena' => $catena, 'secondarieta' => $secondarieta, 'rendiconto' => Prospetto::rendiconto($anno)];
     }
 
     /**
-     * Il rientro dopo una secondarietà non rispettata (art. 4 DM 107/2021): lo stesso criterio e la soglia ridotta, fissati dall'ultima versione approvata
-     * dell'esercizio prima, anche se poi riaperta (un esito approvato non si dimentica: sarebbe a favore dell'ente).
+     * Il rientro dopo una secondarietà non rispettata (art. 4 DM 107/2021): lo stesso criterio e la soglia ridotta, fissati dalla versione approvata dell'esercizio prima
+     * con la soglia più bassa, anche se poi riaperta o sostituita (un esito approvato non si dimentica: sarebbe a favore dell'ente). Se l'esercizio prima è storico (#63),
+     * dagli importi del foglio.
      *
      * @return ?array{criterio: string, soglia: int}
      */
     public static function rientro(int $anno): ?array
     {
-        $versione = VersioneEsercizio::ultima($anno - 1);
+        $versione = VersioneEsercizio::conRientro($anno - 1);
+        if ($versione !== null) {
+            return ['criterio' => $versione->criterio_secondarieta, 'soglia' => $versione->soglia_rientro_centesimi_di_punto];
+        }
+        $storico = EsercizioStorico::modelloD($anno - 1);
 
-        return $versione?->soglia_rientro_centesimi_di_punto === null ? null : ['criterio' => $versione->criterio_secondarieta, 'soglia' => $versione->soglia_rientro_centesimi_di_punto];
+        return $storico === null ? null : self::rientroDelloStorico($storico);
+    }
+
+    /**
+     * Uno storico non ha un criterio confermato né approvato: ne basta uno non rispettato (la lettura più severa, mai a favore dell'ente, come per le forzature
+     * «non commerciale» da rivedere) e il rientro è sul criterio che non regge; se non reggono né il 30% né il 66%, su quello con la soglia ridotta più bassa.
+     * shortcut: chi ha rispettato il 66% ma non il 30% si ritrova la soglia ridotta e il criterio a, che il commercialista potrebbe non confermare: da rivedere con lui.
+     *
+     * @return ?array{criterio: string, soglia: int}
+     */
+    private static function rientroDelloStorico(array $modelloD): ?array
+    {
+        $criteri = Secondarieta::calcola($modelloD, true, self::SOGLIA_VICINO_DI_PARTENZA, null)['criteri'];
+        $soglie = [];
+        foreach ($criteri as $criterio => $c) {
+            if ($c['esito'] === 'non_rispettato') {
+                $soglie[$criterio] = Secondarieta::sogliaDiRientro($c);
+            }
+        }
+        asort($soglie);
+
+        return $soglie === [] ? null : ['criterio' => array_key_first($soglie), 'soglia' => reset($soglie)];
     }
 
     private static function secondarietaDa(int $anno, array $modelloD): array

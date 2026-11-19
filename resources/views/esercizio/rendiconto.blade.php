@@ -21,7 +21,7 @@
             <span>Esercizio storico: senza movimenti non c’è il rendiconto per l’assemblea, solo il <a href="{{ route('modello-d', $anno) }}" class="link">Modello D {{ $anno }}</a> dagli importi del foglio approvato.</span>
         </p>
     @else
-        @include('esercizio.stato-prospetto', ['merlo' => 'rendiconto-provvisorio', 'nota' => 'Fuori i giroconti: compaiono solo nel riepilogo per conto.'])
+        @include('esercizio.stato-prospetto', ['merlo' => 'rendiconto-provvisorio', 'gruppi' => ['rendiconto'], 'nota' => 'Fuori i giroconti: compaiono solo nel riepilogo per conto.'])
 
         <form method="GET" action="{{ route('esercizio.rendiconto', $anno) }}" class="modulo-in-riga">
             <label class="spunta"><input type="checkbox" name="proposte" value="1" @checked($proposte) onchange="this.form.submit()"> <span>Includi anche le imputazioni proposte (la scelta non si salva)</span></label>

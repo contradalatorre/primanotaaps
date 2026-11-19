@@ -37,6 +37,11 @@ final class Approvazione
             if (! DB::table('voci_modello_d')->where('esercizio', $anno)->exists()) {
                 self::rifiuta('stato', "Per il $anno la tabella delle voci del Modello D non è caricata: non c'è un prospetto da approvare.");
             }
+            // Il rientro e la tolleranza del 6% si leggono dall'esito approvato dell'esercizio prima: approvare questo con l'altro ancora aperto farebbe saltare il rientro
+            // (il precedente approvato dopo non cambierebbe più la versione già misurata al 30% pieno). Un esercizio prima che non c'è (nessuna tabella delle voci) non si aspetta.
+            if (! $tutti[$anno - 1]->approvato() && DB::table('voci_modello_d')->where('esercizio', $anno - 1)->exists() && ! EsercizioStorico::where('esercizio', $anno - 1)->exists()) {
+                self::rifiuta('stato', 'Prima di approvare il '.$anno.' va approvato il '.($anno - 1).': il rientro dopo una secondarietà non rispettata e la tolleranza del 6% si misurano sul suo esito approvato.');
+            }
             if ($data < ($anno + 1).'-01-01' || $data > today()->toDateString()) {
                 self::rifiuta('data', 'La data della delibera va dal 1° gennaio '.($anno + 1).' a oggi.');
             }
@@ -66,7 +71,7 @@ final class Approvazione
      * Com'è l'esercizio per chi guarda un prospetto: aperto (provvisorio) oppure approvato, con la versione vigente e le differenze dalla versione approvata
      * (solo le imputazioni confermate, come l'approvazione). Per un esercizio aperto non si calcola nulla.
      *
-     * @return array{versione: ?VersioneEsercizio, numero: int, differenze: ?array{voci: list<array>, esiti: list<array>}}
+     * @return array{versione: ?VersioneEsercizio, numero: int, differenze: ?array{voci: list<array>, esiti: list<array>, rendiconto: list<array>}}
      */
     public static function situazione(int $anno): array
     {
@@ -92,13 +97,13 @@ final class Approvazione
         }, Permesso::RiaprireEsercizio);
     }
 
-    /** L'invio della segnalazione al RUNTS (art. 4 DM 107/2021): la data e, se c'è, il protocollo. Solo per l'ultima versione approvata, con la secondarietà non rispettata:
-     * anche se poi riaperta, perché l'obbligo nato con un esito approvato non si dimentica (come il rientro, `Verifiche::rientro`). */
+    /** L'invio della segnalazione al RUNTS (art. 4 DM 107/2021): la data e, se c'è, il protocollo. Per l'ultima versione approvata con la secondarietà non rispettata:
+     * anche se poi riaperta e approvata di nuovo con un altro esito, perché l'obbligo nato con un esito approvato non si dimentica (come il rientro, `Verifiche::rientro`). */
     public static function segnala(User $utente, int $anno, string $data, ?string $protocollo): void
     {
         DatiEsercizio::sottoBlocco($utente, $anno, function () use ($utente, $anno, $data, $protocollo) {
-            $versione = VersioneEsercizio::where('esercizio', $anno)->orderByDesc('numero')->lockForUpdate()->first();
-            if ($versione === null || $versione->esito_secondarieta !== 'non_rispettato') {
+            $versione = VersioneEsercizio::where('esercizio', $anno)->where('esito_secondarieta', 'non_rispettato')->orderByDesc('numero')->lockForUpdate()->first();
+            if ($versione === null) {
                 self::rifiuta('stato', "Per l'esercizio $anno non c'è una segnalazione da registrare.");
             }
             if ($data < $versione->approvata_il->toDateString() || $data > today()->toDateString()) {

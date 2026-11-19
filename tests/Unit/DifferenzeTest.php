@@ -48,7 +48,7 @@ class DifferenzeTest extends TestCase
     {
         $i = self::istantanea(['A1' => 10000], ['A2' => 4000]);
 
-        $this->assertSame(['voci' => [], 'esiti' => []], Differenze::tra(Differenze::impronta($i), Differenze::impronta($i)));
+        $this->assertSame(['voci' => [], 'esiti' => [], 'rendiconto' => []], Differenze::tra(Differenze::impronta($i), Differenze::impronta($i)));
     }
 
     public function test_l_istantanea_salvata_come_json_si_confronta_uguale_a_se_stessa(): void
@@ -56,7 +56,7 @@ class DifferenzeTest extends TestCase
         $i = self::istantanea(['A1' => 10000, 'B3' => 2500], ['A2' => 4000]);
         $riletta = json_decode(json_encode($i), true);
 
-        $this->assertSame(['voci' => [], 'esiti' => []], Differenze::tra(Differenze::impronta($riletta), Differenze::impronta($i)));
+        $this->assertSame(['voci' => [], 'esiti' => [], 'rendiconto' => []], Differenze::tra(Differenze::impronta($riletta), Differenze::impronta($i)));
     }
 
     public function test_una_voce_cambiata_porta_con_se_i_totali_che_cambiano(): void

@@ -1,4 +1,4 @@
-{{-- Lo stato del prospetto in cima alla pagina: «provvisorio» finché l'esercizio è aperto; dopo l'approvazione la versione e le differenze dalla versione approvata (#59, #18). Vuole $anno, $aggiornatoAl, $proposte, $merlo; facoltativo $nota. --}}
+{{-- Lo stato del prospetto in cima alla pagina: «provvisorio» finché l'esercizio è aperto; dopo l'approvazione la versione e le differenze dalla versione approvata (#59, #18). Vuole $anno, $aggiornatoAl, $proposte, $merlo; facoltativi $nota e $gruppi (le differenze da mostrare: `voci` ed `esiti`, o `rendiconto`). --}}
 @php($situazione = \App\Esercizio\Approvazione::situazione($anno))
 @php($versione = $situazione['versione'])
 <p class="avviso" role="status" data-merlo="{{ $merlo }}">
@@ -13,5 +13,5 @@
     @endif
 </p>
 @if ($versione)
-    @include('esercizio.differenze', ['differenze' => $situazione['differenze']])
+    @include('esercizio.differenze', ['differenze' => $situazione['differenze'], 'gruppi' => $gruppi ?? ['voci', 'esiti']])
 @endif
