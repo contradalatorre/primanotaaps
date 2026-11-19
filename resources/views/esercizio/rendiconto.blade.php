@@ -86,6 +86,16 @@
             @endif
         </section>
 
+        @foreach ($r['senzaRiga']['avvisi'] as $avviso)
+            <p class="avviso" role="status" data-merlo="rendiconto-senza-riga">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l10 18H2zM12 10v5M12 18h.01"/></svg>
+                <span>{{ $avviso }}</span>
+            </p>
+        @endforeach
+        @if ($r['senzaRiga']['avvisi'] !== [])
+            <p class="nota"><a href="{{ route('esercizio.imputazioni', ['anno' => $anno, 'chiavi' => \App\Esercizio\Prospetto::SENZA_RIGA, 'titolo' => 'Senza riga nel Modello D'] + ($proposte ? ['proposte' => 1] : [])) }}" class="link">Vedi le imputazioni senza riga nel Modello D</a></p>
+        @endif
+
         <section data-merlo="rendiconto-riepilogo">
             <h2>Riepilogo per conto</h2>
             <div class="tabella-scorrevole">
@@ -136,10 +146,10 @@
             @else
                 <div class="tabella-scorrevole">
                     <table class="tabella">
-                        <thead><tr><th scope="col">Destinazione</th><th scope="col" class="text-right">Importo (€)</th><th scope="col">Nota</th></tr></thead>
+                        <thead><tr><th scope="col">Destinazione</th><th scope="col" class="text-right">Importo (€)</th>@can('gestire_esercizio')<th scope="col">Nota</th>@endcan</tr></thead>
                         <tbody>
                             @foreach ($r['destinazione']['righe'] as $d)
-                                <tr><td>{{ $d['descrizione'] }}</td><td class="text-right">{{ $euro($d['importo']) }}</td><td>{{ $d['nota'] }}</td></tr>
+                                <tr><td>{{ $d['descrizione'] }}</td><td class="text-right">{{ $euro($d['importo']) }}</td>@can('gestire_esercizio')<td>{{ $d['nota'] }}</td>@endcan</tr>
                             @endforeach
                         </tbody>
                     </table>

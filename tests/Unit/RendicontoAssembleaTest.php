@@ -113,19 +113,40 @@ class RendicontoAssembleaTest extends TestCase
     public function test_vista_per_voce_modello_d_poi_tipologia_entrate_e_poi_uscite_nell_ordine_dello_schema(): void
     {
         [$righe, $conti] = $this->esercizio();
-        $righe[] = $this->r('entrate', 'A', 'Cultura', 'Festa della Torre', 'Altro incasso', null, 1, 700);
-
         $voci = RendicontoAssemblea::calcola($righe, $conti, [])['voci'];
 
         $this->assertSame(
-            [['entrate', 'A1'], ['entrate', 'A7'], ['entrate', null], ['uscite', 'A1'], ['uscite', 'D1']],
+            [['entrate', 'A1'], ['entrate', 'A7'], ['uscite', 'A1'], ['uscite', 'D1']],
             array_map(fn (array $v) => [$v['lato'], $v['voce']], $voci),
         );
         $a7 = $voci[1];
         $this->assertSame('Entrate per prestazioni e cessioni a terzi', $a7['etichetta']);
         $this->assertSame([['tipologia' => 'Somministrazione', 'conti' => [1 => 50000, 2 => 20000], 'totale' => 70000]], $a7['righe']);
         $this->assertSame(70000, $a7['totale']['totale']);
-        $this->assertSame('Senza voce Modello D', $voci[2]['etichetta']);
+    }
+
+    public function test_le_imputazioni_senza_riga_nel_modello_d_non_entrano_nei_totali_ma_si_dicono_a_parte(): void
+    {
+        [$righe, $conti] = $this->esercizio();
+        $senzaRiga = [
+            $this->r('uscite', 'E', 'Segreteria', null, 'Senza tipologia', null, 1, 5000),
+            $this->r('entrate', 'A', 'Cultura', null, 'Incasso strano', 'Z9', 2, 700),
+        ];
+
+        $senza = RendicontoAssemblea::calcola([...$righe, ...$senzaRiga], $conti, []);
+        $base = RendicontoAssemblea::calcola($righe, $conti, []);
+
+        $this->assertSame($base['totali'], $senza['totali']);
+        $this->assertSame($base['aree'], $senza['aree']);
+        $this->assertSame($base['voci'], $senza['voci']);
+        $this->assertSame($base['destinazione']['avanzo'], $senza['destinazione']['avanzo']);
+        $this->assertSame(700, $senza['senzaRiga']['entrate']);
+        $this->assertSame(5000, $senza['senzaRiga']['uscite']);
+        $this->assertSame([
+            '1 imputazioni in uscite per 50,00 € senza voce Modello D: non sono nel prospetto.',
+            '1 imputazioni in entrate per 7,00 € con la voce «Z9», che non è nello schema: non sono nel prospetto.',
+        ], $senza['senzaRiga']['avvisi']);
+        $this->assertSame([], $base['senzaRiga']['avvisi']);
     }
 
     public function test_riepilogo_per_conto_con_giroconti_fuori_dai_totali_e_quadratura(): void

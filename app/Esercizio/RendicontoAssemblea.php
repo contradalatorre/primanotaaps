@@ -32,9 +32,16 @@ final class RendicontoAssemblea
             isset($colonne[$riga->conto]) || throw new InvalidArgumentException("Un'imputazione è su un conto ({$riga->conto}) che non è tra le colonne.");
         }
 
+        // Come il Modello D (`Calcolo`): le imputazioni che non sanno dove stare nello schema restano fuori dai totali e si dicono a parte; il denaro resta nel riepilogo dei conti.
+        [$prospetto, $senzaRiga] = [[], []];
+        foreach ($righe as $riga) {
+            SchemaModelloD::conosce($riga->lato, $riga->voce) ? $prospetto[] = $riga : $senzaRiga[] = $riga;
+        }
+        $somma = fn (string $lato) => array_sum(array_map(fn (RigaRendiconto $r) => $r->lato === $lato ? $r->importo : 0, $senzaRiga));
+
         $aree = [];
         foreach (SchemaModelloD::AREE as $codice => $titolo) {
-            $dellArea = array_values(array_filter($righe, fn (RigaRendiconto $r) => $r->area === $codice));
+            $dellArea = array_values(array_filter($prospetto, fn (RigaRendiconto $r) => $r->area === $codice));
             if ($dellArea === []) {
                 continue;
             }
@@ -42,14 +49,15 @@ final class RendicontoAssemblea
             $aree[$codice] = ['titolo' => $titolo, 'attivita' => $attivita] + self::lati($dellArea, $colonne);
         }
 
-        $totali = self::lati($righe, $colonne);
+        $totali = self::lati($prospetto, $colonne);
         $destinato = array_sum(array_column($destinazioni, 'importo'));
 
         return [
             'conti' => $colonne,
             'aree' => $aree,
             'totali' => $totali,
-            'voci' => self::voci($righe, $colonne),
+            'senzaRiga' => ['entrate' => $somma('entrate'), 'uscite' => $somma('uscite'), 'avvisi' => Calcolo::avvisiSenzaRiga($senzaRiga)],
+            'voci' => self::voci($prospetto, $colonne),
             'riepilogo' => self::riepilogo($righe, $conti),
             'destinazione' => ['avanzo' => $totali['risultato']['totale'], 'destinato' => $destinato, 'residuo' => $totali['risultato']['totale'] - $destinato, 'righe' => $destinazioni],
         ];
@@ -82,7 +90,7 @@ final class RendicontoAssemblea
     }
 
     /**
-     * La vista di controllo: per lato (entrate, poi uscite) e per voce Modello D, nell'ordine dello schema; le voci fuori schema dopo, quelle senza voce in fondo.
+     * La vista di controllo: per lato (entrate, poi uscite) e per voce Modello D, nell'ordine dello schema. Le righe sono quelle del prospetto: tutte con una voce dello schema.
      *
      * @return list<array{lato: string, voce: ?string, etichetta: string, righe: list<array>, totale: array}>
      */
@@ -91,16 +99,15 @@ final class RendicontoAssemblea
         $voci = [];
         foreach (['entrate', 'uscite'] as $lato) {
             $schema = self::etichette($lato);
-            $posizione = fn (?string $v) => $v === null ? PHP_INT_MAX : (($p = array_search($v, array_keys($schema), true)) === false ? PHP_INT_MAX - 1 : $p);
+            $posizione = fn (string $v) => array_search($v, array_keys($schema), true);
             $gruppi = self::raggruppa(
                 array_filter($righe, fn (RigaRendiconto $r) => $r->lato === $lato),
                 fn (RigaRendiconto $r) => $r->voce,
-                fn (?string $a, ?string $b) => [$posizione($a), $a] <=> [$posizione($b), $b],
+                fn (string $a, string $b) => $posizione($a) <=> $posizione($b),
             );
             foreach ($gruppi as $g) {
                 $voci[] = [
-                    'lato' => $lato, 'voce' => $g['chiave'],
-                    'etichetta' => $g['chiave'] === null ? 'Senza voce Modello D' : ($schema[$g['chiave']] ?? 'Voce «'.$g['chiave'].'», che non è nello schema'),
+                    'lato' => $lato, 'voce' => $g['chiave'], 'etichetta' => $schema[$g['chiave']],
                     'righe' => self::tipologie($g['righe'], $colonne), 'totale' => self::cifra($g['righe'], $colonne),
                 ];
             }

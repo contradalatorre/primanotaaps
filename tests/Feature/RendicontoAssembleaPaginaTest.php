@@ -205,6 +205,29 @@ class RendicontoAssembleaPaginaTest extends TestCase
         $this->assertSame(['creata', 'creata'], RegistroModifica::where('oggetto_tipo', 'destinazione_avanzo')->orderBy('id')->pluck('azione')->all());
     }
 
+    public function test_la_nota_della_destinazione_e_testo_libero_e_la_vede_solo_chi_gestisce_l_esercizio(): void
+    {
+        DestinazioneAvanzo::create(['esercizio' => 2026, 'descrizione' => 'Fondo per il restauro', 'importo' => 100, 'nota' => 'Come proposto da Mario Rossi']);
+        $lettore = $this->utenteCon('Lettore esterno', ['scade_il' => now()->addMonth()], ['email' => 'revisore@esterno.example']);
+
+        $this->actingAs($lettore)->get('/esercizi/2026/rendiconto')->assertOk()->assertSeeText('Fondo per il restauro')->assertDontSeeText('Mario Rossi');
+        $this->pagina()->assertSeeText('Come proposto da Mario Rossi');
+    }
+
+    public function test_un_imputazione_senza_riga_resta_fuori_dai_totali_come_nel_modello_d_e_si_mostra_a_parte(): void
+    {
+        $this->esercizio();
+        $senzaTipologia = $this->imputa($this->cassa, 'uscita', 5000, '2026-06-03', 'Acquisti per la somministrazione', 'E');
+        $senzaTipologia->update(['tipologia_id' => null]);
+
+        $r = Prospetto::rendiconto(2026);
+
+        $this->assertSame(Prospetto::modelloD(2026)['avanzoComplessivo']['importo'], $r['totali']['risultato']['totale']);
+        $this->assertSame(65000, $r['destinazione']['avanzo']);
+        $this->assertSame(5000, $r['senzaRiga']['uscite']);
+        $this->pagina()->assertSeeText('1 imputazioni in uscite per 50,00 € senza voce Modello D: non sono nel prospetto.');
+    }
+
     public function test_un_avanzo_superato_dalla_destinazione_da_un_residuo_negativo_senza_bloccare(): void
     {
         $this->esercizio();
