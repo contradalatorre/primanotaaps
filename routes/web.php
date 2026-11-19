@@ -95,6 +95,8 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::put('/esercizi/{anno}/dati', [DatiEsercizioController::class, 'salva'])->name('dati-esercizio.salva');
         Route::post('/esercizi/{anno}/dati/figurativi', [DatiEsercizioController::class, 'aggiungiFigurativo'])->name('dati-esercizio.figurativi.aggiungi');
         Route::delete('/esercizi/{anno}/dati/figurativi/{riga}', [DatiEsercizioController::class, 'eliminaFigurativo'])->name('dati-esercizio.figurativi.elimina');
+        Route::post('/esercizi/{anno}/dati/destinazione', [DatiEsercizioController::class, 'aggiungiDestinazione'])->name('dati-esercizio.destinazione.aggiungi'); // #56
+        Route::delete('/esercizi/{anno}/dati/destinazione/{riga}', [DatiEsercizioController::class, 'eliminaDestinazione'])->name('dati-esercizio.destinazione.elimina');
     });
     // Il preventivo di un'iniziativa lo scrive chi gestisce regole, tipologie e iniziative (#16).
     Route::middleware('can:gestire_regole')->where(['anno' => '[1-9][0-9]{3}', 'iniziativa' => '[0-9]+'])->group(function () {

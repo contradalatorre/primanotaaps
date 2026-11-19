@@ -115,7 +115,8 @@ final class Prospetto
         })->all();
 
         $conti = self::conti($anno);
-        $conti = $conti->concat(Conto::whereIn('id', $imputazioni->map(fn (array $r) => $r['imputazione']->movimento->conto_id)->unique()->diff($conti->modelKeys()))->get())->sortBy('nome')->values();
+        $fuoriPeriodo = array_diff(array_map(fn (RigaRendiconto $r) => $r->conto, $righe), $conti->modelKeys());
+        $conti = $conti->concat(Conto::whereIn('id', $fuoriPeriodo)->get())->sortBy('nome')->values();
 
         $giroconti = Movimento::inGiroconto()->whereBetween('data', ["$anno-01-01", "$anno-12-31"])
             ->selectRaw('conto_id, verso, sum(importo) as somma')->groupBy('conto_id', 'verso')->get()

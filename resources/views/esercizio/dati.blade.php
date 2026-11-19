@@ -72,4 +72,33 @@
         <label>Provento: valore normale documentato (€) <input type="text" name="importo" inputmode="decimal" maxlength="30" value="{{ old('importo') }}"></label>
         <button type="submit" class="bottone">Aggiungi la riga</button>
     </form>
+
+    <h2 id="destinazione">Destinazione dell’avanzo</h2>
+    <p class="nota" data-merlo="destinazione-regola">L’impiego dell’avanzo che il Tesoriere propone all’assemblea: compare solo nel <a href="{{ route('esercizio.rendiconto', $anno) }}" class="link">rendiconto per l’assemblea</a>, con il residuo; mai nel Modello D. Il rendiconto non porta nomi di persone: non scriverli né nella descrizione né nella nota.</p>
+
+    @if ($destinazioni->isEmpty())
+        <p class="vuoto">Nessuna destinazione dell’avanzo per l’esercizio {{ $anno }}.</p>
+    @else
+        <ul class="schede" data-merlo="destinazione-elenco">
+            @foreach ($destinazioni as $riga)
+                <li class="scheda">
+                    <p><strong>{{ $riga->descrizione }}</strong>: {{ $euro($riga->importo) }} €</p>
+                    @if ($riga->nota) <p>{{ $riga->nota }}</p> @endif
+                    <form method="POST" action="{{ route('dati-esercizio.destinazione.elimina', [$anno, $riga->id]) }}" class="azioni">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="bottone-piccolo">Elimina</button>
+                    </form>
+                </li>
+            @endforeach
+        </ul>
+    @endif
+
+    <form method="POST" action="{{ route('dati-esercizio.destinazione.aggiungi', $anno) }}" class="modulo modulo-stretto" data-merlo="destinazione-modulo">
+        @csrf
+        <label>Descrizione (senza nomi di persone) <input type="text" name="descrizione" maxlength="200" value="{{ old('descrizione') }}" required></label>
+        <label>Importo (€) <input type="text" name="importo" inputmode="decimal" maxlength="30" value="{{ old('importo') }}" required></label>
+        <label>Nota (facoltativa, senza nomi di persone) <input type="text" name="nota" maxlength="200" value="{{ old('nota') }}"></label>
+        <button type="submit" class="bottone">Aggiungi la destinazione</button>
+    </form>
 @endsection
