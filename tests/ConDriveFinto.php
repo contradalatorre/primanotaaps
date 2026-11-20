@@ -30,6 +30,7 @@ trait ConDriveFinto
         // Parte da un client nuovo: tra due `Http::fake` vince la prima risposta che corrisponde, e `$altro` deve poter cambiare quelle di prima.
         app()->forgetInstance(Factory::class);
         Http::clearResolvedInstance(Factory::class);
+        Http::preventStrayRequests(); // il client nuovo ha perso il divieto della TestCase
         Http::fake($altro + [
             'oauth2.googleapis.com/token' => Http::response(['access_token' => 'token-di-accesso', 'expires_in' => 3600]),
             'www.googleapis.com/upload/drive/v3/files*' => Http::response(['id' => 'file-1']),

@@ -6,6 +6,7 @@ use App\Models\Assegnazione;
 use App\Models\Ruolo;
 use App\Models\User;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Facades\Http;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -15,6 +16,9 @@ abstract class TestCase extends BaseTestCase
 
         // Gli stili si compilano a parte (npm run build, in CI): i test HTTP non ne hanno bisogno.
         $this->withoutVite();
+
+        // Nessuna chiamata a servizi esterni nei test (#88): ogni richiesta HTTP va simulata con `Http::fake`.
+        Http::preventStrayRequests();
     }
 
     /**
