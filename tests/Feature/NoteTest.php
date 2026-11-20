@@ -131,6 +131,7 @@ class NoteTest extends TestCase
         $nota = Nota::sole();
 
         $this->travelTo($nota->created_at->copy()->addHours(23)->addMinutes(59));
+        $this->riverificaAccountGoogle();
         $this->actingAs($maria)->put("/note/{$nota->id}", ['testo' => 'Seconda versione'])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('Seconda versione', $nota->refresh()->testo);
         $registro = RegistroModifica::where('azione', 'modificata')->sole();

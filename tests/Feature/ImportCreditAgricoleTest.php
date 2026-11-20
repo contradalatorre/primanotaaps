@@ -458,6 +458,7 @@ class ImportCreditAgricoleTest extends TestCase
         $this->carica($this->fixture());
         $vecchia = ImportEstratto::firstOrFail();
         $this->travel(2)->days();
+        $this->riverificaAccountGoogle();
 
         $this->carica($this->fixture());
 
@@ -471,6 +472,7 @@ class ImportCreditAgricoleTest extends TestCase
         $this->carica($this->fixture());
         $vecchia = ImportEstratto::firstOrFail();
         $this->travel(2)->days();
+        $this->riverificaAccountGoogle();
         // Una conferma arriva dopo che la pulizia ha letto l'elenco delle anteprime vecchie.
         $simulata = false;
         ImportEstratto::retrieved(function (ImportEstratto $letta) use (&$simulata, $vecchia) {

@@ -22,6 +22,15 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
+     * Dopo uno spostamento dell'orologio in avanti: `VerificaAccountGoogle` chiederebbe a Google di rinnovare il token
+     * (da ora le richieste non simulate fanno fallire il test, #88). Non serve per i test che vogliono proprio quella richiesta.
+     */
+    protected function riverificaAccountGoogle(): void
+    {
+        User::query()->update(['google_verificato_il' => now()]);
+    }
+
+    /**
      * Un utente con un'assegnazione. `$ruolo` è il nome di un ruolo predefinito o un Ruolo; `$assegnazione`
      * accetta gli attributi di Assegnazione (scade_il, tutti_i_conti, nomina_firmata_il...) e `conti`.
      */
