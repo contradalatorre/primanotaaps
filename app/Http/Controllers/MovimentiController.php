@@ -11,6 +11,7 @@ use App\Models\Movimento;
 use App\Models\RegistroModifica;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -56,6 +57,7 @@ class MovimentiController extends Controller
             $conto = Conto::lockForUpdate()->findOrFail($conto->id);
             $this->controllaCassaAperta($conto);
             $dati = $this->dati($request, $conto);
+            DatiEsercizio::controllaNonDepositato([Carbon::parse($dati['data'])->year]);
             $movimento = new Movimento($dati);
             $movimento->conto_id = $conto->id;
             $movimento->inserito_da = $request->user()->id;
@@ -82,6 +84,7 @@ class MovimentiController extends Controller
             $conto = Conto::lockForUpdate()->findOrFail($movimento->conto_id);
             $this->bloccaEControllaAutore($request, $movimento);
             $dati = $this->dati($request, $conto);
+            DatiEsercizio::controllaNonDepositato([$movimento->data->year, Carbon::parse($dati['data'])->year]); // sia dove sta sia dove andrebbe
             $prima = $movimento->istantanea();
             $movimento->update($dati);
             RegistroModifica::registra($request->user(), $movimento, 'modificato', $prima, $movimento->istantanea());
@@ -135,12 +138,8 @@ class MovimentiController extends Controller
             if ($comeAutore) {
                 $this->controllaAutore($request, $movimento);
             }
-            // «Fino al deposito» (#16, #38): l'esercizio depositato non si tocca.
-            // shortcut: lo stato si legge senza bloccare la riga dei dati (può non esserci, e il suo blocco dopo quelli del conto inverte l'ordine usato altrove): un deposito
-            // che si conclude mentre si elimina non fermerebbe questa eliminazione. Il deposito (#60) deve cambiare stato dopo aver bloccato conti e movimenti, come qui.
-            if (DatiEsercizio::per($movimento->data->year)->stato === 'depositato') {
-                throw ValidationException::withMessages(['movimento' => 'L’esercizio '.$movimento->data->year.' è depositato: i suoi movimenti non si eliminano più.']);
-            }
+            // «Fino al deposito» (#16, #38): l'esercizio depositato non si tocca. Il deposito cambia stato dopo aver bloccato conti e movimenti, nello stesso ordine di qui.
+            DatiEsercizio::controllaNonDepositato([$movimento->data->year]);
             if (Giroconto::di($movimento)) { // l'altra metà resterebbe sola: prima si scioglie il giroconto (#47)
                 throw ValidationException::withMessages(['movimento' => 'Il movimento è una metà di giroconto: scioglilo dal passo Giroconti prima di eliminarlo.']);
             }

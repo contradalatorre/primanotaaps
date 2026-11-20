@@ -562,7 +562,7 @@ class ApprovazioneEsercizioTest extends TestCase
         $this->assertSoftDeleted($manuale);
 
         $altro = Movimento::factory()->create(['conto_id' => $this->cassa->id, 'verso' => 'uscita', 'importo' => 700, 'data' => '2026-03-02', 'manuale' => true, 'inserito_da' => $this->tesoriere->id, 'stato' => 'confermato']);
-        DatiEsercizio::where('esercizio', 2026)->update(['stato' => 'depositato']); // il deposito arriva con #60
+        $this->come($this->tesoriere)->post('/esercizi/2026/deposito', ['data' => '2027-04-20'])->assertSessionHasNoErrors(); // #60
 
         $this->come($this->tesoriere)->post("/movimenti/{$altro->id}/eliminazione", ['motivazione' => 'Errore'])->assertSessionHasErrors('movimento');
         $this->assertNotSoftDeleted($altro);

@@ -10,6 +10,7 @@ use App\Import\EstrattoNonValido;
 use App\Import\FoglioCassa;
 use App\ImportFoglio;
 use App\Models\Conto;
+use App\Models\DatiEsercizio;
 use App\Models\ImportConflitto;
 use App\Models\ImportEstratto;
 use App\Models\Movimento;
@@ -137,6 +138,8 @@ class ImportEstrattiController extends Controller
 
             $estratto = $import->estratto();
             $classi = $conto->classifica($estratto);
+            // Le righe nuove non entrano in un esercizio depositato (#60); quelle già presenti non cambiano.
+            DatiEsercizio::controllaNonDepositato(array_map(fn ($riga) => (int) substr($riga->data, 0, 4), $classi['nuove']), 'estratto');
             $controlli = null;
             if ($conto->importaDalFoglio()) {
                 $this->controllaPassaggio($conto, $estratto);
@@ -199,6 +202,7 @@ class ImportEstrattiController extends Controller
             // Si decide sulle righe bloccate (lettura corrente, non la fotografia di MySQL): una conferma singola concorrente
             // blocca solo il suo movimento, e senza questo lock l'annullamento eliminerebbe un movimento appena confermato.
             $movimenti = $import->movimenti()->orderBy('id')->lockForUpdate()->get();
+            DatiEsercizio::controllaNonDepositato($movimenti->map(fn (Movimento $m) => $m->data->year)->all(), 'estratto'); // i movimenti di un esercizio depositato non escono più (#60)
             if ($import->stato !== 'confermato' || $movimenti->contains(fn (Movimento $m) => $m->confermato())) {
                 $this->rifiuta($import->stato === 'confermato'
                     ? 'Almeno un movimento di questo import è già confermato: l’import non si annulla più.'
@@ -251,6 +255,7 @@ class ImportEstrattiController extends Controller
 
             if ($decisione === 'importa_a_parte') {
                 $riga = $conflitto->rigaEstratto();
+                DatiEsercizio::controllaNonDepositato([(int) substr($riga->data, 0, 4)], 'estratto'); // la riga non entra in un esercizio depositato (#60)
                 // Lo stesso conflitto può esserci in due import sovrapposti: la riga entra una volta sola.
                 // Lettura con lock (corrente): su MySQL una lettura semplice vede la fotografia della transazione,
                 // fissata già dalla lettura di $conflitto->importEstratto, e non il movimento di una decisione appena conclusa.

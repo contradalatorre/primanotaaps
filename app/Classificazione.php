@@ -4,6 +4,7 @@ namespace App;
 
 use App\Models\Attivita;
 use App\Models\ConversioneCausale;
+use App\Models\DatiEsercizio;
 use App\Models\Imputazione;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
@@ -242,6 +243,7 @@ final class Classificazione
             self::blocca($movimento);
             abort_unless(self::conPermessiRiletti($utente)->puo(Permesso::ImportareEConfermare), 403);
             $movimento->refresh();
+            DatiEsercizio::controllaNonDepositato([$movimento->data->year]); // un esercizio depositato non si conferma più (#60)
             if (! hash_equals(self::versione($movimento), $versioneVista)) {
                 throw ValidationException::withMessages(['conferma' => 'Il movimento è cambiato dopo che lo hai aperto: rileggilo prima di confermarlo.']);
             }
@@ -307,6 +309,7 @@ final class Classificazione
         self::blocca($movimento);
         $movimento->refresh();
         abort_unless($movimento->classificabileDa(self::conPermessiRiletti($utente)), 403);
+        DatiEsercizio::controllaNonDepositato([$movimento->data->year]); // un esercizio depositato non si classifica più (#60)
     }
 
     /** A riga bloccata i permessi si rileggono (come `Note::controllaPermesso`): quelli caricati dal controllo della rotta possono essere di prima di una revoca. */
