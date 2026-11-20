@@ -443,6 +443,19 @@ class ImportFoglioCassaTest extends TestCase
         $this->assertNotNull($strana->conversione_causale_id);
     }
 
+    public function test_una_riga_cambiata_non_riapplica_ai_movimenti_di_un_esercizio_depositato(): void
+    {
+        $this->importa(self::foglio([[new DateTimeImmutable('2026-01-10'), 'Assicurazioni', 'Polizza A', null, null, 10, 490]]));
+        $movimento = Movimento::where('descrizione', 'Polizza A')->firstOrFail();
+        $prima = $movimento->imputazioni()->count();
+        \App\Models\DatiEsercizio::create(['esercizio' => 2026, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'stato' => 'depositato']); // #60
+
+        $this->salvaRiga('Assicurazioni', ['tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id'), 'area' => 'E'])->assertSessionHasNoErrors();
+
+        $this->assertSame($prima, $movimento->refresh()->imputazioni()->count());
+        $this->assertSame('da_classificare', $movimento->stato);
+    }
+
     public function test_i_confermati_restano_come_sono_e_si_elencano_da_correggere(): void
     {
         $import = $this->importa(self::foglio());
