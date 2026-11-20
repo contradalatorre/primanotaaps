@@ -329,6 +329,28 @@ class ApprovazioneEsercizioTest extends TestCase
         $this->approva(2027, '2028-01-21')->assertSessionHasErrors('stato');
     }
 
+    /** Si riapre in ordine inverso: con l'anno dopo ancora approvato, correggere questo farebbe saltare il rientro e la segnalazione che quello ha misurato. */
+    public function test_un_esercizio_non_si_riapre_finche_quello_dopo_e_approvato(): void
+    {
+        $this->esercizioConB();
+        $this->come($this->tesoriere)->post('/esercizi/2027/apertura')->assertRedirect();
+        $this->imputa('entrata', 1000, '2027-03-01', 'Quote associative');
+        $this->travelTo('2028-02-01 10:00');
+        $this->confermaCriterio('b')->assertSessionHasNoErrors(); // il 66% regge: il 2026 è approvato come rispettato
+        $this->approva(2026, '2027-04-20')->assertRedirect();
+        $this->approva(2027, '2028-01-20')->assertRedirect();
+
+        $this->come($this->amministratore)->post('/esercizi/2026/riapertura', ['motivazione' => 'Errore'])->assertSessionHasErrors('stato');
+        $this->assertSame('approvato', DatiEsercizio::per(2026)->stato);
+        $this->assertSame(1, DatiEsercizio::per(2026)->versione);
+        $this->assertNull(VersioneEsercizio::where(['esercizio' => 2026, 'numero' => 1])->sole()->riaperta_il);
+        $this->assertSame(0, RegistroModifica::where(['oggetto_id' => 2026, 'azione' => 'riaperto'])->count());
+
+        $this->come($this->amministratore)->post('/esercizi/2027/riapertura', ['motivazione' => 'Errore'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->come($this->amministratore)->post('/esercizi/2026/riapertura', ['motivazione' => 'Errore'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('aperto', DatiEsercizio::per(2026)->stato);
+    }
+
     public function test_dopo_uno_storico_l_esercizio_si_approva_senza_aspettare(): void
     {
         EsercizioStorico::create(['esercizio' => 2025, 'importi' => [], 'saldo_cassa' => 0, 'saldo_depositi' => 0, 'figurativi' => [], 'differenze' => []]);

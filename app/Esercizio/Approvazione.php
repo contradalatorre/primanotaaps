@@ -82,12 +82,20 @@ final class Approvazione
         return ['versione' => $versione, 'numero' => $dati->versione, 'differenze' => $differenze];
     }
 
-    /** Riaprire un esercizio approvato (solo chi ha `riaprire_esercizio`, l'Amministratore): la versione precedente resta nello storico e la nuova approvazione sarà la successiva. */
+    /**
+     * Riaprire un esercizio approvato (solo chi ha `riaprire_esercizio`, l'Amministratore): la versione precedente resta nello storico e la nuova approvazione sarà la successiva.
+     * Si riapre in ordine inverso: con l'anno dopo ancora approvato, correggere questo cambierebbe l'esito da cui quello ha misurato rientro e tolleranza, senza che nessuno se ne accorga.
+     */
     public static function riapri(User $utente, int $anno, string $motivazione): void
     {
-        DatiEsercizio::sottoBlocco($utente, $anno, function (DatiEsercizio $dati) use ($utente, $anno, $motivazione) {
+        // Si bloccano anche l'anno dopo, in ordine di anno (come `approva`): non deve venire approvato mentre si riapre questo.
+        DatiEsercizio::sottoBlocchi($utente, [$anno, $anno + 1], function (array $tutti) use ($utente, $anno, $motivazione) {
+            $dati = $tutti[$anno];
             if (! $dati->approvato()) {
                 self::rifiuta('stato', "L'esercizio $anno non è approvato: non c'è niente da riaprire.");
+            }
+            if ($tutti[$anno + 1]->approvato()) {
+                self::rifiuta('stato', 'Prima di riaprire il '.$anno.' va riaperto il '.($anno + 1).': il suo rientro e la sua tolleranza del 6% si misurano sull\'esito approvato del '.$anno.'.');
             }
             $versione = VersioneEsercizio::where('esercizio', $anno)->where('numero', $dati->versione)->lockForUpdate()->firstOrFail();
             $statoPrima = $dati->stato;

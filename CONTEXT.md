@@ -159,7 +159,7 @@ La delibera dell'assemblea che approva il rendiconto di un esercizio. Nell'app l
 _Avoid_: chiusura
 
 **Riapertura**:
-Il ritorno di un esercizio approvato ad aperto, solo dell'Amministratore e con motivazione, per correggere un errore: la versione approvata resta nello storico e la nuova approvazione è la versione successiva. Una secondarietà non rispettata approvata non si dimentica: rientro dell'anno dopo e segnalazione al RUNTS restano anche se la nuova versione ha un altro esito.
+Il ritorno di un esercizio approvato ad aperto, solo dell'Amministratore e con motivazione, per correggere un errore: la versione approvata resta nello storico e la nuova approvazione è la versione successiva. Si riapre in ordine inverso a quello di approvazione: un esercizio non si riapre finché quello dopo è approvato. Una secondarietà non rispettata approvata non si dimentica: rientro dell'anno dopo e segnalazione al RUNTS restano anche se la nuova versione ha un altro esito.
 _Avoid_: annullamento dell'approvazione
 
 **Deposito**:
