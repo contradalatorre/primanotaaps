@@ -20,10 +20,10 @@
 
     <p data-merlo="test-esito">
         @include('esercizio.stato-esito', ['esito' => $s['esito']])
-        — con il criterio {{ $p }} ({{ $c['soglia'] }}%):
+        — con il criterio {{ $p }} ({{ \App\Esercizio\Secondarieta::formatta($c['soglia']) }}%):
         le entrate delle attività diverse (area B) sono {{ $euro($c['numeratore']['importo']) }} €, il {{ $pct($c['rapporto']) }} {{ $di[$p] }}.
         @if ($s['esito'] === 'non_rispettato')
-            Il limite è {{ $c['soglia'] }}%: è superato di {{ $euro(-$c['margine']) }} € ({{ $punti($c['marginePunti'] === null ? null : -$c['marginePunti']) }}). Per rientrare {{ $spendibile($p) }}.
+            Il limite è {{ \App\Esercizio\Secondarieta::formatta($c['soglia']) }}%: è superato di {{ $euro(-$c['margine']) }} € ({{ $punti($c['marginePunti'] === null ? null : -$c['marginePunti']) }}). Per rientrare {{ $spendibile($p) }}.
         @else
             {{ $s['esito'] === 'vicino' ? 'Si è oltre il '.$s['sogliaVicino'].'% del limite.' : '' }}
             Ancora {{ $euro($c['margine']) }} € sotto il limite: {{ $spendibile($p) }}.
@@ -59,7 +59,7 @@
                     <tr>
                         <td>{{ $nomi[$k] }}@if ($k === $p) <span class="etichetta">proposto</span>@endif @if ($s['confermato'] === $k) <span class="etichetta">confermato</span>@endif</td>
                         <td class="text-right">{{ $pct($cr['rapporto']) }}</td>
-                        <td class="text-right">{{ $cr['soglia'] }}%</td>
+                        <td class="text-right">{{ \App\Esercizio\Secondarieta::formatta($cr['soglia']) }}%</td>
                         <td>@include('esercizio.stato-esito', ['esito' => $cr['esito']])</td>
                         <td class="text-right">{{ $euro($cr['margine']) }} € ({{ $punti($cr['marginePunti']) }})</td>
                         <td>{{ ucfirst($spendibile($k)) }}.</td>
@@ -70,9 +70,9 @@
     </div>
 
     <div data-merlo="test-criterio">
-        <p>Il criterio proposto è il <strong>{{ $p }}</strong> ({{ $c['soglia'] }}%): è quello con l’esito migliore e, a pari esito, con più margine.
+        <p>Il criterio proposto è il <strong>{{ $p }}</strong> ({{ \App\Esercizio\Secondarieta::formatta($c['soglia']) }}%): è quello con l’esito migliore e, a pari esito, con più margine.
             @if ($s['confermato'])
-                Criterio confermato dal Tesoriere: <strong>{{ $s['confermato'] }}</strong> ({{ $criteri[$s['confermato']]['soglia'] }}%).
+                Criterio confermato dal Tesoriere: <strong>{{ $s['confermato'] }}</strong> ({{ \App\Esercizio\Secondarieta::formatta($criteri[$s['confermato']]['soglia']) }}%).
             @else
                 Non è ancora confermato.
             @endif
@@ -108,7 +108,7 @@
                         <span title="{{ $parte['etichetta'] }}">{{ $euro(abs($parte['importo'])) }} €</span>
                     @endif
                 @endforeach
-                ) = {{ $euro($cr['denominatore']['importo']) }} € → {{ $pct($cr['rapporto']) }}, limite {{ $cr['soglia'] }}%.
+                ) = {{ $euro($cr['denominatore']['importo']) }} € → {{ $pct($cr['rapporto']) }}, limite {{ \App\Esercizio\Secondarieta::formatta($cr['soglia']) }}%.
             </p>
             <ul class="elenco nota">
                 @foreach ($cr['denominatore']['parti'] as $parte)

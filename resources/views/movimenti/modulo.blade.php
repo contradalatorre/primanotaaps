@@ -4,6 +4,7 @@
 
 @section('contenuto')
     <h1>{{ $movimento->exists ? 'Modifica il movimento' : 'Nuovo movimento' }} · {{ $conto->nome }}</h1>
+    @if ($movimento->exists) @include('esercizio.avviso-approvato', ['anno' => $movimento->data->year]) @endif
 
     <form method="POST" action="{{ $movimento->exists ? route('movimenti.salva', $movimento) : route('movimenti.crea', $conto) }}" class="modulo modulo-stretto">
         @csrf

@@ -5,10 +5,7 @@
 @section('contenuto')
     @php($euro = fn (int $c) => \App\Euro::formatta($c))
     <h1>Test dell’esercizio {{ $anno }}</h1>
-    <p class="avviso" role="status" data-merlo="test-provvisorio">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l10 18H2zM12 10v5M12 18h.01"/></svg>
-        <span>Provvisorio – aggiornato al {{ $aggiornatoAl->format('d/m/Y H:i') }}. {{ $proposte ? 'Con anche le imputazioni proposte, ancora da confermare.' : 'Solo le imputazioni confermate.' }}</span>
-    </p>
+    @include('esercizio.stato-prospetto', ['merlo' => 'test-provvisorio'])
 
     <form method="GET" action="{{ route('test-esercizio', $anno) }}" class="modulo-in-riga">
         <label class="spunta"><input type="checkbox" name="proposte" value="1" @checked($proposte) onchange="this.form.submit()"> <span>Includi anche le imputazioni proposte (la scelta non si salva)</span></label>

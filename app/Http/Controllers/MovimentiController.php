@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Classificazione;
 use App\Euro;
 use App\Models\Conto;
+use App\Models\DatiEsercizio;
 use App\Models\Giroconto;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
@@ -32,7 +33,8 @@ class MovimentiController extends Controller
             'movimenti' => Movimento::conNote()->with('conto', 'autore', 'proponente', 'regola', 'conversioneCausale', 'storicoMovimento', 'storicoEsempio', 'giustificativi', 'imputazioni.attivita', 'imputazioni.iniziativa', 'imputazioni.tipologia', 'imputazioni.tag')
                 ->when($conto, fn ($q) => $q->where('conto_id', $conto->id))
                 // «Spese senza giustificativo»: le uscite che non ne hanno nessuno.
-                ->when($request->boolean('senza_giustificativo'), fn ($q) => $q->where('verso', 'uscita')->whereDoesntHave('giustificativi'))
+                ->when($request->boolean('senza_giustificativo'), fn ($q) => $q->speseSenzaGiustificativo())
+                ->when($request->integer('anno') >= 1000, fn ($q) => $q->whereBetween('data', [$request->integer('anno').'-01-01', $request->integer('anno').'-12-31'])) // dall'elenco di controllo dell'approvazione (#59)
                 ->orderByDesc('data')->orderByDesc('id')->paginate(50)->withQueryString(),
         ]);
     }
@@ -99,8 +101,7 @@ class MovimentiController extends Controller
 
     /**
      * Elimina un movimento manuale, anche confermato, con motivazione. Gli importati non si eliminano mai uno per uno.
-     * shortcut: «fino al deposito» (#16) non si controlla perché gli esercizi arrivano con #55 e successivi; lì
-     * va rifiutata l'eliminazione di un movimento di un esercizio depositato.
+     * Non si elimina più dopo il deposito dell'esercizio (#16).
      */
     public function elimina(Request $request, Movimento $movimento): RedirectResponse
     {
@@ -133,6 +134,12 @@ class MovimentiController extends Controller
             $movimento->refresh();
             if ($comeAutore) {
                 $this->controllaAutore($request, $movimento);
+            }
+            // «Fino al deposito» (#16, #38): l'esercizio depositato non si tocca.
+            // shortcut: lo stato si legge senza bloccare la riga dei dati (può non esserci, e il suo blocco dopo quelli del conto inverte l'ordine usato altrove): un deposito
+            // che si conclude mentre si elimina non fermerebbe questa eliminazione. Il deposito (#60) deve cambiare stato dopo aver bloccato conti e movimenti, come qui.
+            if (DatiEsercizio::per($movimento->data->year)->stato === 'depositato') {
+                throw ValidationException::withMessages(['movimento' => 'L’esercizio '.$movimento->data->year.' è depositato: i suoi movimenti non si eliminano più.']);
             }
             if (Giroconto::di($movimento)) { // l'altra metà resterebbe sola: prima si scioglie il giroconto (#47)
                 throw ValidationException::withMessages(['movimento' => 'Il movimento è una metà di giroconto: scioglilo dal passo Giroconti prima di eliminarlo.']);

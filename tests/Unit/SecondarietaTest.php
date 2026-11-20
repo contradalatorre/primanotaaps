@@ -213,4 +213,114 @@ class SecondarietaTest extends TestCase
             '66%, importi dispari' => ['b', 777777, 0, 1234567],
         ];
     }
+
+    /**
+     * Il rientro (art. 4 DM 107/2021, #17, #59): dopo un esercizio non rispettato il successivo usa lo stesso criterio con la soglia abbassata dei punti
+     * sforati, per eccesso, in centesimi di punto percentuale; mai sotto zero. Niente che favorisca l'ente.
+     *
+     * @return array<string, array{0: list<Imputata>, 1: array<string, mixed>, 2: array{criterio: string, soglia: int}}>
+     */
+    public static function rientri(): array
+    {
+        $rientro = fn (int $soglia, string $criterio = 'a') => ['criterio' => $criterio, 'soglia' => $soglia];
+
+        return [
+            // Soglia del 24%: 25% di B è un punto oltre, anche se sotto il 30% di legge.
+            'oltre la soglia ridotta ma sotto il 30%' => [
+                [self::e('B3', 2500), self::e('A1', 7500)],
+                ['a.soglia' => 24, 'a.esito' => 'non_rispettato', 'a.margine' => -100, 'a.marginePunti' => -1.0, 'proposto' => 'a', 'esito' => 'non_rispettato'],
+                $rientro(2400),
+            ],
+            'esattamente sulla soglia ridotta è vicino, non oltre' => [
+                [self::e('B3', 2400), self::e('A1', 7600)],
+                ['a.esito' => 'vicino', 'a.margine' => 0],
+                $rientro(2400),
+            ],
+            'sotto l\'80% della soglia ridotta è rispettato' => [
+                [self::e('B3', 1900), self::e('A1', 8100)],
+                ['a.esito' => 'rispettato'],
+                $rientro(2400),
+            ],
+            // Lo stesso criterio: il 66% regge benissimo, ma il criterio proposto resta il 30%.
+            'il criterio resta lo stesso anche se l\'altro è più largo' => [
+                [self::e('B3', 2500), self::e('A1', 7500), self::u('A2', 9000)],
+                ['proposto' => 'a', 'esito' => 'non_rispettato', 'b.esito' => 'rispettato', 'b.soglia' => 66],
+                $rientro(2400),
+            ],
+            'il rientro sul 66% non tocca la soglia del 30%' => [
+                [self::e('B3', 2500), self::e('A1', 7500), self::u('A2', 4000)],
+                ['proposto' => 'b', 'a.soglia' => 30, 'b.soglia' => 60, 'b.esito' => 'non_rispettato'],
+                $rientro(6000, 'b'),
+            ],
+            'soglia con i decimali' => [
+                [self::e('B3', 2735), self::e('A1', 7265)],
+                ['a.soglia' => 27.35, 'a.esito' => 'vicino', 'a.margine' => 0],
+                $rientro(2735),
+            ],
+            'soglia ridotta a zero: basta un centesimo di entrate B' => [
+                [self::e('B3', 1), self::e('A1', 9999)],
+                ['a.soglia' => 0, 'a.esito' => 'non_rispettato', 'a.margine' => -1],
+                $rientro(0),
+            ],
+            'soglia ridotta a zero senza entrate B: rispettato' => [
+                [self::e('A1', 10000)],
+                ['a.soglia' => 0, 'a.esito' => 'rispettato', 'a.margine' => 0, 'a.spendibile' => 0],
+                $rientro(0),
+            ],
+        ];
+    }
+
+    /**
+     * @param  list<Imputata>  $imputazioni
+     * @param  array<string, mixed>  $atteso
+     * @param  array{criterio: string, soglia: int}  $rientro
+     */
+    #[DataProvider('rientri')]
+    public function test_il_rientro_abbassa_la_soglia_dello_stesso_criterio(array $imputazioni, array $atteso, array $rientro): void
+    {
+        $r = Secondarieta::calcola(Calcolo::modelloD($imputazioni, [], []), true, 80, null, $rientro);
+
+        $this->assertSame($rientro, $r['rientro']);
+        foreach ($atteso as $percorso => $valore) {
+            $trovato = Arr::get($r, preg_match('/^[ab]\./', $percorso) ? 'criteri.'.$percorso : $percorso);
+            $this->assertEquals($valore, $trovato, "Valore di $percorso");
+            $this->assertSame(gettype($valore), gettype($trovato), "Tipo di $percorso");
+        }
+    }
+
+    public function test_senza_rientro_la_soglia_e_quella_di_legge(): void
+    {
+        $r = Secondarieta::calcola(Calcolo::modelloD([self::e('B3', 2500), self::e('A1', 7500)], [], []), true, 80, null);
+
+        $this->assertNull($r['rientro']);
+        $this->assertSame(30, $r['criteri']['a']['soglia']);
+        $this->assertSame('vicino', $r['criteri']['a']['esito']);
+    }
+
+    /** @return array<string, array{list<Imputata>, array<string, mixed>, string, int}> la soglia con cui riparte l'esercizio dopo */
+    public static function sogliePerLAnnoDopo(): array
+    {
+        return [
+            '36% sul 30%: sei punti oltre, soglia al 24%' => [[self::e('B3', 360), self::e('A1', 640)], [], 'a', 2400],
+            'un centesimo oltre il 30%: un centesimo di punto in meno' => [[self::e('B3', 3001), self::e('A1', 6999)], [], 'a', 2999],
+            'lo sforamento si arrotonda per eccesso: 33,333…% → 33,34' => [[self::e('B3', 1), self::e('A1', 2)], [], 'a', 2666],
+            'sul 66%: 80% di B sulle uscite, 14 punti oltre → 52%' => [[self::e('B3', 80), self::u('A2', 100)], [], 'b', 5200],
+            'senza costi né figurativi il 66% è tutto sforato: soglia zero' => [[self::e('B3', 100)], [], 'b', 0],
+            'sforamento enorme: non scende sotto zero' => [[self::e('B3', 10000), self::e('A1', 1)], [], 'a', 0],
+            'con un rientro già in corso lo sforamento si misura sulla soglia in vigore' => [[self::e('B3', 2600), self::e('A1', 7400)], ['criterio' => 'a', 'soglia' => 2400], 'a', 2200],
+        ];
+    }
+
+    /**
+     * @param  list<Imputata>  $imputazioni
+     * @param  array<string, mixed>  $rientro
+     */
+    #[DataProvider('sogliePerLAnnoDopo')]
+    public function test_la_soglia_dell_anno_dopo_un_non_rispettato(array $imputazioni, array $rientro, string $criterio, int $atteso): void
+    {
+        $r = Secondarieta::calcola(Calcolo::modelloD($imputazioni, [], []), true, 80, null, $rientro ?: null);
+
+        $this->assertSame('non_rispettato', $r['criteri'][$criterio]['esito']);
+        $this->assertSame($atteso, Secondarieta::sogliaDiRientro($r['criteri'][$criterio]));
+    }
 }

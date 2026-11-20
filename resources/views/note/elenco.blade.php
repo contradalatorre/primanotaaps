@@ -11,6 +11,7 @@
             <li class="scheda" id="nota-{{ $nota->id }}">
                 <p class="nota">
                     <strong>{{ $nota->autore->name }}</strong> · {{ $data($nota->created_at) }}
+                    @if ($nota->fase) · <span class="etichetta">aggiunta dopo {{ \App\Models\Nota::FASI[$nota->fase] ?? $nota->fase }}</span> @endif
                     @if ($nota->modificata_il) · modificata @endif
                     @if ($nota->dubbio) @if ($nota->chiuso_il) <span class="etichetta">Dubbio chiuso</span> @elseif (! $nota->eliminata()) @include('note.pill-dubbio') @endif @endif
                 </p>

@@ -193,6 +193,11 @@ final class Prospetto
             $impedimenti[] = ['testo' => $dubbi.($dubbi === 1 ? ' movimento è in dubbio' : ' movimenti sono in dubbio'), 'link' => route('movimenti')];
         }
 
+        $senzaGiustificativo = $dellAnno()->speseSenzaGiustificativo()->count();
+        if ($senzaGiustificativo > 0) {
+            $impedimenti[] = ['testo' => $senzaGiustificativo.($senzaGiustificativo === 1 ? ' spesa è senza giustificativo' : ' spese sono senza giustificativo'), 'link' => route('movimenti', ['senza_giustificativo' => 1, 'anno' => $anno])];
+        }
+
         $senzaMeta = Giroconti::proposte()->where('tipo', '!=', 'coppia')->filter(fn (array $p) => $p['movimento']->data->year === $anno);
         foreach ($senzaMeta as $p) {
             $m = $p['movimento'];
