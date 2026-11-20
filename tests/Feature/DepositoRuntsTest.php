@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Esercizio\Deposito;
+use App\Esercizio\Pdf;
 use App\Import\Foglio;
 use App\Models\Attivita;
 use App\Models\Conto;
@@ -121,6 +122,7 @@ class DepositoRuntsTest extends TestCase
         $this->assertStringContainsString('<pdfaid:part>1</pdfaid:part>', $pdf);
         $this->assertStringContainsString('<pdfaid:conformance>B</pdfaid:conformance>', $pdf);
         $this->assertDatabaseHas('registro_accessi', ['evento' => 'esportazione_deposito_pdf_2026']);
+        $this->assertGreaterThan(0, preg_match_all('/\/Subtype \/Link/', $pdf), "L'indice rimanda al Modello D con un collegamento");
 
         // I font sono sottoinsiemi: ognuno ha il suo CIDSet (veraPDF lo vuole, mPDF non lo scrive: `PdfA`) e la tabella xref punta ancora agli oggetti.
         $this->assertSame(preg_match_all('/\/FontName \/MPDF\w+\+/', $pdf), preg_match_all('/\/CIDSet \d+ 0 R/', $pdf));
@@ -133,6 +135,17 @@ class DepositoRuntsTest extends TestCase
         if ($percorso = getenv('PDF_DI_PROVA')) {
             file_put_contents($percorso, $pdf);
         }
+    }
+
+    public function test_il_pdf_di_deposito_ha_l_indice_prima_del_modello_d_e_quello_di_un_prospetto_no(): void
+    {
+        $sezioni = [['titolo' => 'Sezione', 'colonne' => [], 'righe' => [['celle' => ['Voce'], 'grassetto' => false]]]];
+
+        $deposito = Pdf::html('T', ['Assoc'], [], 'p', [['titolo' => 'Modello D · Rendiconto per cassa 2026', 'sezioni' => $sezioni]])['corpo'];
+        $prospetto = Pdf::html('T', ['Assoc'], $sezioni, 'p')['corpo'];
+
+        $this->assertLessThan(strpos($deposito, '<h1>Modello D'), strpos($deposito, '<tocpagebreak'));
+        $this->assertStringNotContainsString('<tocpagebreak', $prospetto);
     }
 
     public function test_un_esercizio_aperto_non_ha_il_pdf_di_deposito(): void

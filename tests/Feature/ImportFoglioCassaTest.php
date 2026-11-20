@@ -8,6 +8,7 @@ use App\Import\Foglio;
 use App\Models\Attivita;
 use App\Models\Conto;
 use App\Models\ConversioneCausale;
+use App\Models\DatiEsercizio;
 use App\Models\Giroconto;
 use App\Models\ImportConflitto;
 use App\Models\ImportEstratto;
@@ -448,12 +449,23 @@ class ImportFoglioCassaTest extends TestCase
         $this->importa(self::foglio([[new DateTimeImmutable('2026-01-10'), 'Assicurazioni', 'Polizza A', null, null, 10, 490]]));
         $movimento = Movimento::where('descrizione', 'Polizza A')->firstOrFail();
         $prima = $movimento->imputazioni()->with('tipologia')->first()->tipologia->nome;
-        \App\Models\DatiEsercizio::create(['esercizio' => 2026, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'stato' => 'depositato']); // #60
+        DatiEsercizio::create(['esercizio' => 2026, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'stato' => 'depositato']); // #60
 
         $this->salvaRiga('Assicurazioni', ['tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id'), 'area' => 'E'])->assertSessionHasNoErrors();
 
         $this->assertNotSame('Utenze', $prima);
         $this->assertSame($prima, $movimento->refresh()->imputazioni()->with('tipologia')->first()->tipologia->nome); // la proposta di prima resta: l'esercizio non si tocca
+    }
+
+    public function test_i_movimenti_nuovi_di_un_esercizio_approvato_non_ricevono_la_proposta_della_tabella(): void
+    {
+        DatiEsercizio::create(['esercizio' => 2026, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'stato' => 'approvato']);
+
+        $this->importa(self::foglio([[new DateTimeImmutable('2026-01-10'), 'Assicurazioni', 'Polizza A', null, null, 10, 490]]));
+
+        $movimento = Movimento::where('descrizione', 'Polizza A')->firstOrFail();
+        $this->assertSame('da_classificare', $movimento->stato);
+        $this->assertSame(0, $movimento->imputazioni()->count());
     }
 
     public function test_i_confermati_restano_come_sono_e_si_elencano_da_correggere(): void
