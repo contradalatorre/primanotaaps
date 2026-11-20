@@ -11,6 +11,7 @@ use App\Models\ImpostazioniAssociazione;
 use App\Models\Imputazione;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
+use App\Models\RegistroModifica;
 use App\Models\Tipologia;
 use App\Models\User;
 use App\Models\VersioneEsercizio;
@@ -275,7 +276,7 @@ class DepositoRuntsTest extends TestCase
         $this->deposita('2027-04-20')->assertSessionHasErrors('stato');
 
         $this->assertSame(1, VersioneEsercizio::where('esercizio', 2026)->whereNotNull('depositata_il')->count());
-        $this->assertSame(1, \App\Models\RegistroModifica::where('azione', 'depositato')->count());
+        $this->assertSame(1, RegistroModifica::where('azione', 'depositato')->count());
     }
 
     public function test_la_data_dell_invio_va_dall_approvazione_a_oggi(): void

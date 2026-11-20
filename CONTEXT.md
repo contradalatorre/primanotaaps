@@ -163,8 +163,16 @@ Il ritorno di un esercizio approvato ad aperto, solo dell'Amministratore e con m
 _Avoid_: annullamento dell'approvazione
 
 **Deposito**:
-L'invio al RUNTS del rendiconto approvato; da quel momento il rendiconto dell'esercizio è fissato, salvo riapertura per una nuova approvazione.
+L'invio al RUNTS del rendiconto approvato; da quel momento il rendiconto dell'esercizio è fissato, salvo riapertura per una nuova approvazione. Nell'app il Tesoriere scarica il **PDF di deposito** dall'esercizio approvato e inserisce la data dell'invio: l'esercizio passa a *depositato*, si salva l'**istantanea del deposito** e i movimenti non si toccano più (nemmeno classificandoli, confermandoli o importando); note e menzioni restano possibili.
 _Avoid_: invio, pubblicazione
+
+**PDF di deposito**:
+L'unico PDF/A-1b da firmare e inviare al RUNTS: indice in prima pagina e Modello D (poi gli allegati delle raccolte). Parte dalla versione approvata, mai dai dati di oggi, e il suo nome (`Deposito_<anno>_<Ente>.pdf`) non è quello dei PDF dei prospetti. Per correggere dopo l'approvazione si riapre l'esercizio e si approva di nuovo.
+_Avoid_: PDF definitivo
+
+**Istantanea del deposito**:
+Ciò che il PDF di deposito stampa, salvato sulla versione al momento della data dell'invio e mai più cambiato: da lì si leggono Modello D, rendiconto per l'assemblea, test ed esportazioni di un esercizio depositato, identici al PDF. La riapertura la lascia nello storico con la sua versione.
+_Avoid_: copia, fotografia
 
 **Preventivo**:
 Le entrate e le uscite previste per un'iniziativa in un esercizio, da confrontare con quelle effettive.
