@@ -169,6 +169,74 @@ class DepositoRuntsTest extends TestCase
         $this->assertStringStartsWith('%PDF-', $prima);
     }
 
+    public function test_la_riapertura_sblocca_i_movimenti_e_la_nuova_approvazione_e_il_nuovo_deposito_sono_la_versione_due(): void
+    {
+        $this->esercizio2026();
+        $this->approva();
+        $this->deposita('2027-04-20')->assertSessionHasNoErrors();
+        $manuale = Movimento::factory()->confermato()->create(['conto_id' => $this->cassa->id, 'verso' => 'uscita', 'importo' => 700, 'data' => '2026-03-02', 'manuale' => true, 'inserito_da' => $this->tesoriere->id]);
+        $this->come($this->tesoriere)->post("/movimenti/{$manuale->id}/eliminazione", ['motivazione' => 'Errore'])->assertSessionHasErrors('movimento');
+
+        $this->come($this->amministratore)->post('/esercizi/2026/riapertura', ['motivazione' => 'Errore nel Modello D'])->assertSessionHasNoErrors();
+
+        $this->assertSame('aperto', DatiEsercizio::per(2026)->stato);
+        $this->come($this->tesoriere)->post("/movimenti/{$manuale->id}/eliminazione", ['motivazione' => 'Errore'])->assertSessionHasNoErrors();
+        $this->assertSoftDeleted($manuale);
+        $this->assertNull(Deposito::salvata(2026), 'Riaperto, l’esercizio si legge di nuovo dal vivo');
+        $this->come($this->tesoriere)->get('/esercizi/2026/modello-d')->assertOk()->assertSeeText('Provvisorio');
+        $this->come($this->tesoriere)->get('/esercizi/2026/deposito.pdf')->assertNotFound();
+
+        $this->imputa('entrata', 2000, '2026-07-01', 'Somministrazione');
+        $this->approva();
+        $this->deposita('2027-04-20')->assertSessionHasNoErrors();
+
+        $versioni = VersioneEsercizio::where('esercizio', 2026)->orderBy('numero')->get();
+        $this->assertSame([1, 2], $versioni->pluck('numero')->all());
+        $this->assertNotNull($versioni[0]->riaperta_il);
+        $this->assertSame([true, true], $versioni->map(fn ($v) => $v->depositata_il !== null)->all(), 'Il deposito della versione 1 resta nello storico');
+        $this->assertSame(80000, $versioni[0]->istantanea_deposito['prospetti']['modello_d']['aree']['A']['entrate']['totale']['importo']);
+        $this->assertSame(82000, $versioni[1]->istantanea_deposito['prospetti']['modello_d']['aree']['A']['entrate']['totale']['importo']);
+        $this->assertSame(82000, Deposito::salvata(2026)['prospetti']['modello_d']['aree']['A']['entrate']['totale']['importo']);
+        $this->assertSame(2, Deposito::salvata(2026)['versione']);
+    }
+
+    public function test_il_deposito_non_contiene_nomi_di_persone(): void
+    {
+        $this->esercizio2026();
+        $this->imputa('entrata', 1000, '2026-06-03', 'Somministrazione')->movimento->update(['descrizione' => 'Bonifico di Mario Rossi per la cena']);
+        $this->approva();
+        $this->deposita('2027-04-20')->assertSessionHasNoErrors();
+
+        $this->assertStringNotContainsString('Mario Rossi', json_encode(Deposito::salvata(2026)));
+        $this->assertStringNotContainsString('Mario Rossi', json_encode(Deposito::istantanea(2026)));
+    }
+
+    public function test_la_pagina_dell_approvazione_ha_il_pdf_e_la_data_dell_invio(): void
+    {
+        $this->esercizio2026();
+        $this->approva();
+
+        $this->come($this->tesoriere)->get('/esercizi/2026/approvazione')->assertOk()
+            ->assertSeeText('Deposito al RUNTS')->assertSee(route('esporta.deposito', 2026), false)->assertSeeText('Deposita l’esercizio 2026');
+        $this->come($this->utenteCon('Consigliere'))->get('/esercizi/2026/approvazione')->assertOk()->assertSeeText('Deposita chi gestisce i dati dell’esercizio');
+
+        $this->deposita('2027-04-20')->assertSessionHasNoErrors();
+
+        $this->come($this->tesoriere)->get('/esercizi/2026/approvazione')->assertOk()
+            ->assertSeeText('Depositato il 20/04/2027')->assertSeeText('Scarica il PDF/A depositato')->assertDontSeeText('Deposita l’esercizio 2026');
+    }
+
+    public function test_il_pdf_dice_se_i_dati_sono_cambiati_dopo_l_approvazione(): void
+    {
+        $this->esercizio2026();
+        $this->approva();
+        $this->imputa('entrata', 2000, '2026-07-01', 'Somministrazione'); // dopo l'approvazione
+
+        $this->come($this->tesoriere)->get('/esercizi/2026/approvazione')->assertOk()->assertSeeText('il PDF di deposito non li contiene');
+        $this->deposita('2027-04-20')->assertSessionHasNoErrors();
+        $this->assertSame(80000, Deposito::salvata(2026)['prospetti']['modello_d']['aree']['A']['entrate']['totale']['importo'], 'Si deposita ciò che l’assemblea ha approvato');
+    }
+
     public function test_senza_riautenticazione_non_si_deposita(): void
     {
         $this->esercizio2026();

@@ -31,6 +31,7 @@ class ApprovazioneController extends Controller
             'chiusura' => collect(Prospetto::saldi($anno))->groupBy('riga')->map(fn ($saldi) => $saldi->sum('finale'))->sortKeys()->all(),
             's' => Verifiche::secondarieta($anno),
             'versioni' => VersioneEsercizio::where('esercizio', $anno)->orderByDesc('numero')->get(),
+            'situazione' => Approvazione::situazione($anno), // le differenze dalla versione approvata, per l'avviso del deposito (#60)
         ]);
     }
 

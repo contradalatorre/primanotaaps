@@ -19,7 +19,9 @@
         <p class="avviso" role="status" data-merlo="approvazione-stato">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l10 18H2zM12 10v5M12 18h.01"/></svg>
             <span>
-                @if ($dati->approvato() && $vigente)
+                @if ($vigente?->depositata_il)
+                    Depositato il {{ $vigente->depositata_il->format('d/m/Y') }} · versione {{ $vigente->numero }}, approvata il {{ $vigente->approvata_il->format('d/m/Y') }}. I prospetti sono l’istantanea del deposito e i movimenti non si toccano più: per correggere un errore l’Amministratore riapre l’esercizio.
+                @elseif ($dati->approvato() && $vigente)
                     Approvato il {{ $vigente->approvata_il->format('d/m/Y') }} · versione {{ $vigente->numero }}. Le modifiche sono ammesse, con avviso, e i prospetti mostrano le differenze dalla versione approvata.
                 @else
                     Aperto · versione {{ $dati->versione }}{{ $dati->versione > 1 ? ' (riaperto)' : '' }}: i prospetti sono provvisori.
@@ -73,10 +75,35 @@
                 @endcan
             </section>
         @else
+            @if ($vigente)
+                <section data-merlo="approvazione-deposito">
+                    <h2>Deposito al RUNTS</h2>
+                    @if ($vigente->depositata_il)
+                        <p>Depositato il {{ $vigente->depositata_il->format('d/m/Y') }}. Il PDF/A è quello dell’istantanea, identico a ciò che i prospetti mostrano.
+                            <a href="{{ route('esporta.deposito', $anno) }}" class="link">Scarica il PDF/A depositato</a></p>
+                    @else
+                        <p>Il PDF/A di deposito (indice e Modello D) è il rendiconto approvato dall’assemblea, non i dati di oggi: firmalo con la firma CAdES (.p7m) e invialo al RUNTS. Ha già il nome finale, che il file firmato non può cambiare.
+                            Poi inserisci qui la data dell’invio: l’esercizio passa a depositato, i prospetti si fissano e i movimenti non si toccano più.
+                            <a href="{{ route('esporta.deposito', $anno) }}" class="link">Scarica il PDF/A di deposito</a></p>
+                        @if (\App\Esercizio\Differenze::presenti($situazione['differenze'], ['voci', 'esiti', 'rendiconto']))
+                            <p class="avviso" role="status">Dopo l’approvazione i dati sono cambiati: il PDF di deposito non li contiene. Per depositare le correzioni l’Amministratore riapre l’esercizio e lo si approva di nuovo.</p>
+                        @endif
+                        @can('gestire_esercizio')
+                            <form method="POST" action="{{ route('esercizio.deposita', $anno) }}" class="modulo modulo-stretto">
+                                @csrf
+                                <label>Data dell’invio al RUNTS <input type="date" name="data" min="{{ $vigente->approvata_il->toDateString() }}" max="{{ today()->toDateString() }}" value="{{ old('data') }}" required></label>
+                                <button type="submit" class="bottone">Deposita l’esercizio {{ $anno }}</button>
+                            </form>
+                        @else
+                            <p class="nota">Deposita chi gestisce i dati dell’esercizio.</p>
+                        @endcan
+                    @endif
+                </section>
+            @endif
             @can('riaprire_esercizio')
                 <section data-merlo="approvazione-riapertura">
                     <h2>Riapri</h2>
-                    <p>Si riapre solo per correggere un errore: la versione approvata resta nello storico e l’approvazione successiva sarà la versione {{ $dati->versione + 1 }}. L’esito approvato non vale più per il conteggio della tolleranza del 6%, finché non si approva di nuovo.</p>
+                    <p>Si riapre solo per correggere un errore: la versione approvata resta nello storico{{ $vigente?->depositata_il ? ', con il suo deposito,' : '' }} e l’approvazione successiva sarà la versione {{ $dati->versione + 1 }}. L’esito approvato non vale più per il conteggio della tolleranza del 6%, finché non si approva di nuovo.</p>
                     <form method="POST" action="{{ route('esercizio.riapri', $anno) }}" class="modulo modulo-stretto">
                         @csrf
                         <label>Motivazione <textarea name="motivazione" rows="3" maxlength="1000" required>{{ old('motivazione') }}</textarea></label>
@@ -96,6 +123,9 @@
                 @if ($loop->first) <ul class="schede"> @endif
                 <li class="scheda">
                     <p><strong>Versione {{ $v->numero }}</strong> · approvata il {{ $v->approvata_il->format('d/m/Y') }} · criterio {{ $v->criterio_secondarieta }}, {{ \App\Esercizio\Secondarieta::ETICHETTE[$v->esito_secondarieta] }}</p>
+                    @if ($v->depositata_il)
+                        <p class="nota">Depositata il {{ $v->depositata_il->format('d/m/Y') }}.</p>
+                    @endif
                     @if ($v->riaperta_il)
                         <p class="nota">Riaperta il {{ $v->riaperta_il->format('d/m/Y') }}: {{ $v->motivazione_riapertura }}</p>
                     @endif
