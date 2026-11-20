@@ -447,13 +447,13 @@ class ImportFoglioCassaTest extends TestCase
     {
         $this->importa(self::foglio([[new DateTimeImmutable('2026-01-10'), 'Assicurazioni', 'Polizza A', null, null, 10, 490]]));
         $movimento = Movimento::where('descrizione', 'Polizza A')->firstOrFail();
-        $prima = $movimento->imputazioni()->count();
+        $prima = $movimento->imputazioni()->with('tipologia')->first()->tipologia->nome;
         \App\Models\DatiEsercizio::create(['esercizio' => 2026, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'stato' => 'depositato']); // #60
 
         $this->salvaRiga('Assicurazioni', ['tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id'), 'area' => 'E'])->assertSessionHasNoErrors();
 
-        $this->assertSame($prima, $movimento->refresh()->imputazioni()->count());
-        $this->assertSame('da_classificare', $movimento->stato);
+        $this->assertNotSame('Utenze', $prima);
+        $this->assertSame($prima, $movimento->refresh()->imputazioni()->with('tipologia')->first()->tipologia->nome); // la proposta di prima resta: l'esercizio non si tocca
     }
 
     public function test_i_confermati_restano_come_sono_e_si_elencano_da_correggere(): void

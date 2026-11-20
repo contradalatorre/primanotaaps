@@ -63,12 +63,13 @@ final class Conversioni
     {
         $tabella = self::tabella();
         $chiave = EsempiDalFoglio::chiave($riga->causale);
+        $chiusi = DatiEsercizio::anniApprovati();
         $candidati = Movimento::with('conto')->whereNotNull('import_estratto_id')->whereNotNull('causale')
             ->whereHas('conto', fn (Builder $c) => $c->where('formato_import', 'foglio_cassa'))
             ->where(fn (Builder $q) => $q->where('stato', 'da_classificare')->orWhere(fn (Builder $q) => $q->where('stato', 'proposto')->where('conversione_causale_id', $riga->id)))
             ->orderBy('id')->lockForUpdate()->get()
             ->filter(fn (Movimento $m) => EsempiDalFoglio::chiave($m->causale) === $chiave)
-            ->reject(fn (Movimento $m) => in_array($m->data->year, DatiEsercizio::anniApprovati(), true)); // come `Regole`: dopo l'approvazione o il deposito non si propone più (#59, #60)
+            ->reject(fn (Movimento $m) => in_array($m->data->year, $chiusi, true)); // come `Regole`: dopo l'approvazione o il deposito non si propone più (#59, #60)
 
         return $candidati->sum(fn (Movimento $m) => (int) self::assegna($utente, $m, $tabella));
     }
