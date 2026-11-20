@@ -7,9 +7,11 @@ use App\Esercizio\Secondarieta;
 use App\Esercizio\Verifiche;
 use App\Models\DatiEsercizio;
 use App\Models\RegistroModifica;
+use App\Models\VersioneEsercizio;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * La pagina «Test dell'esercizio» (#53): sempre «provvisoria», calcolata dal vivo, con la spiegazione su tre livelli. La vede
@@ -71,7 +73,17 @@ class VerificheController extends Controller
     {
         $criterio = $request->validate(['criterio' => ['required', Rule::in(['a', 'b'])]])['criterio'];
 
-        DatiEsercizio::sottoBlocco($request->user(), $anno, function (DatiEsercizio $dati) use ($request, $criterio) {
+        // Anche l'esercizio prima è bloccato (in ordine di anno): il rientro viene dalla sua versione approvata, che una riapertura concorrente può togliere.
+        DatiEsercizio::sottoBlocchi($request->user(), [$anno - 1, $anno], function (array $tutti) use ($request, $criterio, $anno) {
+            $dati = $tutti[$anno];
+            // Il criterio si fissa con la prima approvazione (#59) e non cambia più, nemmeno dopo una riapertura: cambiarlo cancellerebbe il rientro (art. 4 DM 107/2021).
+            if ($dati->approvato() || VersioneEsercizio::where('esercizio', $anno)->exists()) {
+                throw ValidationException::withMessages(['criterio' => "L'esercizio $anno è stato approvato: il criterio di secondarietà è fissato."]);
+            }
+            $rientro = Verifiche::rientro($anno);
+            if ($rientro !== null && $rientro['criterio'] !== $criterio) {
+                throw ValidationException::withMessages(['criterio' => "Dopo la secondarietà non rispettata dell'esercizio ".($anno - 1).' si usa lo stesso criterio ('.$rientro['criterio'].'), con la soglia ridotta.']);
+            }
             $prima = $dati->istantanea();
             $dati->update(['criterio_secondarieta' => $criterio]);
             if ($dati->istantanea() !== $prima) {

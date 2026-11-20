@@ -4,6 +4,7 @@ namespace App;
 
 use App\Models\Attivita;
 use App\Models\Conto;
+use App\Models\DatiEsercizio;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
@@ -223,7 +224,7 @@ final class Regole
         $presi = collect();
         $lasciati = collect();
         $archivio = null; // si legge solo se serve a qualcuno
-        foreach (self::candidati()->with('conto')->get() as $movimento) {
+        foreach (self::inEserciziAperti(self::candidati()->with('conto')->get()) as $movimento) {
             if (Giroconti::regolaDi($movimento) !== null) { // come in `assegna`: i giroconti precedono le regole
                 continue;
             }
@@ -259,13 +260,31 @@ final class Regole
 
     /**
      * Da classificare, o proposti da una regola o dallo storico: tutto il resto (confermati, scelte a mano) non si tocca.
-     * shortcut: nessun controllo dell'esercizio, perché lo stato aperto o depositato arriva con l'esercizio (#33, storia 63); finora sono tutti aperti.
+     * Gli esercizi approvati o depositati li toglie `inEserciziAperti`, dopo i lock (#59).
      */
     private static function candidati(): Builder
     {
         return Movimento::where(fn (Builder $q) => $q->where('stato', 'da_classificare')->orWhere(fn (Builder $q) => $q->where('stato', 'proposto')
             ->whereNull('proposto_da')->whereNull('conversione_causale_id'))) // di regola o storico, o rimasta senza origine (esempio cancellato): quelle di una persona hanno `proposto_da`, quelle della tabella del foglio (#64) `conversione_causale_id`
             ->orderBy('id');
+    }
+
+    /**
+     * Le regole e lo storico propongono solo sui movimenti di un esercizio aperto (#59, #16): dopo l'approvazione una regola nuova non cambia i movimenti
+     * di un esercizio che l'assemblea ha già visto.
+     *
+     * shortcut: lo stato dell'esercizio si legge senza bloccare la riga dei dati (`Approvazione::approva` blocca solo quella, e prendere il suo blocco dopo quelli
+     * dei conti invertirebbe l'ordine usato altrove): una proposta scritta mentre si approva può cadere sul 2026 appena approvato. È innocua, perché
+     * l'approvazione salva solo le imputazioni confermate, e la proposta resta una proposta.
+     *
+     * @param  Collection<int, Movimento>  $movimenti
+     * @return Collection<int, Movimento>
+     */
+    private static function inEserciziAperti(Collection $movimenti): Collection
+    {
+        $chiusi = DatiEsercizio::anniApprovati();
+
+        return $chiusi === [] ? $movimenti : $movimenti->reject(fn (Movimento $m) => in_array($m->data->year, $chiusi, true))->values();
     }
 
     /** La regola che prende il movimento se la sua proposta si può fare davvero (tipologia attiva, voce ammessa, area ricavabile). */
@@ -290,6 +309,7 @@ final class Regole
     private static function assegna(User $utente, Collection $movimenti, Collection $regole, ?int $toccata = null, ?string $tipoDellaToccata = null): int
     {
         $cambiati = 0;
+        $movimenti = self::inEserciziAperti($movimenti);
         $archivio = null; // letto solo per il primo movimento che nessuna regola prende, dopo i lock di chi chiama come le regole
         (new EloquentCollection($movimenti->all()))->loadMissing('conto'); // un solo caricamento per tutti i movimenti (chi chiama può passare anche una collezione semplice)
         foreach ($movimenti as $movimento) {

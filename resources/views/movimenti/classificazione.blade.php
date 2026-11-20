@@ -4,6 +4,7 @@
 
 @section('contenuto')
     <h1>Classifica il movimento</h1>
+    @include('esercizio.avviso-approvato', ['anno' => $movimento->data->year])
 
     <div class="scheda">
         <div class="scheda-testa">

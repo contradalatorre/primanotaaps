@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccessoController;
 use App\Http\Controllers\AperturaSaldiController;
+use App\Http\Controllers\ApprovazioneController;
 use App\Http\Controllers\ClassificazioneController;
 use App\Http\Controllers\ConteDiCassaController;
 use App\Http\Controllers\ContiController;
@@ -83,6 +84,14 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
             Route::get('/esercizi/{anno}/{tipo}.csv', [EsportazioniController::class, 'elenco'])->name('esporta.elenco');
         });
     });
+    // Approvazione e riapertura dell'esercizio (#59). Il permesso è fuori e `password.confirm:riautentica` dentro (come per gli utenti): senza il permesso è un 403, non un invito a riautenticarsi.
+    Route::middleware('can:vedere')->get('/esercizi/{anno}/approvazione', [ApprovazioneController::class, 'pagina'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.approvazione');
+    Route::middleware('can:gestire_esercizio')->where(['anno' => '[1-9][0-9]{3}'])->group(function () {
+        Route::post('/esercizi/{anno}/approvazione', [ApprovazioneController::class, 'approva'])->middleware('password.confirm:riautentica')->name('esercizio.approva');
+        Route::post('/esercizi/{anno}/segnalazione-runts', [ApprovazioneController::class, 'segnala'])->name('esercizio.segnalazione');
+    });
+    Route::post('/esercizi/{anno}/riapertura', [ApprovazioneController::class, 'riapri'])->where('anno', '[1-9][0-9]{3}')
+        ->middleware(['can:riaprire_esercizio', 'password.confirm:riautentica'])->name('esercizio.riapri');
     // Forzare la natura commerciale (#52) è di chi classifica; App\Forzature rilegge il permesso a riga bloccata.
     Route::post('/imputazioni/natura', [ForzatureController::class, 'forza'])->middleware('can:importare_e_confermare')->name('natura.forza');
     Route::post('/imputazioni/natura/toglie', [ForzatureController::class, 'togli'])->middleware('can:importare_e_confermare')->name('natura.togli');

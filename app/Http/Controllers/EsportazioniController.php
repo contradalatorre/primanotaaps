@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Esercizio\Approvazione;
+use App\Esercizio\Differenze;
 use App\Esercizio\Elenchi;
 use App\Esercizio\Pdf;
 use App\Esercizio\Prospetto;
@@ -22,11 +24,6 @@ use Illuminate\Support\Str;
  */
 class EsportazioniController extends Controller
 {
-    /**
-     * shortcut: finché l'esercizio non ha gli stati (#59) c'è una sola versione, la prima; con l'approvazione e la riapertura il numero verrà da lì.
-     */
-    private const VERSIONE = 1;
-
     public function modelloD(Request $request, int $anno, string $formato): Response
     {
         $proposte = $request->boolean('proposte');
@@ -61,10 +58,15 @@ class EsportazioniController extends Controller
     private function consegna(Request $request, string $formato, string $prefisso, string $foglio, int $anno, string $titolo, array $sezioni, bool $storico, bool $proposte, bool $largo): Response
     {
         $ora = now();
-        $intestazione = Tabelle::intestazione(ImpostazioniAssociazione::per($anno)?->only(['denominazione', 'codice_fiscale', 'numero_runts']) ?? [], $titolo, $storico, $proposte, $ora);
+        // Un esercizio approvato non è «provvisorio»: porta la sua versione e dice se i dati di oggi se ne sono allontanati (#59).
+        $situazione = Approvazione::situazione($anno);
+        // Con `?proposte=1` il prospetto non è quello approvato (ci sono anche le proposte): esce provvisorio.
+        $approvata = $storico || $proposte ? null : $situazione['versione'];
+        $approvazione = $approvata ? 'Approvato il '.$approvata->approvata_il->format('d/m/Y').' · versione '.$approvata->numero : null;
+        $intestazione = Tabelle::intestazione(ImpostazioniAssociazione::per($anno)?->only(['denominazione', 'codice_fiscale', 'numero_runts']) ?? [], $titolo, $storico, $proposte, $ora, $approvazione, $approvata !== null && Differenze::presenti($situazione['differenze'], $prefisso === 'Rendiconto' ? ['rendiconto'] : ['voci', 'esiti']));
 
         if ($formato === 'pdf') {
-            return $this->scarica($request, Pdf::crea($titolo, $intestazione, $sezioni, Tabelle::piede($anno, $ora, self::VERSIONE, $storico), $largo), 'application/pdf', $this->nome($prefisso, $anno, 'pdf'));
+            return $this->scarica($request, Pdf::crea($titolo, $intestazione, $sezioni, Tabelle::piede($anno, $ora, $situazione['numero'], $storico || $approvata !== null), $largo), 'application/pdf', $this->nome($prefisso, $anno, 'pdf'));
         }
 
         $fogli = [$foglio => Tabelle::comeRighe($sezioni, $intestazione)];

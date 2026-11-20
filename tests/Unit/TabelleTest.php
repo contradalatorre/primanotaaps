@@ -118,6 +118,17 @@ class TabelleTest extends TestCase
         $this->assertSame('Generato il 20/12/2026 09:30 · Esercizio 2025 · versione 1', Tabelle::piede(2025, $ora, 1, true));
     }
 
+    /** #59: un esercizio approvato non è «provvisorio»: l'intestazione dice quale versione e il piede non la dice provvisoria. */
+    public function test_l_esercizio_approvato_porta_la_versione_approvata_al_posto_di_provvisorio(): void
+    {
+        $ora = CarbonImmutable::parse('2027-04-25 09:30');
+
+        $i = Tabelle::intestazione(['denominazione' => 'Contrada La Torre APS'], 'x', false, false, $ora, 'Approvato il 20/04/2027 · versione 2');
+
+        $this->assertSame('Approvato il 20/04/2027 · versione 2 · aggiornato al 25/04/2027 09:30. Solo le imputazioni confermate.', $i[3]);
+        $this->assertSame('Generato il 25/04/2027 09:30 · Esercizio 2026 · versione 2', Tabelle::piede(2026, $ora, 2, true));
+    }
+
     public function test_come_righe_mette_l_intestazione_in_testa_e_una_riga_vuota_tra_le_sezioni(): void
     {
         $righe = Tabelle::comeRighe([['titolo' => 'S1', 'colonne' => ['a', 'b'], 'righe' => [['celle' => ['x', new Importo(1)], 'grassetto' => false]]]], ['Ente', 'Provvisorio']);

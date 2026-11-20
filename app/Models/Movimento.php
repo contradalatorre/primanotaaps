@@ -81,6 +81,12 @@ class Movimento extends Model
         $query->whereNotIn('movimenti.id', Giroconto::select('uscita_id'))->whereNotIn('movimenti.id', Giroconto::select('entrata_id'));
     }
 
+    /** «Spese senza giustificativo» (#38, #59): le uscite che non ne hanno nessuno. Una metà di giroconto non ne ha bisogno: è un trasferimento. */
+    public function scopeSpeseSenzaGiustificativo(Builder $query): void
+    {
+        $query->senzaGiroconto()->where('verso', 'uscita')->whereDoesntHave('giustificativi');
+    }
+
     public function scopeInGiroconto(Builder $query): void
     {
         $query->where(fn (Builder $q) => $q->whereIn('movimenti.id', Giroconto::select('uscita_id'))->orWhereIn('movimenti.id', Giroconto::select('entrata_id')));

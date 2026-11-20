@@ -5,6 +5,7 @@
 @section('contenuto')
     @php($euro = fn (int $c) => \App\Euro::formatta($c))
     <h1>Dati dell’esercizio {{ $anno }}</h1>
+    @include('esercizio.avviso-approvato', ['anno' => $anno])
     <p class="nota">Le informazioni che i movimenti non dicono. Servono ai test dell’esercizio.
         <a href="{{ route('test-esercizio', $anno) }}" class="link">Test dell’esercizio {{ $anno }}</a> ·
         <a href="{{ route('dati-esercizio', $anno - 1) }}" class="link">{{ $anno - 1 }}</a> ·

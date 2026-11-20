@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Classificazione;
 use App\Models\Conto;
+use App\Models\DatiEsercizio;
 use App\Models\Iniziativa;
 use App\Models\Menzione;
 use App\Models\Movimento;
@@ -82,6 +83,24 @@ class NoteTest extends TestCase
         $this->actingAs($maria)->get("/movimenti/{$this->movimento->id}/note")->assertOk()
             ->assertSeeInOrder(['Prima &lt;script&gt;alert(1)&lt;/script&gt;', 'Seconda'], false)
             ->assertDontSee('<script>alert(1)', false)->assertSee('Maria Rossi');
+    }
+
+    /** #59, #16: la nota scritta quando l'esercizio del movimento è già approvato o depositato lo dice, e la fase resta anche se poi l'esercizio si riapre. */
+    public function test_la_nota_scritta_dopo_l_approvazione_o_il_deposito_lo_dice(): void
+    {
+        $maria = $this->utenteCon('Consigliere', [], ['name' => 'Maria Rossi']);
+        $this->scrivi($maria, 'Prima.');
+        $dati = DatiEsercizio::create(['esercizio' => 2026, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'stato' => 'approvato', 'versione' => 1]);
+        $this->scrivi($maria, 'Dopo l’assemblea.');
+        $dati->update(['stato' => 'depositato']);
+        $this->scrivi($maria, 'Dopo il registro.');
+        $dati->update(['stato' => 'aperto', 'versione' => 2]);
+        $this->scrivi($maria, 'Riaperto.');
+
+        $this->assertSame([null, 'approvato', 'depositato', null], Nota::orderBy('id')->pluck('fase')->all());
+        $pagina = $this->actingAs($maria)->get("/movimenti/{$this->movimento->id}/note")->assertOk()
+            ->assertSeeInOrder(['Prima.', 'aggiunta dopo l’approvazione', 'Dopo l’assemblea.', 'aggiunta dopo il deposito', 'Dopo il registro.', 'Riaperto.'], false);
+        $this->assertSame(2, substr_count($pagina->getContent(), 'aggiunta dopo'));
     }
 
     public function test_icona_e_conteggio_sulla_riga_degli_elenchi(): void
