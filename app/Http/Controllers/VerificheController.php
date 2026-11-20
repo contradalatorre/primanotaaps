@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Esercizio\Annotazione;
+use App\Esercizio\Deposito;
+use App\Esercizio\Differenze;
 use App\Esercizio\Secondarieta;
 use App\Esercizio\Verifiche;
 use App\Models\DatiEsercizio;
@@ -26,6 +28,10 @@ class VerificheController extends Controller
 
     public function mostra(Request $request, int $anno)
     {
+        // Depositato (#60): gli esiti dell'istantanea, non un ricalcolo.
+        if ($salvata = Deposito::salvata($anno)) {
+            return view('esercizio.test-depositato', ['anno' => $anno, 'esiti' => Differenze::impronta($salvata['prospetti'])['esiti']]);
+        }
         $proposte = $request->boolean('proposte');
         $test = Verifiche::pagina($anno, $proposte);
         $dati = $test['s']['dati'];

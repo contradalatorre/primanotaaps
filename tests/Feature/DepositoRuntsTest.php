@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Esercizio\Deposito;
+use App\Import\Foglio;
 use App\Models\Attivita;
 use App\Models\Conto;
 use App\Models\DatiEsercizio;
@@ -122,6 +124,49 @@ class DepositoRuntsTest extends TestCase
         $this->esercizio2026();
 
         $this->come($this->tesoriere)->get('/esercizi/2026/deposito.pdf')->assertNotFound();
+    }
+
+    /** Un esercizio depositato, e poi un movimento in più nel database (come se qualcosa avesse scritto sotto i piedi del blocco): i prospetti non lo vedono. */
+    private function depositatoConUnMovimentoInPiu(): void
+    {
+        $this->esercizio2026();
+        $this->approva();
+        $this->deposita('2027-04-20')->assertSessionHasNoErrors();
+        $this->imputa('entrata', 10000, '2026-07-01', 'Somministrazione');
+    }
+
+    public function test_un_esercizio_depositato_si_legge_solo_dall_istantanea(): void
+    {
+        $this->depositatoConUnMovimentoInPiu();
+
+        $pagina = $this->come($this->tesoriere)->get('/esercizi/2026/modello-d')->assertOk();
+        $pagina->assertSeeText('Depositato il 20/04/2027')->assertSeeText('800,00')->assertDontSeeText('900,00')->assertDontSeeText('Provvisorio')->assertDontSeeText('Si può ancora correggere');
+        $this->come($this->tesoriere)->get('/esercizi/2026/rendiconto')->assertOk()->assertSeeText('Depositato il 20/04/2027')->assertSeeText('800,00')->assertDontSeeText('900,00');
+        $this->come($this->tesoriere)->get('/esercizi/2026/test')->assertOk()->assertSeeText('Depositato il 20/04/2027');
+
+        $xlsx = Foglio::leggi($this->come($this->tesoriere)->get('/esercizi/2026/modello-d/xlsx')->assertOk()->getContent())['Modello D'];
+        $celle = collect($xlsx)->flatten()->all();
+        $this->assertContains(800.0, $celle);
+        $this->assertNotContains(900.0, $celle);
+        $this->assertContains('Depositato il 20/04/2027 · versione 1 · istantanea del deposito.', $celle);
+    }
+
+    public function test_il_pdf_dopo_il_deposito_e_quello_dell_istantanea_e_non_cambia_con_i_dati(): void
+    {
+        $this->esercizio2026();
+        $this->approva();
+        $prima = $this->come($this->tesoriere)->get('/esercizi/2026/deposito.pdf')->assertOk()->getContent();
+        $this->deposita('2027-04-20')->assertSessionHasNoErrors();
+        $this->imputa('entrata', 10000, '2026-07-01', 'Somministrazione');
+        ImpostazioniAssociazione::where('dal_esercizio', 2026)->update(['denominazione' => 'Un altro nome']);
+
+        $dopo = $this->come($this->tesoriere)->get('/esercizi/2026/deposito.pdf')->assertOk();
+
+        $this->assertSame('attachment; filename="Deposito_2026_ContradaLaTorre.pdf"', $dopo->headers->get('Content-Disposition'));
+        $this->assertSame(VersioneEsercizio::vigente(2026)->istantanea_deposito, Deposito::istantanea(2026), 'Il PDF di dopo parte dall’istantanea salvata, non dai dati di oggi');
+        $this->assertSame('Contrada La Torre', Deposito::istantanea(2026)['impostazioni']['denominazione']);
+        $this->assertSame(80000, Deposito::istantanea(2026)['prospetti']['modello_d']['aree']['A']['entrate']['totale']['importo']);
+        $this->assertStringStartsWith('%PDF-', $prima);
     }
 
     public function test_senza_riautenticazione_non_si_deposita(): void

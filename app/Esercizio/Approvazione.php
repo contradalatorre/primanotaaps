@@ -77,7 +77,8 @@ final class Approvazione
     {
         $dati = DatiEsercizio::per($anno);
         $versione = $dati->approvato() ? VersioneEsercizio::vigente($anno) : null;
-        $differenze = $versione === null ? null : Differenze::tra(Differenze::impronta($versione->istantanea), Differenze::impronta(Verifiche::istantanea($anno)));
+        // Un esercizio depositato si legge dall'istantanea (#60): non c'è niente da confrontare.
+        $differenze = $versione === null || $versione->depositata_il !== null ? null : Differenze::tra(Differenze::impronta($versione->istantanea), Differenze::impronta(Verifiche::istantanea($anno)));
 
         return ['versione' => $versione, 'numero' => $dati->versione, 'differenze' => $differenze];
     }

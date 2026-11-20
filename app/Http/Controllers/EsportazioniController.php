@@ -27,12 +27,14 @@ class EsportazioniController extends Controller
 {
     public function modelloD(Request $request, int $anno, string $formato): Response
     {
-        $proposte = $request->boolean('proposte');
+        // Un esercizio depositato (#60) esce dall'istantanea, come la pagina: né proposte né dati di oggi.
+        $salvata = Deposito::salvata($anno);
+        $proposte = $salvata === null && $request->boolean('proposte');
         // Un esercizio storico (#63) non ha movimenti: il suo Modello D è ricalcolato dagli importi caricati dal foglio, come nella pagina.
         $proprio = EsercizioStorico::where('esercizio', $anno)->first();
-        $m = $proprio?->prospetto() ?? Prospetto::modelloD($anno, $proposte);
-        $impedimenti = $proprio ? [] : array_column(Prospetto::impedimenti($anno), 'testo');
-        $sezioni = Tabelle::modelloD($m, EsercizioStorico::modelloD($anno - 1), $anno, $proprio !== null, $impedimenti);
+        $m = $salvata ? $salvata['prospetti']['modello_d'] : ($proprio?->prospetto() ?? Prospetto::modelloD($anno, $proposte));
+        $impedimenti = $proprio || $salvata ? [] : array_column(Prospetto::impedimenti($anno), 'testo');
+        $sezioni = Tabelle::modelloD($m, $salvata ? $salvata['precedente'] : EsercizioStorico::modelloD($anno - 1), $anno, $proprio !== null, $impedimenti);
 
         return $this->consegna($request, $formato, 'ModelloD', 'Modello D', $anno, 'Modello D · Rendiconto per cassa '.$anno, $sezioni, $proprio !== null, $proposte, false);
     }
@@ -41,8 +43,9 @@ class EsportazioniController extends Controller
     public function rendiconto(Request $request, int $anno, string $formato): Response
     {
         abort_if(EsercizioStorico::where('esercizio', $anno)->exists(), 404);
-        $proposte = $request->boolean('proposte');
-        $sezioni = Tabelle::rendiconto(Prospetto::rendiconto($anno, $proposte), $request->user()->can('gestire_esercizio'));
+        $salvata = Deposito::salvata($anno);
+        $proposte = $salvata === null && $request->boolean('proposte');
+        $sezioni = Tabelle::rendiconto($salvata ? $salvata['prospetti']['rendiconto'] : Prospetto::rendiconto($anno, $proposte), $request->user()->can('gestire_esercizio'));
 
         return $this->consegna($request, $formato, 'Rendiconto', 'Rendiconto', $anno, 'Rendiconto per l’assemblea · '.$anno, $sezioni, false, $proposte, true);
     }
@@ -76,10 +79,15 @@ class EsportazioniController extends Controller
         // Con `?proposte=1` il prospetto non è quello approvato (ci sono anche le proposte): esce provvisorio.
         $approvata = $storico || $proposte ? null : $situazione['versione'];
         $approvazione = $approvata ? 'Approvato il '.$approvata->approvata_il->format('d/m/Y').' · versione '.$approvata->numero : null;
-        $intestazione = Tabelle::intestazione(ImpostazioniAssociazione::per($anno)?->only(['denominazione', 'codice_fiscale', 'numero_runts']) ?? [], $titolo, $storico, $proposte, $ora, $approvazione, $approvata !== null && Differenze::presenti($situazione['differenze'], $prefisso === 'Rendiconto' ? ['rendiconto'] : ['voci', 'esiti']));
+        // Depositato (#60): intestazione e nome del file dalle impostazioni dell'istantanea, non da quelle di oggi; niente differenze (non c'è da confrontare).
+        $impostazioni = Deposito::salvata($anno)['impostazioni'] ?? ImpostazioniAssociazione::per($anno)?->only(['denominazione', 'codice_fiscale', 'numero_runts']) ?? [];
+        $intestazione = Tabelle::intestazione($impostazioni, $titolo, $storico, $proposte, $ora, $approvazione, $approvata !== null && $situazione['differenze'] !== null && Differenze::presenti($situazione['differenze'], $prefisso === 'Rendiconto' ? ['rendiconto'] : ['voci', 'esiti']));
+        if ($approvata?->depositata_il) {
+            $intestazione[3] = 'Depositato il '.$approvata->depositata_il->format('d/m/Y').' · versione '.$approvata->numero.' · istantanea del deposito.';
+        }
 
         if ($formato === 'pdf') {
-            return $this->scarica($request, Pdf::crea($titolo, $intestazione, $sezioni, Tabelle::piede($anno, $ora, $situazione['numero'], $storico || $approvata !== null), $largo), 'application/pdf', $this->nome($prefisso, $anno, 'pdf'));
+            return $this->scarica($request, Pdf::crea($titolo, $intestazione, $sezioni, Tabelle::piede($anno, $ora, $situazione['numero'], $storico || $approvata !== null), $largo), 'application/pdf', $this->nome($prefisso, $anno, 'pdf', $impostazioni['denominazione'] ?? null));
         }
 
         $fogli = [$foglio => Tabelle::comeRighe($sezioni, $intestazione)];
@@ -90,7 +98,7 @@ class EsportazioniController extends Controller
         }
         $xlsx = Xlsx::crea($fogli);
 
-        return $this->scarica($request, $xlsx, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $this->nome($prefisso, $anno, 'xlsx'));
+        return $this->scarica($request, $xlsx, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $this->nome($prefisso, $anno, 'xlsx', $impostazioni['denominazione'] ?? null));
     }
 
     /** «Rendiconto_2026_ContradaLaTorre.pdf»: l'ente dalla denominazione delle impostazioni, ridotta a lettere e cifre. */
