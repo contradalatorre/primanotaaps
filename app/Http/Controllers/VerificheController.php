@@ -63,6 +63,10 @@ class VerificheController extends Controller
         $proposte = $request->boolean('proposte'); // l'interruttore della pagina da cui si salva: il testo proposto era calcolato con quella scelta
 
         DatiEsercizio::sottoBlocco($request->user(), $anno, function (DatiEsercizio $dati) use ($request, $anno, $testo, $proposte) {
+            // Il PDF di deposito non porta l'annotazione: dopo il deposito non si scrive più (#60).
+            if ($dati->stato === 'depositato') {
+                throw ValidationException::withMessages(['stato' => "L'esercizio $anno è depositato: l'annotazione in calce non si cambia più."]);
+            }
             $prima = $dati->istantanea();
             // La proposta si calcola a riga bloccata, con i dati appena riletti.
             $proposta = Annotazione::testo($anno, Verifiche::secondarieta($anno, $proposte), $dati->criterio_riparto);

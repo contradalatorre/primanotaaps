@@ -50,6 +50,17 @@ final class Deposito
         return $versione === null ? null : ($versione->istantanea_deposito ?? self::ingressi($anno, $versione));
     }
 
+    /**
+     * L'impronta di ciò che il PDF di deposito stampa adesso: la pagina la porta nel modulo e `deposita` la ricontrolla. Impostazioni o colonna dell'esercizio precedente
+     * cambiate tra il PDF firmato e la data dell'invio farebbero un'istantanea diversa dal file inviato: il modulo allora si rifiuta.
+     */
+    public static function impronta(int $anno): ?string
+    {
+        $istantanea = self::istantanea($anno);
+
+        return $istantanea === null ? null : sha1(json_encode($istantanea));
+    }
+
     /** L'istantanea del deposito, solo se l'esercizio è depositato: da lì si leggono i prospetti (#12, #18). */
     public static function salvata(int $anno): ?array
     {
@@ -82,10 +93,11 @@ final class Deposito
      * depositato (`DatiEsercizio::controllaNonDepositato`). La riga dei dati si blocca per prima, come fa `SaldiApertura::inserisci`, che poi blocca i conti.
      *
      * @param  string  $data  il giorno dell'invio («2027-04-25»): dall'approvazione a oggi
+     * @param  string  $impronta  quella del PDF scaricato (`impronta`): se i dati sono cambiati nel frattempo, si riscarica
      */
-    public static function deposita(User $utente, int $anno, string $data): VersioneEsercizio
+    public static function deposita(User $utente, int $anno, string $data, string $impronta): VersioneEsercizio
     {
-        return DatiEsercizio::sottoBlocco($utente, $anno, function (DatiEsercizio $dati) use ($utente, $anno, $data) {
+        return DatiEsercizio::sottoBlocco($utente, $anno, function (DatiEsercizio $dati) use ($utente, $anno, $data, $impronta) {
             if ($dati->stato === 'depositato') {
                 self::rifiuta('stato', "L'esercizio $anno è già depositato: per cambiarlo lo si riapre, e la nuova approvazione è la versione ".($dati->versione + 1).'.');
             }
@@ -95,6 +107,10 @@ final class Deposito
             $versione = VersioneEsercizio::where('esercizio', $anno)->where('numero', $dati->versione)->lockForUpdate()->firstOrFail();
             if ($data < $versione->approvata_il->toDateString() || $data > today()->toDateString()) {
                 self::rifiuta('data', "La data dell'invio va dall'approvazione ({$versione->approvata_il->format('d/m/Y')}) a oggi.");
+            }
+
+            if (! hash_equals((string) self::impronta($anno), $impronta)) {
+                self::rifiuta('impronta', 'Impostazioni o dati del PDF sono cambiati dopo che hai aperto la pagina: riscarica il PDF di deposito (è quello da firmare e inviare) e riprova.');
             }
 
             Conto::orderBy('id')->lockForUpdate()->get(['id']);

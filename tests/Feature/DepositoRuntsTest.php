@@ -73,7 +73,22 @@ class DepositoRuntsTest extends TestCase
 
     private function deposita(string $data = '2027-04-25', ?User $utente = null, int $anno = 2026)
     {
-        return $this->come($utente ?? $this->tesoriere)->post("/esercizi/$anno/deposito", ['data' => $data]);
+        // L'impronta è quella che la pagina porta nel modulo (di un esercizio non approvato non c'è: un valore qualunque).
+        return $this->come($utente ?? $this->tesoriere)->post("/esercizi/$anno/deposito", ['data' => $data, 'impronta' => Deposito::impronta($anno) ?? str_repeat('0', 40)]);
+    }
+
+    public function test_se_le_impostazioni_cambiano_dopo_il_pdf_non_si_deposita_con_la_vecchia_impronta(): void
+    {
+        $this->esercizio2026();
+        $this->approva();
+        $impronta = Deposito::impronta(2026);
+        ImpostazioniAssociazione::where('dal_esercizio', 2026)->update(['numero_runts' => '99999']);
+
+        $this->come($this->tesoriere)->post('/esercizi/2026/deposito', ['data' => '2027-04-20', 'impronta' => $impronta])->assertSessionHasErrors('impronta');
+
+        $this->assertSame('approvato', DatiEsercizio::per(2026)->stato);
+        $this->deposita('2027-04-20')->assertSessionHasNoErrors(); // con l'impronta di adesso (PDF riscaricato) si deposita
+        $this->assertSame('99999', Deposito::salvata(2026)['impostazioni']['numero_runts']);
     }
 
     public function test_la_data_dell_invio_porta_l_esercizio_a_depositato_e_salva_l_istantanea(): void

@@ -87,6 +87,28 @@ class DepositoMovimentiBloccatiTest extends TestCase
         $this->assertNull($imputazione->refresh()->natura_forzata);
     }
 
+    public function test_la_correzione_di_una_conta_di_cassa_non_entra_in_un_esercizio_depositato(): void
+    {
+        $this->deposita();
+        $this->actingAs($this->tesoriere);
+
+        // La cassa ha saldo zero e si contano 10,00: la correzione sarebbe un movimento del 31/12/2026.
+        $this->post("/conti/{$this->cassa->id}/conte", ['data' => '2026-12-31', 'importo' => '10,00', 'correggi' => '1'])->assertSessionHasErrors('data');
+        $this->assertSame(0, Movimento::count());
+
+        $this->post("/conti/{$this->cassa->id}/conte", ['data' => '2027-04-10', 'importo' => '10,00', 'correggi' => '1'])->assertSessionHasNoErrors();
+        $this->assertSame(1, Movimento::count());
+    }
+
+    public function test_l_annotazione_in_calce_di_un_esercizio_depositato_non_si_cambia(): void
+    {
+        $this->deposita();
+
+        $this->actingAs($this->tesoriere)->put('/esercizi/2026/test/annotazione', ['testo' => 'Una dichiarazione in più'])->assertSessionHasErrors('stato');
+
+        $this->assertNull(DatiEsercizio::per(2026)->annotazione_in_calce);
+    }
+
     public function test_un_esercizio_non_depositato_si_scrive_come_prima(): void
     {
         $this->deposita(2026);

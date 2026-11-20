@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Esercizio\Deposito;
 use App\Esercizio\Prospetto;
 use App\Esercizio\Verifiche;
 use App\Import\Foglio;
@@ -562,7 +563,7 @@ class ApprovazioneEsercizioTest extends TestCase
         $this->assertSoftDeleted($manuale);
 
         $altro = Movimento::factory()->create(['conto_id' => $this->cassa->id, 'verso' => 'uscita', 'importo' => 700, 'data' => '2026-03-02', 'manuale' => true, 'inserito_da' => $this->tesoriere->id, 'stato' => 'confermato']);
-        $this->come($this->tesoriere)->post('/esercizi/2026/deposito', ['data' => '2027-04-20'])->assertSessionHasNoErrors(); // #60
+        $this->come($this->tesoriere)->post('/esercizi/2026/deposito', ['data' => '2027-04-20', 'impronta' => Deposito::impronta(2026)])->assertSessionHasNoErrors(); // #60
 
         $this->come($this->tesoriere)->post("/movimenti/{$altro->id}/eliminazione", ['motivazione' => 'Errore'])->assertSessionHasErrors('movimento');
         $this->assertNotSoftDeleted($altro);

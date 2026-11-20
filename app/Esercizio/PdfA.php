@@ -74,7 +74,7 @@ final class PdfA
     /** Il bit di ogni CID che la mappa manda a un glifo (il primo bit del primo byte è il CID 0); si tolgono i byte a zero in fondo. */
     private static function bitDeiCid(string $mappa): string
     {
-        $bit = str_repeat("\0", intdiv(strlen($mappa), 2 * 8));
+        $bit = str_repeat("\0", intdiv(intdiv(strlen($mappa), 2) + 7, 8));
         for ($cid = 0, $n = intdiv(strlen($mappa), 2); $cid < $n; $cid++) {
             if ($mappa[2 * $cid] !== "\0" || $mappa[2 * $cid + 1] !== "\0") {
                 $bit[$cid >> 3] = chr(ord($bit[$cid >> 3]) | (0x80 >> ($cid & 7)));
