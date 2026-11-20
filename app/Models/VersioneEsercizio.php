@@ -20,7 +20,7 @@ class VersioneEsercizio extends Model
     {
         return [
             'esercizio' => 'integer', 'numero' => 'integer', 'approvata_il' => 'date', 'soglia_rientro_centesimi_di_punto' => 'integer', 'istantanea' => 'array',
-            'riaperta_il' => 'datetime', 'segnalazione_inviata_il' => 'date',
+            'riaperta_il' => 'datetime', 'segnalazione_inviata_il' => 'date', 'depositata_il' => 'date', 'istantanea_deposito' => 'array',
         ];
     }
 

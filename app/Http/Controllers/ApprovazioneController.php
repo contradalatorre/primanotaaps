@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Esercizio\Approvazione;
+use App\Esercizio\Deposito;
 use App\Esercizio\Prospetto;
 use App\Esercizio\Verifiche;
 use App\Models\DatiEsercizio;
@@ -39,6 +40,14 @@ class ApprovazioneController extends Controller
         $versione = Approvazione::approva($request->user(), $anno, $campi['data']);
 
         return redirect()->route('esercizio.approvazione', $anno)->with('ok', "Esercizio $anno approvato il {$versione->approvata_il->format('d/m/Y')}: versione {$versione->numero} salvata.");
+    }
+
+    public function deposita(Request $request, int $anno): RedirectResponse
+    {
+        $campi = $request->validate(['data' => ['required', 'date_format:Y-m-d']]);
+        $versione = Deposito::deposita($request->user(), $anno, $campi['data']);
+
+        return redirect()->route('esercizio.approvazione', $anno)->with('ok', "Esercizio $anno depositato il {$versione->depositata_il->format('d/m/Y')}: i prospetti sono fissati e i movimenti non si toccano più.");
     }
 
     public function riapri(Request $request, int $anno): RedirectResponse

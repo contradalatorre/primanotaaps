@@ -88,6 +88,8 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
     Route::middleware('can:vedere')->get('/esercizi/{anno}/approvazione', [ApprovazioneController::class, 'pagina'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.approvazione');
     Route::middleware('can:gestire_esercizio')->where(['anno' => '[1-9][0-9]{3}'])->group(function () {
         Route::post('/esercizi/{anno}/approvazione', [ApprovazioneController::class, 'approva'])->middleware('password.confirm:riautentica')->name('esercizio.approva');
+        // Inserire la data dell'invio al RUNTS fissa l'esercizio (#60): azione delicata, come approvare.
+        Route::post('/esercizi/{anno}/deposito', [ApprovazioneController::class, 'deposita'])->middleware('password.confirm:riautentica')->name('esercizio.deposita');
         Route::post('/esercizi/{anno}/segnalazione-runts', [ApprovazioneController::class, 'segnala'])->name('esercizio.segnalazione');
     });
     Route::post('/esercizi/{anno}/riapertura', [ApprovazioneController::class, 'riapri'])->where('anno', '[1-9][0-9]{3}')
