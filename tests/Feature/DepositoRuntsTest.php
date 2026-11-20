@@ -89,6 +89,41 @@ class DepositoRuntsTest extends TestCase
         $this->assertDatabaseHas('registro_modifiche', ['oggetto_tipo' => 'esercizio', 'oggetto_id' => 2026, 'azione' => 'depositato', 'user_id' => $this->tesoriere->id]);
     }
 
+    public function test_l_esercizio_approvato_si_scarica_in_pdfa_1b_con_il_nome_di_deposito(): void
+    {
+        $this->esercizio2026();
+        $this->approva();
+
+        $r = $this->come($this->tesoriere)->get('/esercizi/2026/deposito.pdf')->assertOk();
+
+        $this->assertSame('application/pdf', $r->headers->get('Content-Type'));
+        $this->assertSame('attachment; filename="Deposito_2026_ContradaLaTorre.pdf"', $r->headers->get('Content-Disposition'));
+        $pdf = $r->getContent();
+        $this->assertStringStartsWith('%PDF-1.4', $pdf);
+        $this->assertStringContainsString('<pdfaid:part>1</pdfaid:part>', $pdf);
+        $this->assertStringContainsString('<pdfaid:conformance>B</pdfaid:conformance>', $pdf);
+        $this->assertDatabaseHas('registro_accessi', ['evento' => 'esportazione_deposito_pdf_2026']);
+
+        // I font sono sottoinsiemi: ognuno ha il suo CIDSet (veraPDF lo vuole, mPDF non lo scrive: `PdfA`) e la tabella xref punta ancora agli oggetti.
+        $this->assertSame(preg_match_all('/\/FontName \/MPDF\w+\+/', $pdf), preg_match_all('/\/CIDSet \d+ 0 R/', $pdf));
+        preg_match('/startxref\n(\d+)\n%%EOF/', $pdf, $m);
+        $this->assertSame('xref', substr($pdf, (int) $m[1], 4));
+        preg_match('/xref\n0 (\d+)\n/', $pdf, $x);
+        $this->assertSame(1, preg_match('/\/Size '.$x[1].'\b/', $pdf), 'Il /Size del trailer segue la tabella');
+
+        // Su GitHub (test.yml) questo file lo controlla veraPDF, con il profilo PDF/A-1b: PDF_DI_PROVA è il percorso dove scriverlo.
+        if ($percorso = getenv('PDF_DI_PROVA')) {
+            file_put_contents($percorso, $pdf);
+        }
+    }
+
+    public function test_un_esercizio_aperto_non_ha_il_pdf_di_deposito(): void
+    {
+        $this->esercizio2026();
+
+        $this->come($this->tesoriere)->get('/esercizi/2026/deposito.pdf')->assertNotFound();
+    }
+
     public function test_senza_riautenticazione_non_si_deposita(): void
     {
         $this->esercizio2026();

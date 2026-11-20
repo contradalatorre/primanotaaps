@@ -10,6 +10,7 @@ use App\Models\Movimento;
 use App\Models\RegistroModifica;
 use App\Models\User;
 use App\Models\VersioneEsercizio;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -36,6 +37,43 @@ final class Deposito
             'precedente' => EsercizioStorico::modelloD($anno - 1),
             'prospetti' => $versione->istantanea,
         ];
+    }
+
+    /**
+     * Ciò che il PDF di deposito stampa: l'istantanea salvata se l'esercizio è depositato, altrimenti quella che si salverebbe adesso dalla versione approvata;
+     * null se l'esercizio non è approvato (non c'è un rendiconto da depositare).
+     */
+    public static function istantanea(int $anno): ?array
+    {
+        $versione = DatiEsercizio::per($anno)->approvato() ? VersioneEsercizio::vigente($anno) : null;
+
+        return $versione === null ? null : ($versione->istantanea_deposito ?? self::ingressi($anno, $versione));
+    }
+
+    /** L'istantanea del deposito, solo se l'esercizio è depositato: da lì si leggono i prospetti (#12, #18). */
+    public static function salvata(int $anno): ?array
+    {
+        return DatiEsercizio::per($anno)->stato === 'depositato' ? VersioneEsercizio::vigente($anno)?->istantanea_deposito : null;
+    }
+
+    /**
+     * Il PDF/A-1b: indice in prima pagina e il Modello D (gli allegati delle raccolte occasionali arrivano con #61). Né l'ora né nulla che cambi da un'esecuzione all'altra:
+     * il file è funzione dell'istantanea, quindi quello scaricato prima dell'invio e quello di dopo dicono la stessa cosa. Nessun nome di persona (storia 143).
+     */
+    public static function pdf(array $istantanea): string
+    {
+        $anno = $istantanea['esercizio'];
+        $impostazioni = $istantanea['impostazioni'];
+        $approvazione = 'Approvato il '.Carbon::parse($istantanea['approvata_il'])->format('d/m/Y').' · versione '.$istantanea['versione'];
+        $intestazione = [
+            ($impostazioni['denominazione'] ?? '') ?: 'Denominazione da inserire',
+            'Codice fiscale '.(($impostazioni['codice_fiscale'] ?? '') ?: 'da inserire').' · numero RUNTS '.(($impostazioni['numero_runts'] ?? '') ?: 'da inserire'),
+            'Rendiconto per cassa '.$anno.' · deposito al RUNTS',
+            $approvazione,
+        ];
+        $modelloD = Tabelle::modelloD($istantanea['prospetti']['modello_d'], $istantanea['precedente'], $anno);
+
+        return Pdf::deposito('Rendiconto per cassa '.$anno.' · deposito al RUNTS', $intestazione, [['titolo' => 'Modello D · Rendiconto per cassa '.$anno, 'sezioni' => $modelloD]], 'Esercizio '.$anno.' · '.lcfirst($approvazione));
     }
 
     /**

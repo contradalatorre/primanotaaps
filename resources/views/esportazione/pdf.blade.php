@@ -15,27 +15,35 @@
     </style>
 </head>
 <body>
-    <h1>{{ $titolo }}</h1>
-    @foreach ($sezioni as $sezione)
-        <h2>{{ $sezione['titolo'] }}</h2>
-        <table>
-            @if ($sezione['colonne'] !== [])
-                <thead><tr>@foreach ($sezione['colonne'] as $i => $colonna)<th @if ($i > 0) class="importo" @endif>{{ $colonna }}</th>@endforeach</tr></thead>
-            @endif
-            <tbody>
-                @foreach ($sezione['righe'] as $riga)
-                    <tr @if ($riga['grassetto']) class="grassetto" @endif>
-                        @foreach ($riga['celle'] as $i => $cella)
-                            @if ($cella instanceof \App\Esercizio\Importo)
-                                <td class="importo">{{ \App\Euro::formatta($cella->centesimi) }}</td>
-                            @else
-                                <td @if (count($riga['celle']) === 1 && count($sezione['colonne']) > 1) colspan="{{ count($sezione['colonne']) }}" @endif>{{ $cella }}</td>
-                            @endif
-                        @endforeach
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
+    {{-- Il PDF di deposito (#60) ha l'indice in prima pagina e un documento dopo l'altro; il PDF di un prospetto ha un solo documento e nessun indice. --}}
+    @php($indicizzato = $documenti !== null)
+    @if ($indicizzato)
+        <tocpagebreak toc-preHTML="&lt;h1&gt;Indice&lt;/h1&gt;" links="1" />
+    @endif
+    @foreach ($documenti ?? [['titolo' => $titolo, 'sezioni' => $sezioni]] as $documento)
+        @if ($indicizzato)<tocentry content="{{ $documento['titolo'] }}" />@endif
+        <h1>{{ $documento['titolo'] }}</h1>
+        @foreach ($documento['sezioni'] as $sezione)
+            <h2>{{ $sezione['titolo'] }}</h2>
+            <table>
+                @if ($sezione['colonne'] !== [])
+                    <thead><tr>@foreach ($sezione['colonne'] as $i => $colonna)<th @if ($i > 0) class="importo" @endif>{{ $colonna }}</th>@endforeach</tr></thead>
+                @endif
+                <tbody>
+                    @foreach ($sezione['righe'] as $riga)
+                        <tr @if ($riga['grassetto']) class="grassetto" @endif>
+                            @foreach ($riga['celle'] as $i => $cella)
+                                @if ($cella instanceof \App\Esercizio\Importo)
+                                    <td class="importo">{{ \App\Euro::formatta($cella->centesimi) }}</td>
+                                @else
+                                    <td @if (count($riga['celle']) === 1 && count($sezione['colonne']) > 1) colspan="{{ count($sezione['colonne']) }}" @endif>{{ $cella }}</td>
+                                @endif
+                            @endforeach
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endforeach
     @endforeach
 </body>
 </html>

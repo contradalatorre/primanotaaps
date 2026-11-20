@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Esercizio\Approvazione;
+use App\Esercizio\Deposito;
 use App\Esercizio\Differenze;
 use App\Esercizio\Elenchi;
 use App\Esercizio\Pdf;
@@ -46,6 +47,18 @@ class EsportazioniController extends Controller
         return $this->consegna($request, $formato, 'Rendiconto', 'Rendiconto', $anno, 'Rendiconto per l’assemblea · '.$anno, $sezioni, false, $proposte, true);
     }
 
+    /**
+     * Il PDF/A-1b di deposito (#60): del rendiconto approvato, e dopo il deposito della sua istantanea. Non è mai «provvisorio» e non dipende dai dati di oggi.
+     * Nome `Deposito_…` e non `Rendiconto_…`: i due file non devono confondersi.
+     */
+    public function deposito(Request $request, int $anno): Response
+    {
+        $istantanea = Deposito::istantanea($anno);
+        abort_if($istantanea === null, 404);
+
+        return $this->scarica($request, Deposito::pdf($istantanea), 'application/pdf', $this->nome('Deposito', $anno, 'pdf', $istantanea['impostazioni']['denominazione'] ?? null));
+    }
+
     public function elenco(Request $request, int $anno, string $tipo): Response
     {
         $conNote = $request->user()->can('note');
@@ -81,9 +94,9 @@ class EsportazioniController extends Controller
     }
 
     /** «Rendiconto_2026_ContradaLaTorre.pdf»: l'ente dalla denominazione delle impostazioni, ridotta a lettere e cifre. */
-    private function nome(string $prefisso, int $anno, string $estensione): string
+    private function nome(string $prefisso, int $anno, string $estensione, ?string $denominazione = null): string
     {
-        $ente = Str::of(ImpostazioniAssociazione::per($anno)?->denominazione ?? '')->ascii()->studly()->replaceMatches('/[^A-Za-z0-9]/', '')->toString();
+        $ente = Str::of($denominazione ?? ImpostazioniAssociazione::per($anno)?->denominazione ?? '')->ascii()->studly()->replaceMatches('/[^A-Za-z0-9]/', '')->toString();
 
         return $prefisso.'_'.$anno.'_'.($ente ?: 'Associazione').'.'.$estensione;
     }

@@ -81,6 +81,7 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::middleware('throttle:30,1')->where(['anno' => '[1-9][0-9]{3}', 'formato' => 'pdf|xlsx', 'tipo' => 'imputazioni|movimenti'])->group(function () {
             Route::get('/esercizi/{anno}/modello-d/{formato}', [EsportazioniController::class, 'modelloD'])->name('esporta.modello-d');
             Route::get('/esercizi/{anno}/rendiconto/{formato}', [EsportazioniController::class, 'rendiconto'])->name('esporta.rendiconto');
+            Route::get('/esercizi/{anno}/deposito.pdf', [EsportazioniController::class, 'deposito'])->name('esporta.deposito');
             Route::get('/esercizi/{anno}/{tipo}.csv', [EsportazioniController::class, 'elenco'])->name('esporta.elenco');
         });
     });
