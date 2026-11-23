@@ -51,14 +51,28 @@ final class Deposito
     }
 
     /**
-     * L'impronta di ciò che il PDF di deposito stampa adesso: la pagina la porta nel modulo e `deposita` la ricontrolla. Impostazioni o colonna dell'esercizio precedente
-     * cambiate tra il PDF firmato e la data dell'invio farebbero un'istantanea diversa dal file inviato: il modulo allora si rifiuta.
+     * L'impronta di ciò che il PDF di deposito stampa adesso: otto cifre esadecimali, stampate nel piede del PDF (`piede`). Chi deposita la riscrive nel modulo della data
+     * dell'invio e `deposita` la confronta con quella di adesso: se le impostazioni o la colonna dell'esercizio precedente sono cambiate dopo che il PDF è stato scaricato,
+     * l'istantanea salvata sarebbe diversa dal file firmato e inviato, e il modulo si rifiuta (si riscarica il PDF).
      */
     public static function impronta(int $anno): ?string
     {
         $istantanea = self::istantanea($anno);
 
-        return $istantanea === null ? null : sha1(json_encode($istantanea));
+        return $istantanea === null ? null : self::improntaDi($istantanea);
+    }
+
+    private static function improntaDi(array $istantanea): string
+    {
+        return strtoupper(substr(sha1(json_encode($istantanea)), 0, 8));
+    }
+
+    /** Il piede del PDF di deposito: l'esercizio, l'approvazione e l'impronta da riscrivere nel modulo. */
+    public static function piede(array $istantanea): string
+    {
+        $approvazione = 'approvato il '.Carbon::parse($istantanea['approvata_il'])->format('d/m/Y').' · versione '.$istantanea['versione'];
+
+        return 'Esercizio '.$istantanea['esercizio'].' · '.$approvazione.' · impronta '.self::improntaDi($istantanea);
     }
 
     /** L'istantanea del deposito, solo se l'esercizio è depositato: da lì si leggono i prospetti (#12, #18). */
@@ -84,7 +98,7 @@ final class Deposito
         ];
         $modelloD = Tabelle::modelloD($istantanea['prospetti']['modello_d'], $istantanea['precedente'], $anno);
 
-        return Pdf::deposito('Rendiconto per cassa '.$anno.' · deposito al RUNTS', $intestazione, [['titolo' => 'Modello D · Rendiconto per cassa '.$anno, 'sezioni' => $modelloD]], 'Esercizio '.$anno.' · '.lcfirst($approvazione));
+        return Pdf::deposito('Rendiconto per cassa '.$anno.' · deposito al RUNTS', $intestazione, [['titolo' => 'Modello D · Rendiconto per cassa '.$anno, 'sezioni' => $modelloD]], self::piede($istantanea));
     }
 
     /**
@@ -93,7 +107,7 @@ final class Deposito
      * depositato (`DatiEsercizio::controllaNonDepositato`). La riga dei dati si blocca per prima, come fa `SaldiApertura::inserisci`, che poi blocca i conti.
      *
      * @param  string  $data  il giorno dell'invio («2027-04-25»): dall'approvazione a oggi
-     * @param  string  $impronta  quella del PDF scaricato (`impronta`): se i dati sono cambiati nel frattempo, si riscarica
+     * @param  string  $impronta  quella stampata nel piede del PDF scaricato (`impronta`), riscritta da chi deposita: se non coincide con quella di adesso, si riscarica
      */
     public static function deposita(User $utente, int $anno, string $data, string $impronta): VersioneEsercizio
     {
@@ -109,8 +123,14 @@ final class Deposito
                 self::rifiuta('data', "La data dell'invio va dall'approvazione ({$versione->approvata_il->format('d/m/Y')}) a oggi.");
             }
 
-            if (! hash_equals((string) self::impronta($anno), $impronta)) {
-                self::rifiuta('impronta', 'Impostazioni o dati del PDF sono cambiati dopo che hai aperto la pagina: riscarica il PDF di deposito (è quello da firmare e inviare) e riprova.');
+            // Il PDF firmato e inviato porta «da inserire» al loro posto, e dopo il deposito non si rifà.
+            $impostazioni = ImpostazioniAssociazione::per($anno);
+            if (blank($impostazioni?->codice_fiscale) || blank($impostazioni?->numero_runts)) {
+                self::rifiuta('impostazioni', "Mancano il codice fiscale o il numero RUNTS nelle impostazioni dell'associazione per il $anno: completali e riscarica il PDF di deposito.");
+            }
+
+            if (! hash_equals((string) self::impronta($anno), strtoupper(trim($impronta)))) {
+                self::rifiuta('impronta', 'L’impronta non è quella del PDF di deposito di adesso: o l’hai scritta male, o le impostazioni sono cambiate dopo che hai scaricato il PDF. Riscarica il PDF (è quello da firmare e inviare) e riscrivi l’impronta del suo piede.');
             }
 
             Conto::orderBy('id')->lockForUpdate()->get(['id']);

@@ -40,6 +40,7 @@ class ContiController extends Controller
         $dati = $this->dati($request, $request->string('tipo')->toString());
 
         $this->sottoApertura($request->user(), [$dati['aperto_il']], function () use ($dati, $request) {
+            self::controllaNonDepositato($dati['aperto_il']);
             self::controllaDataDopoApertura($dati['aperto_il']);
             // Al 1/1 dopo la procedura di apertura (#63) un conto nuovo è un secondo inserimento di saldi: passa dal controllo con la chiusura.
             self::primoGennaio($dati['aperto_il']) && SaldiApertura::controllaConto((int) substr($dati['aperto_il'], 0, 4), $dati['riga_modello_d'], $dati['saldo_iniziale']);
@@ -68,6 +69,9 @@ class ContiController extends Controller
             $conto = Conto::lockForUpdate()->findOrFail($conto->id); // la copia bloccata: quella della rotta può essere di prima
             if ($conto->aperto_il->toDateString() !== $letto) {
                 throw ValidationException::withMessages(['conto' => 'Il conto è stato modificato nel frattempo: ricarica la pagina e riprova.']);
+            }
+            if ($dati['saldo_iniziale'] !== $conto->saldo_iniziale || $dati['aperto_il'] !== $letto || $dati['riga_modello_d'] !== $conto->riga_modello_d) {
+                self::controllaNonDepositato($letto, $dati['aperto_il']); // il nome e le note di un conto di un esercizio depositato si cambiano ancora
             }
             // Dopo la procedura di apertura (#63) saldo, riga e data dei conti del 1/1 non si cambiano da qui (sarebbe un secondo inserimento), e un conto
             // che arriva al 1/1 passa dal controllo con la chiusura.
@@ -131,7 +135,8 @@ class ContiController extends Controller
     }
 
     /**
-     * Una scrittura di conti nella stessa transazione, a righe `dati_esercizio` bloccate per gli anni di cui una data è un 1/1: tocca l'apertura di quell'anno.
+     * Una scrittura di conti nella stessa transazione, a righe `dati_esercizio` bloccate per gli anni delle date: se una è un 1/1 tocca l'apertura di quell'anno, e in ogni caso
+     * `Deposito::deposita` blocca quella riga per prima, quindi chi arriva dopo trova l'esercizio depositato (`controllaNonDepositato`).
      * Lo stesso ordine di `SaldiApertura::inserisci` (prima i dati dell'esercizio, poi i conti, poi ogni lettura semplice: MySQL in REPEATABLE READ fotografa alla prima),
      * così un'apertura e un conto al 1/1 non si leggono a vicenda una versione vecchia. Il permesso si rilegge lì.
      * Due anni insieme (un conto spostato da un 1/1 a un altro) si bloccano in ordine di anno, in un'unica lettura.
@@ -140,9 +145,15 @@ class ContiController extends Controller
      */
     private function sottoApertura(User $utente, array $date, Closure $scrittura): mixed
     {
-        $anni = collect($date)->filter(self::primoGennaio(...))->map(fn (string $d) => (int) substr($d, 0, 4))->unique()->sort()->values()->all();
+        $anni = collect($date)->map(fn (string $d) => (int) substr($d, 0, 4))->unique()->sort()->values()->all();
 
         return DatiEsercizio::sottoBlocchi($utente, $anni, fn () => $scrittura(), Permesso::GestireRegole);
+    }
+
+    /** Un conto che nasce, o cambia saldo, riga o data di apertura, in un esercizio depositato cambierebbe i saldi iniziali di cui il deposito ha fissato i prospetti (#60). */
+    private static function controllaNonDepositato(string ...$date): void
+    {
+        DatiEsercizio::controllaNonDepositato(array_map(fn (string $d) => (int) substr($d, 0, 4), $date), 'aperto_il');
     }
 
     /**

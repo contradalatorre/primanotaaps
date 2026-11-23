@@ -91,7 +91,7 @@
                         @can('gestire_esercizio')
                             <form method="POST" action="{{ route('esercizio.deposita', $anno) }}" class="modulo modulo-stretto">
                                 @csrf
-                                <input type="hidden" name="impronta" value="{{ \App\Esercizio\Deposito::impronta($anno) }}">
+                                <label>Impronta del PDF (la trovi nel piede di ogni pagina) <input type="text" name="impronta" maxlength="20" autocomplete="off" value="{{ old('impronta') }}" required></label>
                                 <label>Data dell’invio al RUNTS <input type="date" name="data" min="{{ $vigente->approvata_il->toDateString() }}" max="{{ today()->toDateString() }}" value="{{ old('data') }}" required></label>
                                 <button type="submit" class="bottone">Deposita l’esercizio {{ $anno }}</button>
                             </form>

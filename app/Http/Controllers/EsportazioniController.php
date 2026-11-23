@@ -10,6 +10,7 @@ use App\Esercizio\Pdf;
 use App\Esercizio\Prospetto;
 use App\Esercizio\Tabelle;
 use App\Esercizio\Xlsx;
+use App\Models\DatiEsercizio;
 use App\Models\EsercizioStorico;
 use App\Models\ImpostazioniAssociazione;
 use App\Models\RegistroAccesso;
@@ -67,7 +68,11 @@ class EsportazioniController extends Controller
         $conNote = $request->user()->can('note');
         $elenco = $tipo === 'imputazioni' ? Elenchi::imputazioni($anno, $request->boolean('proposte'), $conNote) : Elenchi::movimenti($anno, $conNote);
 
-        return $this->scarica($request, Elenchi::csv($elenco), 'text/csv; charset=UTF-8', $this->nome(ucfirst($tipo), $anno, 'csv'));
+        $nome = $this->nome(ucfirst($tipo), $anno, 'csv');
+        // Gli elenchi si leggono dal vivo anche dopo il deposito (#60): il nome lo dice, perché il file non finisca allegato a quello depositato.
+        $nome = DatiEsercizio::per($anno)->stato === 'depositato' ? Str::beforeLast($nome, '.csv').'_DatiDiOggi.csv' : $nome;
+
+        return $this->scarica($request, Elenchi::csv($elenco), 'text/csv; charset=UTF-8', $nome);
     }
 
     /** @param  list<array>  $sezioni */

@@ -8,11 +8,14 @@ use App\Import\Foglio;
 use App\Models\Attivita;
 use App\Models\Conto;
 use App\Models\DatiEsercizio;
+use App\Models\DestinazioneAvanzo;
+use App\Models\EsercizioStorico;
 use App\Models\ImpostazioniAssociazione;
 use App\Models\Imputazione;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
+use App\Models\RigaFigurativa;
 use App\Models\Tipologia;
 use App\Models\User;
 use App\Models\VersioneEsercizio;
@@ -75,21 +78,64 @@ class DepositoRuntsTest extends TestCase
     private function deposita(string $data = '2027-04-25', ?User $utente = null, int $anno = 2026)
     {
         // L'impronta è quella che la pagina porta nel modulo (di un esercizio non approvato non c'è: un valore qualunque).
-        return $this->come($utente ?? $this->tesoriere)->post("/esercizi/$anno/deposito", ['data' => $data, 'impronta' => Deposito::impronta($anno) ?? str_repeat('0', 40)]);
+        return $this->come($utente ?? $this->tesoriere)->post("/esercizi/$anno/deposito", ['data' => $data, 'impronta' => Deposito::impronta($anno) ?? str_repeat('0', 8)]);
     }
 
-    public function test_se_le_impostazioni_cambiano_dopo_il_pdf_non_si_deposita_con_la_vecchia_impronta(): void
+    /** L'impronta che chi deposita legge nel piede del PDF scaricato (e riscrive nel modulo). */
+    private function improntaDelPdfScaricato(): string
+    {
+        $this->assertSame(1, preg_match('/impronta ([0-9A-F]{8})$/', Deposito::piede(Deposito::istantanea(2026)), $m));
+        $this->come($this->tesoriere)->get('/esercizi/2026/deposito.pdf')->assertOk();
+
+        return $m[1];
+    }
+
+    public function test_se_le_impostazioni_cambiano_dopo_il_pdf_non_si_deposita_con_l_impronta_stampata(): void
     {
         $this->esercizio2026();
         $this->approva();
-        $impronta = Deposito::impronta(2026);
-        ImpostazioniAssociazione::where('dal_esercizio', 2026)->update(['numero_runts' => '99999']);
+        $stampata = $this->improntaDelPdfScaricato();
+        ImpostazioniAssociazione::where('dal_esercizio', 2026)->update(['denominazione' => 'Un altro nome']); // dopo il download, anche a pagina del modulo mai aperta
 
-        $this->come($this->tesoriere)->post('/esercizi/2026/deposito', ['data' => '2027-04-20', 'impronta' => $impronta])->assertSessionHasErrors('impronta');
+        $this->come($this->tesoriere)->post('/esercizi/2026/deposito', ['data' => '2027-04-20', 'impronta' => $stampata])->assertSessionHasErrors('impronta');
 
         $this->assertSame('approvato', DatiEsercizio::per(2026)->stato);
-        $this->deposita('2027-04-20')->assertSessionHasNoErrors(); // con l'impronta di adesso (PDF riscaricato) si deposita
-        $this->assertSame('99999', Deposito::salvata(2026)['impostazioni']['numero_runts']);
+        $this->assertNotSame($stampata, Deposito::impronta(2026));
+        $this->deposita('2027-04-20')->assertSessionHasNoErrors(); // con l'impronta del PDF riscaricato si deposita
+        $this->assertSame('Un altro nome', Deposito::salvata(2026)['impostazioni']['denominazione']);
+    }
+
+    public function test_se_lo_storico_dell_anno_prima_cambia_dopo_il_pdf_non_si_deposita_con_l_impronta_stampata(): void
+    {
+        $this->esercizio2026();
+        $storico = EsercizioStorico::create(['esercizio' => 2025, 'importi' => ['entrate:A1' => 1000], 'saldo_cassa' => 0, 'saldo_depositi' => 0, 'figurativi' => [], 'differenze' => []]);
+        $this->approva();
+        $stampata = $this->improntaDelPdfScaricato();
+        $storico->update(['importi' => ['entrate:A1' => 2000]]);
+
+        $this->come($this->tesoriere)->post('/esercizi/2026/deposito', ['data' => '2027-04-20', 'impronta' => $stampata])->assertSessionHasErrors('impronta');
+
+        $this->assertSame('approvato', DatiEsercizio::per(2026)->stato);
+    }
+
+    public function test_l_impronta_si_riscrive_anche_in_minuscolo_e_con_gli_spazi_ma_una_sbagliata_si_rifiuta(): void
+    {
+        $this->esercizio2026();
+        $this->approva();
+        $stampata = $this->improntaDelPdfScaricato();
+
+        $this->come($this->tesoriere)->post('/esercizi/2026/deposito', ['data' => '2027-04-20', 'impronta' => '00000000'])->assertSessionHasErrors('impronta');
+        $this->come($this->tesoriere)->post('/esercizi/2026/deposito', ['data' => '2027-04-20', 'impronta' => ' '.strtolower($stampata).' '])->assertSessionHasNoErrors();
+
+        $this->assertSame('depositato', DatiEsercizio::per(2026)->stato);
+    }
+
+    public function test_la_pagina_chiede_di_riscrivere_l_impronta_del_piede_del_pdf(): void
+    {
+        $this->esercizio2026();
+        $this->approva();
+
+        $this->come($this->tesoriere)->get('/esercizi/2026/approvazione')->assertOk()->assertSeeText('Impronta del PDF')->assertDontSee(Deposito::impronta(2026), false);
     }
 
     public function test_la_data_dell_invio_porta_l_esercizio_a_depositato_e_salva_l_istantanea(): void
@@ -317,5 +363,87 @@ class DepositoRuntsTest extends TestCase
         $this->deposita('')->assertSessionHasErrors('data');
 
         $this->assertSame('approvato', DatiEsercizio::per(2026)->stato);
+    }
+
+    public function test_senza_codice_fiscale_o_numero_runts_non_si_deposita(): void
+    {
+        $this->esercizio2026();
+        $this->approva();
+
+        foreach (['codice_fiscale', 'numero_runts'] as $campo) {
+            $originale = ImpostazioniAssociazione::per(2026)->$campo;
+            ImpostazioniAssociazione::where('dal_esercizio', 2026)->update([$campo => null]);
+
+            $this->deposita('2027-04-20')->assertSessionHasErrors('impostazioni');
+
+            $this->assertSame('approvato', DatiEsercizio::per(2026)->stato);
+            ImpostazioniAssociazione::where('dal_esercizio', 2026)->update([$campo => $originale]);
+        }
+        $this->deposita('2027-04-20')->assertSessionHasNoErrors();
+    }
+
+    public function test_gli_elenchi_di_un_esercizio_depositato_dicono_che_sono_dati_di_oggi(): void
+    {
+        $this->esercizio2026();
+        $this->approva();
+        $this->come($this->tesoriere)->get('/esercizi/2026/imputazioni')->assertOk()->assertDontSeeText('dati di oggi');
+        $this->come($this->tesoriere)->get('/esercizi/2026/imputazioni.csv')->assertDownload('Imputazioni_2026_ContradaLaTorre.csv');
+        $this->deposita('2027-04-20')->assertSessionHasNoErrors();
+
+        $this->come($this->tesoriere)->get('/esercizi/2026/imputazioni')->assertOk()->assertSeeText('questo elenco è letto dai dati di oggi, non è quello depositato');
+        $this->come($this->tesoriere)->get('/esercizi/2026/imputazioni.csv')->assertDownload('Imputazioni_2026_ContradaLaTorre_DatiDiOggi.csv');
+        $this->come($this->tesoriere)->get('/esercizi/2026/movimenti.csv')->assertDownload('Movimenti_2026_ContradaLaTorre_DatiDiOggi.csv');
+        $this->assertDatabaseHas('registro_accessi', ['evento' => 'esportazione_imputazioni_csv_2026']);
+    }
+
+    private function datiConto(Conto $conto, array $cambi = []): array
+    {
+        return $cambi + ['nome' => $conto->nome, 'formato_import' => $conto->formato_import, 'riga_modello_d' => $conto->riga_modello_d, 'aperto_il' => $conto->aperto_il->toDateString(), 'saldo_iniziale' => number_format($conto->saldo_iniziale / 100, 2, ',', '')];
+    }
+
+    public function test_in_un_esercizio_depositato_non_nasce_un_conto_e_non_ne_cambiano_saldo_o_apertura(): void
+    {
+        $this->esercizio2026();
+        $altro = Conto::factory()->create(['nome' => 'Cassa 2027', 'aperto_il' => '2027-01-01', 'saldo_iniziale' => 0]);
+        $this->approva();
+        $this->deposita('2027-04-20')->assertSessionHasNoErrors();
+        $nuovo = fn (string $data) => ['tipo' => 'cassa', 'nome' => 'Cassa '.$data, 'formato_import' => 'manuale', 'aperto_il' => $data, 'saldo_iniziale' => '0'];
+
+        $this->come($this->tesoriere)->post('/conti', $nuovo('2026-03-01'))->assertSessionHasErrors('aperto_il');
+        $this->come($this->tesoriere)->post('/conti', $nuovo('2026-01-01'))->assertSessionHasErrors('aperto_il');
+        $this->come($this->tesoriere)->put("/conti/{$this->cassa->id}", $this->datiConto($this->cassa, ['saldo_iniziale' => '5,00']))->assertSessionHasErrors('aperto_il');
+        $this->come($this->tesoriere)->put("/conti/{$altro->id}", $this->datiConto($altro, ['aperto_il' => '2026-05-01']))->assertSessionHasErrors('aperto_il'); // spostato in un anno depositato
+
+        $this->assertSame(2, Conto::count());
+        $this->assertSame(0, $this->cassa->fresh()->saldo_iniziale);
+        $this->assertSame('2027-01-01', $altro->fresh()->aperto_il->toDateString());
+        // Il nome si cambia, e un conto del 2027 nasce.
+        $this->come($this->tesoriere)->put("/conti/{$this->cassa->id}", $this->datiConto($this->cassa, ['nome' => 'Cassa principale']))->assertSessionHasNoErrors();
+        $this->come($this->tesoriere)->post('/conti', $nuovo('2027-02-01'))->assertSessionHasNoErrors();
+        $this->assertSame('Cassa principale', $this->cassa->fresh()->nome);
+    }
+
+    public function test_dopo_il_deposito_i_dati_dell_esercizio_non_si_scrivono_piu(): void
+    {
+        $this->esercizio2026();
+        $figurativa = RigaFigurativa::create(['esercizio' => 2026, 'tipo' => 'costo', 'area' => 'A', 'descrizione' => 'Gruppo cucina', 'importo' => 1000]);
+        $destinazione = DestinazioneAvanzo::create(['esercizio' => 2026, 'descrizione' => 'Fondo scorta', 'importo' => 500]);
+        $this->approva();
+        $this->deposita('2027-04-20')->assertSessionHasNoErrors();
+        $campi = ['criterio_riparto', 'attivo', 'dipendenti_medi', 'figurativi_dichiarati'];
+        $dati = DatiEsercizio::per(2026)->only($campi);
+        $registri = RegistroModifica::count();
+
+        $this->come($this->tesoriere)->put('/esercizi/2026/dati', ['dipendenti_medi' => 9, 'attivo' => '1,00', 'criterio_riparto' => 'costi_diretti', 'figurativi_dichiarati' => '1'])->assertSessionHasErrors('stato');
+        $this->come($this->tesoriere)->post('/esercizi/2026/dati/figurativi', ['tipo' => 'provento', 'area' => 'A', 'descrizione' => 'Gruppo bar', 'importo' => '10,00'])->assertSessionHasErrors('stato');
+        $this->come($this->tesoriere)->post('/esercizi/2026/dati/destinazione', ['descrizione' => 'Fondo nuovo', 'importo' => '10,00'])->assertSessionHasErrors('stato');
+        $this->come($this->tesoriere)->delete("/esercizi/2026/dati/figurativi/{$figurativa->id}")->assertSessionHasErrors('stato');
+        $this->come($this->tesoriere)->delete("/esercizi/2026/dati/destinazione/{$destinazione->id}")->assertSessionHasErrors('stato');
+
+        $this->assertSame($dati, DatiEsercizio::per(2026)->only($campi));
+        $this->assertSame(1, RigaFigurativa::count());
+        $this->assertSame(1, DestinazioneAvanzo::count());
+        $this->assertSame($registri, RegistroModifica::count());
+        $this->come($this->tesoriere)->get('/esercizi/2026/dati')->assertOk()->assertSeeText('L’esercizio 2026 è depositato');
     }
 }

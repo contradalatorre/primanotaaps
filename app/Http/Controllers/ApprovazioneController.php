@@ -45,7 +45,7 @@ class ApprovazioneController extends Controller
 
     public function deposita(Request $request, int $anno): RedirectResponse
     {
-        $campi = $request->validate(['data' => ['required', 'date_format:Y-m-d'], 'impronta' => ['required', 'string', 'size:40']]);
+        $campi = $request->validate(['data' => ['required', 'date_format:Y-m-d'], 'impronta' => ['required', 'string', 'max:20']]);
         $versione = Deposito::deposita($request->user(), $anno, $campi['data'], $campi['impronta']);
 
         return redirect()->route('esercizio.approvazione', $anno)->with('ok', "Esercizio $anno depositato il {$versione->depositata_il->format('d/m/Y')}: i prospetti sono fissati e i movimenti non si toccano più.");
