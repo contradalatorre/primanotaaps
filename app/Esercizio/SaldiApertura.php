@@ -138,6 +138,9 @@ final class SaldiApertura
     public static function inserisci(User $utente, int $anno, array $saldi): void
     {
         DatiEsercizio::sottoBlocco($utente, $anno, function (DatiEsercizio $dati) use ($utente, $anno, $saldi) {
+            if ($dati->stato === 'depositato') { // prima dei conti: l'ordine dei blocchi è dati, poi conti
+                throw ValidationException::withMessages(['stato' => "L'esercizio $anno è depositato: i suoi dati non si cambiano più. Per correggere un errore l'Amministratore lo riapre."]);
+            }
             if ($dati->saldi_apertura_il !== null) {
                 throw ValidationException::withMessages(['apertura' => "I saldi di apertura del $anno sono già inseriti: non si inseriscono due volte."]);
             }

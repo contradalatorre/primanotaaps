@@ -205,4 +205,14 @@ class AperturaSaldiTest extends TestCase
         $this->actingAs($this->tesoriere)->post('/esercizi/2026/saldi-apertura', $this->saldi())->assertSessionHasErrors('apertura');
         $this->assertNull(DatiEsercizio::per(2026)->saldi_apertura_il);
     }
+
+    public function test_un_esercizio_depositato_senza_apertura_non_accetta_i_saldi(): void // #60
+    {
+        DatiEsercizio::create(['esercizio' => 2026, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'stato' => 'depositato']);
+
+        $this->actingAs($this->tesoriere)->post('/esercizi/2026/saldi-apertura', $this->saldi())->assertSessionHasErrors('stato');
+
+        $this->assertSame([0, 0, 0], [$this->cassa->fresh()->saldo_iniziale, $this->banca->fresh()->saldo_iniziale, $this->paypal->fresh()->saldo_iniziale]);
+        $this->assertNull(DatiEsercizio::per(2026)->saldi_apertura_il);
+    }
 }
