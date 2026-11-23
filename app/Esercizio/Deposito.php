@@ -62,9 +62,16 @@ final class Deposito
         return $istantanea === null ? null : self::improntaDi($istantanea);
     }
 
+    /** Le chiavi si ordinano (le liste no): riletta dalla colonna JSON, l'istantanea salvata ha le chiavi in un altro ordine, e il piede non deve cambiare. */
     private static function improntaDi(array $istantanea): string
     {
-        return strtoupper(substr(sha1(json_encode($istantanea)), 0, 8));
+        $ordina = function (array $a) use (&$ordina): array {
+            array_is_list($a) || ksort($a, SORT_STRING);
+
+            return array_map(fn ($v) => is_array($v) ? $ordina($v) : $v, $a);
+        };
+
+        return strtoupper(substr(sha1(json_encode($ordina($istantanea))), 0, 8));
     }
 
     /** Il piede del PDF di deposito: l'esercizio, l'approvazione e l'impronta da riscrivere nel modulo. */

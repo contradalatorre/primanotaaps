@@ -100,6 +100,9 @@ class EsportazioniController extends Controller
         if ($prefisso === 'ModelloD') {
             $dettaglio = Elenchi::imputazioni($anno, $proposte, $request->user()->can('note'));
             $fogli['Dettaglio'] = [['celle' => $dettaglio['colonne'], 'grassetto' => true], ...array_map(fn (array $riga) => ['celle' => $riga], $dettaglio['righe'])];
+            if ($approvata?->depositata_il) { // il Modello D è l'istantanea, il dettaglio no
+                array_unshift($fogli['Dettaglio'], ['celle' => ['Dati di oggi, non quelli depositati'], 'grassetto' => true]);
+            }
         }
         $xlsx = Xlsx::crea($fogli);
 

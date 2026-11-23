@@ -219,8 +219,9 @@ class DepositoRuntsTest extends TestCase
         $this->come($this->tesoriere)->get('/esercizi/2026/rendiconto')->assertOk()->assertSeeText('Depositato il 20/04/2027')->assertSeeText('800,00')->assertDontSeeText('900,00');
         $this->come($this->tesoriere)->get('/esercizi/2026/test')->assertOk()->assertSeeText('Depositato il 20/04/2027');
 
-        $xlsx = Foglio::leggi($this->come($this->tesoriere)->get('/esercizi/2026/modello-d/xlsx')->assertOk()->getContent())['Modello D'];
-        $celle = collect($xlsx)->flatten()->all();
+        $fogli = Foglio::leggi($this->come($this->tesoriere)->get('/esercizi/2026/modello-d/xlsx')->assertOk()->getContent());
+        $this->assertContains('Dati di oggi, non quelli depositati', collect($fogli['Dettaglio'])->flatten()->all());
+        $celle = collect($fogli['Modello D'])->flatten()->all();
         $this->assertContains(800.0, $celle);
         $this->assertNotContains(900.0, $celle);
         $this->assertContains('Depositato il 20/04/2027 · versione 1 · istantanea del deposito.', $celle);
@@ -363,6 +364,18 @@ class DepositoRuntsTest extends TestCase
         $this->deposita('')->assertSessionHasErrors('data');
 
         $this->assertSame('approvato', DatiEsercizio::per(2026)->stato);
+    }
+
+    public function test_l_impronta_nel_piede_resta_la_stessa_dopo_il_deposito(): void
+    {
+        $this->esercizio2026();
+        $this->approva();
+        $prima = Deposito::piede(Deposito::istantanea(2026));
+
+        $this->deposita('2027-04-20')->assertSessionHasNoErrors();
+
+        // L'istantanea riletta dal database (colonna JSON: MySQL riordina le chiavi) stampa lo stesso piede del file firmato e inviato.
+        $this->assertSame($prima, Deposito::piede(Deposito::istantanea(2026)));
     }
 
     public function test_senza_codice_fiscale_o_numero_runts_non_si_deposita(): void
