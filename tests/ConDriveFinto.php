@@ -2,7 +2,6 @@
 
 namespace Tests;
 
-use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Http;
 
 /** Per i test che toccano il drive condiviso (#68): un service account inventato con una chiave generata al volo, e il drive di Google simulato. */
@@ -27,12 +26,7 @@ trait ConDriveFinto
     /** Google risponde bene a tutto (il file creato ha id `file-1`), salvo ciò che si passa in `$altro`. */
     protected function fingiDrive(array $altro = []): void
     {
-        // Parte da un client nuovo: tra due `Http::fake` vince la prima risposta che corrisponde, e `$altro` deve poter cambiare quelle di prima.
-        app()->forgetInstance(Factory::class);
-        Http::clearResolvedInstance(Factory::class);
-        Http::preventStrayRequests(); // il client nuovo ha perso il divieto della TestCase
-        Http::fake($altro + [
-            'oauth2.googleapis.com/token' => Http::response(['access_token' => 'token-di-accesso', 'expires_in' => 3600]),
+        $this->httpDaCapo($altro + [
             'www.googleapis.com/upload/drive/v3/files*' => Http::response(['id' => 'file-1']),
             'www.googleapis.com/drive/v3/files/*' => Http::response('', 204),
         ]);
