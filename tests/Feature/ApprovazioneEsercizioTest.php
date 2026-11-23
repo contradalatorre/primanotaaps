@@ -153,7 +153,6 @@ class ApprovazioneEsercizioTest extends TestCase
         EsercizioStorico::create(['esercizio' => 2025, 'importi' => [], 'saldo_cassa' => 0, 'saldo_depositi' => 0, 'figurativi' => [], 'differenze' => []]);
         $this->approva(2025, '2026-04-20')->assertSessionHasErrors('stato');
         $this->travelTo('2028-02-01');
-        $this->riverificaAccountGoogle();
         $this->approva(2027, '2028-01-10')->assertSessionHasErrors('stato'); // le voci del 2027 non sono state aperte
 
         $this->assertSame(0, VersioneEsercizio::count());
@@ -303,7 +302,6 @@ class ApprovazioneEsercizioTest extends TestCase
         $this->assertSame('non_rispettato', $s['esito']);
 
         $this->travelTo('2028-02-01 10:00');
-        $this->riverificaAccountGoogle();
         $this->approva(2027, '2028-01-20')->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('a', DatiEsercizio::per(2027)->criterio_secondarieta, 'Il criterio fissato è quello del rientro');
         $this->assertSame('non_rispettato', VersioneEsercizio::where('esercizio', 2027)->sole()->esito_secondarieta);
@@ -316,7 +314,6 @@ class ApprovazioneEsercizioTest extends TestCase
         $this->come($this->tesoriere)->post('/esercizi/2027/apertura')->assertRedirect();
         $this->imputa('entrata', 1000, '2027-03-01', 'Quote associative');
         $this->travelTo('2028-02-01 10:00');
-        $this->riverificaAccountGoogle();
 
         $this->approva(2027, '2028-01-20')->assertSessionHasErrors('stato');
         $this->assertSame(0, VersioneEsercizio::count());
@@ -339,7 +336,6 @@ class ApprovazioneEsercizioTest extends TestCase
         $this->come($this->tesoriere)->post('/esercizi/2027/apertura')->assertRedirect();
         $this->imputa('entrata', 1000, '2027-03-01', 'Quote associative');
         $this->travelTo('2028-02-01 10:00');
-        $this->riverificaAccountGoogle();
         $this->confermaCriterio('b')->assertSessionHasNoErrors(); // il 66% regge: il 2026 è approvato come rispettato
         $this->approva(2026, '2027-04-20')->assertRedirect();
         $this->approva(2027, '2028-01-20')->assertRedirect();
@@ -633,7 +629,6 @@ class ApprovazioneEsercizioTest extends TestCase
 
         $this->approva(2026, '2027-04-22', $this->tesoriere)->assertSessionHasErrors('data'); // domani: non c'è ancora
         $this->travelTo('2027-04-25');
-        $this->riverificaAccountGoogle();
         $this->approva(2026, '2027-04-22')->assertRedirect();
 
         $this->assertSame([1, 2], VersioneEsercizio::where('esercizio', 2026)->orderBy('numero')->pluck('numero')->all());

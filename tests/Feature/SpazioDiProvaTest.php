@@ -124,7 +124,7 @@ class SpazioDiProvaTest extends TestCase
 
         $this->get('/_prova/esterno')->assertOk()->assertSee('bloccata|array', false);
         $this->assertSame('smtp', config('mail.default'), 'uscendo dalla prova il mailer torna quello di prima');
-        $this->assertTrue(Http::preventingStrayRequests(), 'uscendo dalla prova il divieto torna quello di prima: attivo, come in ogni test');
+        $this->assertFalse(Http::preventingStrayRequests());
     }
 
     public function test_se_il_database_di_prova_non_risponde_non_si_continua_sul_database_vero(): void

@@ -209,7 +209,6 @@ class ImportFoglioCassaTest extends TestCase
     {
         $this->importa(self::foglio()); // movimenti del 2026
         $this->travelTo('2027-01-10 10:00'); // le voci del Modello D ci sono solo per il 2026
-        $this->riverificaAccountGoogle();
 
         $this->salvaRiga('Assicurazioni', ['tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id'), 'area' => 'E'])->assertSessionHasNoErrors();
 
@@ -232,7 +231,6 @@ class ImportFoglioCassaTest extends TestCase
     public function test_senza_movimenti_con_quella_causale_la_voce_non_si_controlla_per_anno(): void
     {
         $this->travelTo('2027-01-10 10:00'); // nessun import: non c'è un anno da controllare, e quello di oggi non ha le voci
-        $this->riverificaAccountGoogle();
 
         $this->salvaRiga('Assicurazioni', ['tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id'), 'area' => 'E'])->assertSessionHasNoErrors();
     }
