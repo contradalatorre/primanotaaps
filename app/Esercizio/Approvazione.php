@@ -47,6 +47,10 @@ final class Approvazione
             }
 
             $istantanea = Verifiche::istantanea($anno);
+            // Il PDF di deposito è il rendiconto approvato (#60): se le raccolte fondi non quadrano con C2 o manca una motivazione, non si potrebbe produrre, e correggere dopo vuol dire riaprire.
+            if ($istantanea['raccolte']['bloccanti'] !== []) {
+                self::rifiuta('raccolte', 'Le raccolte fondi occasionali non sono pronte per il deposito: '.implode(' ', $istantanea['raccolte']['bloccanti']));
+            }
             $s = $istantanea['secondarieta'];
             $criterio = $s['confermato'] ?? $s['proposto']; // il confermato, altrimenti quello che l'app propone: da qui è fissato
             $prima = $dati->istantanea();

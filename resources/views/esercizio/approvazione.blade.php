@@ -7,6 +7,7 @@
     <h1>Approvazione dell’esercizio {{ $anno }}</h1>
     <p class="nota">
         <a href="{{ route('modello-d', $anno) }}" class="link">Modello D</a> ·
+        <a href="{{ route('esercizio.raccolte', $anno) }}" class="link">Raccolte fondi occasionali</a> ·
         <a href="{{ route('esercizio.rendiconto', $anno) }}" class="link">Rendiconto per l’assemblea</a> ·
         <a href="{{ route('test-esercizio', $anno) }}" class="link">Test dell’esercizio</a> ·
         <a href="{{ route('esercizio.approvazione', $anno - 1) }}" class="link">{{ $anno - 1 }}</a> ·

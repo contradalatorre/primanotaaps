@@ -44,7 +44,7 @@ final class Prospetto
             ->get()->sortBy(fn (Imputazione $i) => [$i->movimento->data->toDateString(), $i->id])->values()
             ->map(function (Imputazione $i) use ($voci) {
                 $lato = ($i->tipologia?->verso ?? $i->movimento->verso) === 'entrata' ? 'entrate' : 'uscite';
-                $voce = $i->tipologia_id === null ? null : $voci->get($i->area->value.'|'.$i->tipologia_id);
+                $voce = $i->tipologia_id === null ? null : SchemaModelloD::voceDi($i->area->value, $voci->get($i->area->value.'|'.$i->tipologia_id), $i->attivita?->raccolta);
 
                 return ['imputazione' => $i, 'lato' => $lato, 'voce' => $voce, 'chiave' => SchemaModelloD::conosce($lato, $voce) ? "$lato:$voce" : self::SENZA_RIGA];
             });
@@ -82,7 +82,7 @@ final class Prospetto
             return new Imputata(
                 $r['lato'], $r['voce'], abs($i->importo), $i->area->value, $i->iniziativa_id,
                 $r['lato'] === 'entrate' ? Natura::calcola($ingressi) : null,
-                $forzata, in_array('neutra_nel_test_dell_ente', $i->tipologia?->proprieta ?? [], true),
+                $forzata, in_array('neutra_nel_test_dell_ente', $i->tipologia?->proprieta ?? [], true), in_array('liberalita', $i->tipologia?->proprieta ?? [], true),
             );
         })->all();
     }
@@ -196,6 +196,22 @@ final class Prospetto
         $senzaGiustificativo = $dellAnno()->speseSenzaGiustificativo()->count();
         if ($senzaGiustificativo > 0) {
             $impedimenti[] = ['testo' => $senzaGiustificativo.($senzaGiustificativo === 1 ? ' spesa è senza giustificativo' : ' spese sono senza giustificativo'), 'link' => route('movimenti', ['senza_giustificativo' => 1, 'anno' => $anno])];
+        }
+
+        // Le raccolte fondi occasionali (#61, storia 130): imputazioni che nessuna raccolta può contare, poi ciò che bloccherebbe l'approvazione e il deposito.
+        $raccolte = Raccolte::calcola($anno);
+        if ($raccolte['senzaRiga'] > 0) {
+            $impedimenti[] = ['testo' => $raccolte['senzaRiga'].($raccolte['senzaRiga'] === 1 ? ' imputazione delle raccolte fondi senza riga dello schema (o senza iniziativa)' : ' imputazioni delle raccolte fondi senza riga dello schema (o senza iniziativa)'), 'link' => route('esercizio.raccolte', $anno)];
+        }
+        foreach ($raccolte['bloccanti'] as $bloccante) {
+            $impedimenti[] = ['testo' => 'Raccolte fondi: '.$bloccante, 'link' => route('esercizio.raccolte', $anno)];
+        }
+        // Dopo l'approvazione le raccolte non si scrivono più: la relazione va completata prima.
+        foreach ($raccolte['raccolte'] as $r) {
+            $mancano = count(array_filter($r['relazione']['guida'], fn (array $g) => ! $g['fatto']));
+            if ($mancano > 0) {
+                $impedimenti[] = ['testo' => '«'.$r['nome'].'»: '.$mancano.($mancano === 1 ? ' campo della relazione da completare' : ' campi della relazione da completare'), 'link' => route('esercizio.raccolta', [$anno, $r['iniziativa_id']])];
+            }
         }
 
         $senzaMeta = Giroconti::proposte()->where('tipo', '!=', 'coppia')->filter(fn (array $p) => $p['movimento']->data->year === $anno);

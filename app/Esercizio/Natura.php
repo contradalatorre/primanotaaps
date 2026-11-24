@@ -52,7 +52,9 @@ final readonly class Natura
 
         return match ($i['area']) {
             'B' => new self(true, 'area-b', 'Attività diversa (area B, art. 6 CTS): le entrate sono commerciali nel test dell’ente (art. 79 c. 5 CTS).'),
-            'C' => new self(false, 'area-c', 'Raccolta fondi (area C): liberalità e raccolte occasionali non sono commerciali (art. 79 c. 4 e 5-bis CTS).'),
+            'C' => $i['voce'] === 'C1'
+                ? new self(false, 'area-c1', 'Raccolta fondi abituale (C1): le liberalità non sono commerciali (art. 79 c. 4 e 5-bis CTS), ma la parte corrispettiva è neutra nel test dell’ente (non conta né tra i proventi commerciali né tra i non commerciali) e conta tra i ricavi del forfettario (art. 86), per prudenza. Forzarla a non commerciale non cambia né l’uno né l’altro.')
+                : new self(false, 'area-c', 'Raccolta fondi (area C): liberalità e raccolte occasionali non sono commerciali (art. 79 c. 4 e 5-bis CTS).'),
             'D', 'E' => new self(false, 'area-d-e', 'Attività finanziaria, patrimoniale o di supporto (area D o E): non è un’attività d’impresa e resta fuori dai test.'),
             default => self::areaA($i, $socio),
         };

@@ -6,6 +6,7 @@ namespace App\Esercizio;
  * Le differenze di un esercizio dalla sua versione approvata (#59, #12, #18): un modulo puro, senza database, che confronta due «impronte» piatte, cioè le voci del
  * Modello D e i totali in centesimi, gli esiti dei test e le cifre del rendiconto per l'assemblea (che con lo stesso Modello D può cambiare: iniziativa, attività, conto). L'impronta si ricava da quello che l'approvazione salva (`Verifiche::istantanea`), così la versione approvata
  * e lo stato di oggi si confrontano con la stessa lente. Le cifre che non cambiano non compaiono.
+ * shortcut: le raccolte fondi occasionali (#61) non sono nell'impronta, ma le loro cifre in denaro stanno nella voce C2; i dati scritti a mano (relazione, liberalità non monetarie) non si confrontano. Da rivedere se serve.
  */
 final class Differenze
 {

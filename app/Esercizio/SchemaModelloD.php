@@ -63,6 +63,24 @@ final class SchemaModelloD
         ];
     }
 
+    /**
+     * L'unico punto che ricava la voce di un'imputazione da quella della tabella `voci_modello_d` (#61): in area C la tabella dice «C1» e la voce vera dipende dall'attività
+     * (raccolta abituale: C1, occasionale: C2). Senza un'attività di raccolta non si sa, e l'imputazione resta «senza riga» come ogni altra che il Modello D non sa collocare.
+     * shortcut: C3 (altre entrate e uscite di raccolta fondi) non ha tipologie che la usino; una voce di C diversa da C1 passa com'è.
+     */
+    public static function voceDi(string $area, ?string $voce, ?string $raccolta): ?string
+    {
+        if ($area !== 'C' || $voce !== 'C1') {
+            return $voce;
+        }
+
+        return match ($raccolta) {
+            'occasionale' => 'C2',
+            'abituale' => 'C1',
+            default => null,
+        };
+    }
+
     /** La voce è una riga del Modello D su quel lato: area A-E, investimenti, e per le uscite la riga «Imposte». */
     public static function conosce(string $lato, ?string $voce): bool
     {

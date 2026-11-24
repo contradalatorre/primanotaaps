@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Area;
 use App\Esercizio\Natura;
+use App\Esercizio\SchemaModelloD;
 use App\Esercizio\Verifiche;
 use App\Euro;
 use Illuminate\Database\Eloquent\Model;
@@ -72,8 +73,8 @@ class Imputazione extends Model
             return null;
         }
 
-        return DB::table('voci_modello_d')->where('esercizio', $this->movimento->data->year)
-            ->where('area', $this->area->value)->where('tipologia_id', $this->tipologia_id)->value('voce');
+        return SchemaModelloD::voceDi($this->area->value, DB::table('voci_modello_d')->where('esercizio', $this->movimento->data->year)
+            ->where('area', $this->area->value)->where('tipologia_id', $this->tipologia_id)->value('voce'), $this->attivita?->raccolta);
     }
 
     /** «Entrate A1»: la voce con il lato del Modello D, perché «A1» c'è sia tra le entrate sia tra le uscite. */
@@ -105,7 +106,8 @@ class Imputazione extends Model
             'area' => $this->area->value,
             'voce' => $voce,
             'tipologia_id' => $this->tipologia_id,
-            'proprieta' => collect($this->tipologia?->proprieta)->sort()->values()->all(),
+            // «Liberalità» (#61) non entra nella natura commerciale (la legge `TestNatura` dalla tipologia): tra gli ingressi segnerebbe «da rivedere» ogni forzatura già fatta.
+            'proprieta' => collect($this->tipologia?->proprieta)->reject(fn (string $p) => $p === 'liberalita')->sort()->values()->all(),
             'tipo_controparte' => $this->movimento->tipo_controparte,
             'affiliazione_rete' => $affiliazioneRete,
         ];

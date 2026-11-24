@@ -6,6 +6,7 @@ use App\Esercizio\Calcolo;
 use App\Esercizio\ContoRendiconto;
 use App\Esercizio\Importo;
 use App\Esercizio\Imputata;
+use App\Esercizio\Raccolta;
 use App\Esercizio\RendicontoAssemblea;
 use App\Esercizio\RigaRendiconto;
 use App\Esercizio\Saldo;
@@ -136,5 +137,61 @@ class TabelleTest extends TestCase
         $this->assertSame([['Ente'], ['Provvisorio'], [], ['S1'], ['a', 'b']], array_map(fn (array $r) => array_slice($r['celle'], 0, 2), array_slice($righe, 0, 5)));
         $this->assertTrue($righe[0]['grassetto']);
         $this->assertFalse($righe[1]['grassetto']);
+    }
+
+    /** Il rendiconto di una raccolta come lo stamperebbe il PDF di deposito (#61): inventato, con la relazione solo in parte scritta. */
+    private function raccolta(array $dati = []): array
+    {
+        $r = Raccolta::calcola([
+            ['lato' => 'entrate', 'riga' => 'liberalita_monetarie', 'importo' => 30000, 'conto' => 'cassa'], ['lato' => 'entrate', 'riga' => 'liberalita_monetarie', 'importo' => 20000, 'conto' => 'depositi'],
+            ['lato' => 'uscite', 'riga' => 'acquisto_beni', 'importo' => 4000, 'conto' => 'cassa'],
+        ], [['descrizione' => 'Cesti di prodotti locali', 'quantita' => 4, 'valore' => 8000, 'criterio' => 'Prezzo di listino', 'documento' => 'Ricevuta n. 1']], $dati);
+
+        return ['nome' => 'Notte delle lanterne'] + $r;
+    }
+
+    public function test_la_raccolta_ha_proventi_oneri_risultato_liberalita_e_relazione(): void
+    {
+        $sezioni = Tabelle::raccolta($this->raccolta(['dal' => '2026-12-08', 'al' => '2026-12-09', 'occasione' => 'Giornata del volontariato', 'attivita_destinazione' => 'Lettera i (art. 5 CTS)']), 2026);
+        $righe = $this->righe($sezioni);
+
+        $this->assertSame(['Evento', 'Proventi (a)', 'Oneri (b)', 'Risultato (a − b)', 'Liberalità non monetarie', 'Relazione illustrativa'], array_column($sezioni, 'titolo'));
+        $this->assertSame(['Notte delle lanterne'], $righe['Evento']['Denominazione']);
+        $this->assertSame(['dal 08/12/2026 al 09/12/2026'], $righe['Evento']['Date']);
+        $this->assertEquals([new Importo(50000)], $righe['Proventi (a)']['Liberalità monetarie']);
+        $this->assertEquals([new Importo(8000)], $righe['Proventi (a)']['Liberalità non monetarie (valore di mercato)']);
+        $this->assertEquals([new Importo(58000)], $righe['Proventi (a)']['Totale proventi']);
+        $this->assertEquals([new Importo(4000)], $righe['Oneri (b)']['Acquisto di beni']);
+        $this->assertEquals([new Importo(0)], $righe['Oneri (b)']['Noleggi e affitti']);
+        $this->assertEquals([new Importo(54000)], $righe['Risultato (a − b)']['Risultato']);
+        $this->assertEquals(['4', new Importo(8000), 'Prezzo di listino', 'Ricevuta n. 1'], $righe['Liberalità non monetarie']['Cesti di prodotti locali']);
+        $this->assertEquals([new Importo(30000)], $righe['Relazione illustrativa']['Denaro raccolto in contanti']);
+        $this->assertEquals([new Importo(20000)], $righe['Relazione illustrativa']['Denaro raccolto su conto corrente o altro']);
+        $this->assertEquals([new Importo(8000)], $righe['Relazione illustrativa']['Valore dei beni (liberalità non monetarie)']);
+        $this->assertEquals([new Importo(54000)], $righe['Relazione illustrativa']['Netto raccolto']);
+        $this->assertSame(['Giornata del volontariato'], $righe['Relazione illustrativa']['Ricorrenza o campagna']);
+        $this->assertSame(['Lettera i (art. 5 CTS)'], $righe['Relazione illustrativa']['Attività di destinazione']);
+    }
+
+    public function test_cio_che_l_operatore_non_ha_scritto_si_stampa_da_completare_e_la_motivazione_solo_se_serve(): void
+    {
+        $righe = $this->righe(Tabelle::raccolta($this->raccolta(), 2026));
+
+        $this->assertSame(['da completare'], $righe['Relazione illustrativa']['Luogo']);
+        $this->assertSame(['da completare'], $righe['Evento']['Date']);
+        $this->assertArrayNotHasKey('Motivazione', $righe['Relazione illustrativa']);
+
+        $negativa = Raccolta::calcola([['lato' => 'uscite', 'riga' => 'acquisto_beni', 'importo' => 4000, 'conto' => 'cassa']], [], ['motivazione' => 'Spese di allestimento']);
+        $this->assertSame(['Spese di allestimento'], $this->righe(Tabelle::raccolta(['nome' => 'X'] + $negativa, 2026))['Relazione illustrativa']['Motivazione']);
+    }
+
+    public function test_gli_importi_scritti_a_mano_nella_relazione_sono_importi(): void
+    {
+        $righe = $this->righe(Tabelle::raccolta($this->raccolta(['beni_modico_numero' => 12, 'beni_modico_prezzo' => 250, 'elargizioni_persone_fisiche' => 40000, 'elargizioni_persone_giuridiche' => 0]), 2026))['Relazione illustrativa'];
+
+        $this->assertSame(['12'], $righe['Beni di modico valore ceduti (numero)']);
+        $this->assertEquals([new Importo(250)], $righe['Beni di modico valore ceduti (prezzo di ciascuno)']);
+        $this->assertEquals([new Importo(40000)], $righe['Elargizioni di persone fisiche']);
+        $this->assertEquals([new Importo(0)], $righe['Elargizioni di persone giuridiche']);
     }
 }

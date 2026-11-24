@@ -8,6 +8,7 @@ use App\Esercizio\Differenze;
 use App\Esercizio\Elenchi;
 use App\Esercizio\Pdf;
 use App\Esercizio\Prospetto;
+use App\Esercizio\Raccolte;
 use App\Esercizio\Tabelle;
 use App\Esercizio\Xlsx;
 use App\Models\DatiEsercizio;
@@ -52,6 +53,21 @@ class EsportazioniController extends Controller
     }
 
     /**
+     * Il rendiconto e la relazione di una raccolta fondi occasionale da soli (#61), in PDF e XLSX: quelli che il PDF di deposito allega, scaricabili anche separatamente.
+     * Come la pagina: depositato dall'istantanea, altrimenti dal vivo. Il nome tiene `Raccolta_<anno>_` all'inizio (il registro degli accessi legge l'anno dal secondo pezzo).
+     */
+    public function raccolta(Request $request, int $anno, int $iniziativa, string $formato): Response
+    {
+        $salvata = Deposito::istantanea($anno);
+        $proposte = $salvata === null && $request->boolean('proposte');
+        $r = collect(Raccolte::vista($anno, $proposte)['raccolte'])->firstWhere('iniziativa_id', $iniziativa);
+        abort_if($r === null, 404);
+        $titolo = 'Raccolta fondi occasionale · '.$r['nome'].' · '.$anno;
+
+        return $this->consegna($request, $formato, 'Raccolta', 'Raccolta', $anno, $titolo, Tabelle::raccolta($r, $anno), false, $proposte, false, Str::of($r['nome'])->ascii()->studly()->replaceMatches('/[^A-Za-z0-9]/', '')->toString());
+    }
+
+    /**
      * Il PDF/A-1b di deposito (#60): del rendiconto approvato, e dopo il deposito della sua istantanea. Non è mai «provvisorio» e non dipende dai dati di oggi.
      * Nome `Deposito_…` e non `Rendiconto_…`: i due file non devono confondersi.
      */
@@ -76,7 +92,7 @@ class EsportazioniController extends Controller
     }
 
     /** @param  list<array>  $sezioni */
-    private function consegna(Request $request, string $formato, string $prefisso, string $foglio, int $anno, string $titolo, array $sezioni, bool $storico, bool $proposte, bool $largo): Response
+    private function consegna(Request $request, string $formato, string $prefisso, string $foglio, int $anno, string $titolo, array $sezioni, bool $storico, bool $proposte, bool $largo, string $suffisso = ''): Response
     {
         $ora = now();
         // Un esercizio approvato non è «provvisorio»: porta la sua versione e dice se i dati di oggi se ne sono allontanati (#59).
@@ -86,13 +102,14 @@ class EsportazioniController extends Controller
         $approvazione = $approvata ? 'Approvato il '.$approvata->approvata_il->format('d/m/Y').' · versione '.$approvata->numero : null;
         // Depositato (#60): intestazione e nome del file dalle impostazioni dell'istantanea, non da quelle di oggi; niente differenze (non c'è da confrontare).
         $impostazioni = Deposito::salvata($anno)['impostazioni'] ?? ImpostazioniAssociazione::per($anno)?->only(['denominazione', 'codice_fiscale', 'numero_runts']) ?? [];
-        $intestazione = Tabelle::intestazione($impostazioni, $titolo, $storico, $proposte, $ora, $approvazione, $approvata !== null && $situazione['differenze'] !== null && Differenze::presenti($situazione['differenze'], $prefisso === 'Rendiconto' ? ['rendiconto'] : ['voci', 'esiti']));
+        // Le differenze dalla versione approvata riguardano Modello D e rendiconto per l'assemblea: una raccolta non le ha (#61).
+        $intestazione = Tabelle::intestazione($impostazioni, $titolo, $storico, $proposte, $ora, $approvazione, $prefisso !== 'Raccolta' && $approvata !== null && $situazione['differenze'] !== null && Differenze::presenti($situazione['differenze'], $prefisso === 'Rendiconto' ? ['rendiconto'] : ['voci', 'esiti']));
         if ($approvata?->depositata_il) {
             $intestazione[3] = 'Depositato il '.$approvata->depositata_il->format('d/m/Y').' · versione '.$approvata->numero.' · istantanea del deposito.';
         }
 
         if ($formato === 'pdf') {
-            return $this->scarica($request, Pdf::crea($titolo, $intestazione, $sezioni, Tabelle::piede($anno, $ora, $situazione['numero'], $storico || $approvata !== null), $largo), 'application/pdf', $this->nome($prefisso, $anno, 'pdf', $impostazioni['denominazione'] ?? null));
+            return $this->scarica($request, Pdf::crea($titolo, $intestazione, $sezioni, Tabelle::piede($anno, $ora, $situazione['numero'], $storico || $approvata !== null), $largo), 'application/pdf', $this->nome($prefisso, $anno, 'pdf', $impostazioni['denominazione'] ?? null, $suffisso));
         }
 
         $fogli = [$foglio => Tabelle::comeRighe($sezioni, $intestazione)];
@@ -106,15 +123,15 @@ class EsportazioniController extends Controller
         }
         $xlsx = Xlsx::crea($fogli);
 
-        return $this->scarica($request, $xlsx, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $this->nome($prefisso, $anno, 'xlsx', $impostazioni['denominazione'] ?? null));
+        return $this->scarica($request, $xlsx, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $this->nome($prefisso, $anno, 'xlsx', $impostazioni['denominazione'] ?? null, $suffisso));
     }
 
     /** «Rendiconto_2026_ContradaLaTorre.pdf»: l'ente dalla denominazione delle impostazioni, ridotta a lettere e cifre. */
-    private function nome(string $prefisso, int $anno, string $estensione, ?string $denominazione = null): string
+    private function nome(string $prefisso, int $anno, string $estensione, ?string $denominazione = null, string $suffisso = ''): string
     {
         $ente = Str::of($denominazione ?? ImpostazioniAssociazione::per($anno)?->denominazione ?? '')->ascii()->studly()->replaceMatches('/[^A-Za-z0-9]/', '')->toString();
 
-        return $prefisso.'_'.$anno.'_'.($ente ?: 'Associazione').'.'.$estensione;
+        return $prefisso.'_'.$anno.'_'.($ente ?: 'Associazione').($suffisso === '' ? '' : '_'.$suffisso).'.'.$estensione;
     }
 
     /** Ogni esportazione va nel registro degli accessi (glossario): «esportazione_modellod_pdf_2026», «esportazione_imputazioni_csv_2026» (l'anno dal nome del file). */

@@ -77,6 +77,12 @@
                     </select>
                 </label>
                 <label>Nome <input type="text" name="nome" maxlength="255" required></label>
+                <label>Tipo di raccolta fondi (solo area C: da qui la voce è C1 o C2, e dopo la creazione non cambia)
+                    <select name="raccolta">
+                        <option value="">—</option>
+                        @foreach (\App\Models\Attivita::RACCOLTE as $valore => $etichetta) <option value="{{ $valore }}">{{ $etichetta }}</option> @endforeach
+                    </select>
+                </label>
                 <button type="submit" class="bottone">Aggiungi</button>
             </form>
         </details>
@@ -86,7 +92,7 @@
             <li class="scheda">
                 <div class="scheda-testa">
                     <strong>{{ $a->nome }}</strong>
-                    <span class="etichetta">Area {{ $a->area->value }}</span>
+                    <span class="etichetta">Area {{ $a->area->value }}{{ $a->raccolta ? ' · '.strtolower(\App\Models\Attivita::RACCOLTE[$a->raccolta]) : '' }}</span>
                     @if ($a->archiviata()) <span class="etichetta">archiviata</span> @endif
                 </div>
                 @can('gestire_regole')

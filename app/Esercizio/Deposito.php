@@ -89,11 +89,30 @@ final class Deposito
     }
 
     /**
-     * Il PDF/A-1b: indice in prima pagina e il Modello D (gli allegati delle raccolte occasionali arrivano con #61). Né l'ora né nulla che cambi da un'esecuzione all'altra:
+     * I documenti del PDF di deposito, nell'ordine in cui si stampano: il Modello D e un allegato per ogni raccolta fondi occasionale (rendiconto e relazione, #61).
+     * Le istantanee di prima delle raccolte non hanno la chiave e stampano il solo Modello D.
+     *
+     * @return list<array{titolo: string, sezioni: list<array>}>
+     */
+    public static function documenti(array $istantanea): array
+    {
+        $anno = $istantanea['esercizio'];
+        $documenti = [['titolo' => 'Modello D · Rendiconto per cassa '.$anno, 'sezioni' => Tabelle::modelloD($istantanea['prospetti']['modello_d'], $istantanea['precedente'], $anno)]];
+        foreach ($istantanea['prospetti']['raccolte']['raccolte'] ?? [] as $raccolta) {
+            $documenti[] = ['titolo' => 'Raccolta fondi occasionale · '.$raccolta['nome'].' · '.$anno, 'sezioni' => Tabelle::raccolta($raccolta, $anno)];
+        }
+
+        return $documenti;
+    }
+
+    /**
+     * Il PDF/A-1b: indice in prima pagina, il Modello D e gli allegati delle raccolte occasionali. Né l'ora né nulla che cambi da un'esecuzione all'altra:
      * il file è funzione dell'istantanea, quindi quello scaricato prima dell'invio e quello di dopo dicono la stessa cosa. Nessun nome di persona (storia 143).
+     * Con le raccolte che non quadrano con C2 o senza la motivazione richiesta non c'è un PDF da depositare (422): l'approvazione lo impedisce già, qui si difende il file.
      */
     public static function pdf(array $istantanea): string
     {
+        abort_unless(($istantanea['prospetti']['raccolte']['bloccanti'] ?? []) === [], 422, 'Le raccolte fondi occasionali non sono pronte per il deposito: '.implode(' ', $istantanea['prospetti']['raccolte']['bloccanti'] ?? []));
         $anno = $istantanea['esercizio'];
         $impostazioni = $istantanea['impostazioni'];
         $approvazione = 'Approvato il '.Carbon::parse($istantanea['approvata_il'])->format('d/m/Y').' · versione '.$istantanea['versione'];
@@ -103,9 +122,8 @@ final class Deposito
             'Rendiconto per cassa '.$anno.' · deposito al RUNTS',
             $approvazione,
         ];
-        $modelloD = Tabelle::modelloD($istantanea['prospetti']['modello_d'], $istantanea['precedente'], $anno);
 
-        return Pdf::deposito('Rendiconto per cassa '.$anno.' · deposito al RUNTS', $intestazione, [['titolo' => 'Modello D · Rendiconto per cassa '.$anno, 'sezioni' => $modelloD]], self::piede($istantanea));
+        return Pdf::deposito('Rendiconto per cassa '.$anno.' · deposito al RUNTS', $intestazione, self::documenti($istantanea), self::piede($istantanea));
     }
 
     /**
