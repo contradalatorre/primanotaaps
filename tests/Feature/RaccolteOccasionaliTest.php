@@ -5,12 +5,14 @@ namespace Tests\Feature;
 use App\Esercizio\Deposito;
 use App\Esercizio\Prospetto;
 use App\Esercizio\Raccolte;
+use App\Import\Foglio;
 use App\Models\Attivita;
 use App\Models\Conto;
 use App\Models\DatiEsercizio;
 use App\Models\ImpostazioniAssociazione;
 use App\Models\Imputazione;
 use App\Models\Iniziativa;
+use App\Models\LiberalitaNonMonetaria;
 use App\Models\Movimento;
 use App\Models\RaccoltaOccasionale;
 use App\Models\Tipologia;
@@ -338,7 +340,7 @@ class RaccolteOccasionaliTest extends TestCase
 
         $id = $raccolta['raccolte'][0]['liberalita'][0]['id'];
         $this->come($this->tesoriere)->delete("$url/$id")->assertSessionHasNoErrors();
-        $this->assertSame(0, \App\Models\LiberalitaNonMonetaria::count());
+        $this->assertSame(0, LiberalitaNonMonetaria::count());
         $this->assertDatabaseHas('registro_modifiche', ['azione' => 'liberalita_tolta']);
         $this->come($this->tesoriere)->delete("$url/$id")->assertSessionHasErrors('liberalita'); // già tolta
     }
@@ -371,7 +373,7 @@ class RaccolteOccasionaliTest extends TestCase
         // un dato scritto di nascosto dopo il deposito non si vede: né a schermo né nel file
         RaccoltaOccasionale::query()->update(['luogo' => 'Altrove']);
         $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id)->assertSeeText('Piazza')->assertDontSeeText('Altrove');
-        $xlsx = \App\Import\Foglio::leggi($this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id.'/xlsx')->assertOk()->getContent());
+        $xlsx = Foglio::leggi($this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id.'/xlsx')->assertOk()->getContent());
         $this->assertContains('Piazza', collect($xlsx['Raccolta'])->flatten()->all());
     }
 
@@ -388,7 +390,7 @@ class RaccolteOccasionaliTest extends TestCase
 
         $r = $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id.'/xlsx')->assertOk();
         $this->assertSame('attachment; filename="Raccolta_2026_ContradaLaTorre_NotteDelleLanterne.xlsx"', $r->headers->get('Content-Disposition'));
-        $celle = collect(\App\Import\Foglio::leggi($r->getContent())['Raccolta'])->flatten()->all();
+        $celle = collect(Foglio::leggi($r->getContent())['Raccolta'])->flatten()->all();
         $this->assertContains('Raccolta fondi occasionale · Notte delle lanterne · 2026', $celle);
         $this->assertContains(500.0, $celle);
         $this->assertContains(120.0, $celle);
