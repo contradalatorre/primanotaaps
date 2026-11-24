@@ -9,10 +9,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 /** Dentro un'area, l'attività in senso normativo (glossario: Attività). */
-#[Fillable(['area', 'nome'])]
+#[Fillable(['area', 'nome', 'raccolta'])]
 class Attivita extends Model
 {
     use Archiviabile;
+
+    /** Nell'area C l'attività è una raccolta fondi abituale o occasionale (glossario): da lì la voce è C1 o C2 (`SchemaModelloD::voceDi`). */
+    public const RACCOLTE = ['abituale' => 'Abituale', 'occasionale' => 'Occasionale'];
 
     protected $table = 'attivita';
 

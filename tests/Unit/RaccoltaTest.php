@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Esercizio\Raccolta;
+use App\Esercizio\SchemaModelloD;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -185,5 +186,24 @@ class RaccoltaTest extends TestCase
     {
         $this->assertSame(['liberalita_monetarie', 'altri_proventi'], array_keys(Raccolta::PROVENTI));
         $this->assertSame(['acquisto_beni', 'acquisto_servizi', 'noleggi_affitti', 'oneri_promozionali', 'lavoro', 'rimborsi_volontari', 'altri_oneri'], array_keys(Raccolta::ONERI));
+    }
+
+    /** @return array<string, array{0: string, 1: ?string, 2: ?string, 3: ?string}> */
+    public static function voci(): array
+    {
+        return [
+            'in area C la voce della tabella è C1: occasionale diventa C2' => ['C', 'C1', 'occasionale', 'C2'],
+            'abituale resta C1' => ['C', 'C1', 'abituale', 'C1'],
+            'senza attività di raccolta in area C non si sa: senza riga' => ['C', 'C1', null, null],
+            'senza voce in tabella resta senza voce' => ['C', null, 'occasionale', null],
+            'fuori dall’area C l’attività non conta' => ['A', 'A4', 'occasionale', 'A4'],
+            'una voce di C diversa da C1 non si cambia' => ['C', 'C3', 'occasionale', 'C3'],
+        ];
+    }
+
+    #[DataProvider('voci')]
+    public function test_la_voce_c1_o_c2_si_ricava_dall_attivita_della_raccolta(string $area, ?string $voce, ?string $raccolta, ?string $atteso): void
+    {
+        $this->assertSame($atteso, SchemaModelloD::voceDi($area, $voce, $raccolta));
     }
 }

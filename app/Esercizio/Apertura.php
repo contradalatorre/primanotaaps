@@ -38,6 +38,8 @@ final class Apertura
             $voci = DB::table('voci_modello_d')->where('esercizio', $da)->get(['area', 'tipologia_id', 'voce'])
                 ->map(fn ($v) => ['esercizio' => $anno] + (array) $v)->all();
             DB::table('voci_modello_d')->insert($voci);
+            // La tabella tipologia → riga dello schema delle raccolte (#61) è per esercizio come questa.
+            DB::table('righe_raccolta')->insert(DB::table('righe_raccolta')->where('esercizio', $da)->get(['tipologia_id', 'riga'])->map(fn ($r) => ['esercizio' => $anno] + (array) $r)->all());
             // Un predefinito già scelto per il nuovo esercizio non si tocca.
             $predefiniti = DB::table('iniziativa_esercizio')->where('esercizio', $da)
                 ->whereNotIn('iniziativa_id', DB::table('iniziativa_esercizio')->where('esercizio', $anno)->select('iniziativa_id'))

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Area;
 use App\Esercizio\Natura;
+use App\Esercizio\SchemaModelloD;
 use App\Esercizio\Verifiche;
 use App\Euro;
 use Illuminate\Database\Eloquent\Model;
@@ -72,8 +73,8 @@ class Imputazione extends Model
             return null;
         }
 
-        return DB::table('voci_modello_d')->where('esercizio', $this->movimento->data->year)
-            ->where('area', $this->area->value)->where('tipologia_id', $this->tipologia_id)->value('voce');
+        return SchemaModelloD::voceDi($this->area->value, DB::table('voci_modello_d')->where('esercizio', $this->movimento->data->year)
+            ->where('area', $this->area->value)->where('tipologia_id', $this->tipologia_id)->value('voce'), $this->attivita?->raccolta);
     }
 
     /** «Entrate A1»: la voce con il lato del Modello D, perché «A1» c'è sia tra le entrate sia tra le uscite. */

@@ -44,7 +44,7 @@ final class Prospetto
             ->get()->sortBy(fn (Imputazione $i) => [$i->movimento->data->toDateString(), $i->id])->values()
             ->map(function (Imputazione $i) use ($voci) {
                 $lato = ($i->tipologia?->verso ?? $i->movimento->verso) === 'entrata' ? 'entrate' : 'uscite';
-                $voce = $i->tipologia_id === null ? null : $voci->get($i->area->value.'|'.$i->tipologia_id);
+                $voce = $i->tipologia_id === null ? null : SchemaModelloD::voceDi($i->area->value, $voci->get($i->area->value.'|'.$i->tipologia_id), $i->attivita?->raccolta);
 
                 return ['imputazione' => $i, 'lato' => $lato, 'voce' => $voce, 'chiave' => SchemaModelloD::conosce($lato, $voce) ? "$lato:$voce" : self::SENZA_RIGA];
             });
