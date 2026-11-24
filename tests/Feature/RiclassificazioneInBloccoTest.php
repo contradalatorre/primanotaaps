@@ -245,17 +245,30 @@ class RiclassificazioneInBloccoTest extends TestCase
 
     public function test_senza_la_riga_della_tabella_per_la_nuova_area_si_rifiuta_e_si_dice_quali(): void
     {
-        $this->imputa('Utenze');
-        $cambio = $this->cambioFesta('C', null);
+        $this->imputa('Quote associative'); // una quota non è una raccolta fondi: in area C non ha riga (#61)
+        $cambio = $this->cambioFesta('C', 'Raccolta fondi occasionale');
 
         $this->come()->get('/riclassificazione/anteprima?'.http_build_query($cambio))->assertSessionHasErrors('area');
-        $this->assertStringContainsString('Utenze', session('errors')->first('area'));
+        $this->assertStringContainsString('Quote associative', session('errors')->first('area'));
         $this->assertSame('A', $this->festa->refresh()->predefinitiPer(2026)->area->value);
 
-        // Con la riga per l'area C (voce C3, altre uscite) si può.
-        DB::table('voci_modello_d')->insert(['esercizio' => 2026, 'area' => 'C', 'tipologia_id' => Tipologia::where('nome', 'Utenze')->firstOrFail()->id, 'voce' => 'C3']);
+        // Con la riga per l'area C si può.
+        DB::table('voci_modello_d')->insert(['esercizio' => 2026, 'area' => 'C', 'tipologia_id' => Tipologia::where('nome', 'Quote associative')->firstOrFail()->id, 'voce' => 'C1']);
         $this->applica($cambio)->assertSessionHasNoErrors();
         $this->assertSame('C', $this->festa->refresh()->predefinitiPer(2026)->area->value);
+    }
+
+    public function test_in_area_c_la_voce_viene_dall_attivita_di_raccolta_e_senza_si_rifiuta(): void
+    {
+        $utenze = $this->imputa('Utenze'); // la tabella ha la riga C1 per le Utenze (#61)
+
+        foreach ([null, 'Vendita di beni'] as $attivita) { // nessuna attività, o una che non è di raccolta (e non è dell'area C)
+            $this->come()->get('/riclassificazione/anteprima?'.http_build_query($this->cambioFesta('C', $attivita)))->assertSessionHasErrors('attivita_id');
+        }
+        $this->assertSame('A', $utenze->refresh()->area->value);
+
+        $this->applica($this->cambioFesta('C', 'Raccolta fondi occasionale'))->assertSessionHasNoErrors();
+        $this->assertSame('C2', $utenze->refresh()->voce());
     }
 
     public function test_un_esercizio_depositato_non_si_tocca(): void
@@ -381,7 +394,7 @@ class RiclassificazioneInBloccoTest extends TestCase
         $this->come()->get('/riclassificazione/anteprima?'.http_build_query($this->cambioVoce('Utenze', 'E', 'Z9')))->assertSessionHasErrors('voce');
         $this->come()->get('/riclassificazione/anteprima?'.http_build_query($this->cambioVoce('Utenze', 'E', 'B2')))->assertSessionHasErrors('voce'); // B2 è dell'area B
         $this->come()->get('/riclassificazione/anteprima?'.http_build_query($this->cambioVoce('Utenze', 'E', 'E2')))->assertSessionHasErrors('voce'); // è già così
-        $this->come()->get('/riclassificazione/anteprima?'.http_build_query($this->cambioVoce('Utenze', 'C', null)))->assertSessionHasErrors('voce'); // non c'è la riga
+        $this->come()->get('/riclassificazione/anteprima?'.http_build_query($this->cambioVoce('Quote associative', 'C', null)))->assertSessionHasErrors('voce'); // non c'è la riga (una quota non è una raccolta fondi)
 
         $this->applica($this->cambioVoce('Utenze', 'E', null))->assertSessionHasNoErrors();
         $this->assertDatabaseMissing('voci_modello_d', ['esercizio' => 2026, 'area' => 'E', 'tipologia_id' => $utenze->id]);
