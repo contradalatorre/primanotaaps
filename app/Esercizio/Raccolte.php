@@ -48,7 +48,7 @@ final class Raccolte
             $record = $dati->get($id);
             $righe = $c2->where('imputazione.iniziativa_id', $id)->map(fn (array $r) => [
                 'lato' => $r['lato'], 'riga' => $r['imputazione']->tipologia_id === null ? null : $righeDello->get($r['imputazione']->tipologia_id),
-                'importo' => abs($r['imputazione']->importo), 'conto' => $r['imputazione']->movimento->conto->riga_modello_d,
+                'importo' => abs($r['imputazione']->importo), 'data' => $r['imputazione']->movimento->data->toDateString(), 'conto' => $r['imputazione']->movimento->conto->riga_modello_d,
             ])->values()->all();
             $raccolte[] = ['iniziativa_id' => $id, 'nome' => $nome, 'raccolta_id' => $record?->id]
                 + Raccolta::calcola($righe, $record?->liberalita->map->only(['id', 'descrizione', 'quantita', 'valore', 'criterio', 'documento'])->all() ?? [], self::dati($record));

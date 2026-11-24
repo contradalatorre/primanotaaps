@@ -113,6 +113,24 @@ class RaccoltaTest extends TestCase
         $this->assertSame([], array_filter(array_column($piena['guida'], 'fatto'), fn ($f) => ! $f));
     }
 
+    public function test_le_date_della_relazione_vengono_da_quelle_delle_imputazioni_se_l_operatore_non_le_scrive(): void
+    {
+        $righe = [
+            ['data' => '2026-12-09'] + $this->e('liberalita_monetarie', 1000), ['data' => '2026-12-07'] + $this->u('acquisto_beni', 200), ['data' => '2026-12-08'] + $this->e('altri_proventi', 50),
+        ];
+
+        $derivate = Raccolta::calcola($righe, [], [])['relazione'];
+        $this->assertSame('2026-12-07', $derivate['campi']['dal']);
+        $this->assertSame('2026-12-09', $derivate['campi']['al']);
+        $this->assertTrue(array_column($derivate['guida'], 'fatto', 'campo')['dal']);
+
+        $scritte = Raccolta::calcola($righe, [], ['dal' => '2026-12-01', 'al' => null])['relazione']['campi'];
+        $this->assertSame('2026-12-01', $scritte['dal']); // ciò che scrive l'operatore vince
+        $this->assertSame('2026-12-09', $scritte['al']);
+
+        $this->assertArrayNotHasKey('dal', Raccolta::calcola([$this->e('liberalita_monetarie', 1000)], [], [])['relazione']['campi']); // senza date non si inventa nulla
+    }
+
     public function test_con_la_motivazione_richiesta_la_guida_la_chiede_e_la_relazione_la_riporta(): void
     {
         $r = Raccolta::calcola([$this->e('liberalita_monetarie', 1000), $this->u('acquisto_beni', 1000)], [], ['motivazione' => 'Allestimento'])['relazione'];

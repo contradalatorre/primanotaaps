@@ -18,6 +18,7 @@ use App\Models\RaccoltaOccasionale;
 use App\Models\Tipologia;
 use App\Models\User;
 use App\Models\VersioneEsercizio;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
@@ -137,6 +138,39 @@ class RaccolteOccasionaliTest extends TestCase
         $this->assertCount(2, $r['quadratura']['messaggi']);
         $this->assertSame($r['quadratura']['messaggi'], array_slice($r['bloccanti'], 0, 2));
         $this->assertSame(2, $r['senzaRiga']); // quella senza iniziativa e quella senza riga
+    }
+
+    public function test_la_relazione_riporta_le_date_dei_movimenti_se_nessuno_le_ha_scritte(): void
+    {
+        $this->raccoltaCheQuadra();
+
+        $campi = Raccolte::calcola(2026)['raccolte'][0]['relazione']['campi'];
+
+        $this->assertSame('2026-05-10', $campi['dal']);
+        $this->assertSame('2026-05-10', $campi['al']);
+        $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id)->assertSeeText('dal 10/05/2026 al 10/05/2026');
+    }
+
+    public function test_un_iniziativa_con_dati_di_raccolta_non_si_cancella_si_archivia_e_la_raccolta_resta(): void
+    {
+        $raccolta = RaccoltaOccasionale::create(['iniziativa_id' => $this->banchetto->id, 'esercizio' => 2026, 'occasione' => 'Giornata del volontariato']);
+        $raccolta->liberalita()->create(['descrizione' => 'Cesti', 'quantita' => 1, 'valore' => 1000, 'criterio' => 'Listino', 'documento' => 'Ricevuta n. 1']);
+
+        $this->actingAs($this->tesoriere)->delete("/classificazione/iniziative/{$this->banchetto->id}")->assertSessionHasErrors('elimina');
+
+        $this->assertNotNull(Iniziativa::find($this->banchetto->id));
+        $this->assertSame(1, LiberalitaNonMonetaria::count());
+        $this->assertThrows(fn () => DB::table('iniziative')->where('id', $this->banchetto->id)->delete(), QueryException::class); // nemmeno per altra strada la raccolta sparisce in silenzio
+    }
+
+    public function test_un_attivita_di_destinazione_di_una_raccolta_non_si_cancella_si_archivia(): void
+    {
+        $lettera = Attivita::where('area', 'A')->firstOrFail();
+        RaccoltaOccasionale::create(['iniziativa_id' => $this->banchetto->id, 'esercizio' => 2026, 'attivita_destinazione_id' => $lettera->id]);
+
+        $this->actingAs($this->tesoriere)->delete("/classificazione/attivita/{$lettera->id}")->assertSessionHasErrors('elimina');
+
+        $this->assertNotNull(Attivita::find($lettera->id));
     }
 
     public function test_un_iniziativa_con_i_dati_della_raccolta_ma_senza_imputazioni_compare_lo_stesso(): void
@@ -338,7 +372,7 @@ class RaccolteOccasionaliTest extends TestCase
     {
         $this->raccoltaCheQuadra();
 
-        $this->come($this->tesoriere)->get('/esercizi/2026/approvazione')->assertOk()->assertSeeText('«Notte delle lanterne»: 14 campi della relazione da completare');
+        $this->come($this->tesoriere)->get('/esercizi/2026/approvazione')->assertOk()->assertSeeText('«Notte delle lanterne»: 12 campi della relazione da completare');
         $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/'.$this->notte->id, $this->dati())->assertSessionHasNoErrors();
         $this->come($this->tesoriere)->get('/esercizi/2026/approvazione')->assertOk()->assertDontSeeText('della relazione da completare');
     }
@@ -381,6 +415,21 @@ class RaccolteOccasionaliTest extends TestCase
         $this->assertSame(0, LiberalitaNonMonetaria::count());
         $this->assertDatabaseHas('registro_modifiche', ['azione' => 'liberalita_tolta']);
         $this->come($this->tesoriere)->delete("$url/$id")->assertSessionHasErrors('liberalita'); // già tolta
+    }
+
+    public function test_una_liberalita_non_si_toglie_dopo_l_approvazione_ne_se_si_puo_solo_vedere(): void
+    {
+        $this->raccoltaCheQuadra();
+        $raccolta = RaccoltaOccasionale::create(['iniziativa_id' => $this->notte->id, 'esercizio' => 2026]);
+        $id = $raccolta->liberalita()->create(['descrizione' => 'Cesti', 'quantita' => 1, 'valore' => 1000, 'criterio' => 'Listino', 'documento' => 'Ricevuta n. 1'])->id;
+        $url = '/esercizi/2026/raccolte/'.$this->notte->id."/liberalita/$id";
+
+        $this->come($this->utenteCon('Consigliere'))->delete($url)->assertForbidden();
+        $this->assertSame(1, LiberalitaNonMonetaria::count());
+
+        $this->approva()->assertSessionHasNoErrors();
+        $this->come($this->tesoriere)->delete($url)->assertSessionHasErrors('esercizio');
+        $this->assertSame(1, LiberalitaNonMonetaria::count());
     }
 
     public function test_chi_vede_non_scrive(): void

@@ -41,7 +41,7 @@ return new class extends Migration
         // Una raccolta per iniziativa ed esercizio (mai cumulativa). Importi in centesimi.
         Schema::create('raccolte_occasionali', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('iniziativa_id')->constrained('iniziative')->cascadeOnDelete();
+            $table->foreignId('iniziativa_id')->constrained('iniziative')->restrictOnDelete(); // l'iniziativa con una raccolta si archivia, non si cancella (`Iniziativa::usata`)
             $table->unsignedSmallInteger('esercizio');
             $table->date('dal')->nullable();
             $table->date('al')->nullable();

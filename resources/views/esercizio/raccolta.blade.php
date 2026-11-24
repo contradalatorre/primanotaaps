@@ -47,7 +47,7 @@
 
     <section data-merlo="raccolta-guida">
         <h2>Elenco guida per la relazione</h2>
-        <p class="nota">L’app ha precompilato date, denaro, valore dei beni, costi e netto. Il resto lo scrive chi ha seguito la raccolta, senza nomi di persone fisiche.</p>
+        <p class="nota">L’app ha precompilato denaro, valore dei beni, costi e netto, e le date (dal primo all’ultimo movimento) se non le scrivi tu. L’attività di destinazione e il resto li scrive chi ha seguito la raccolta, senza nomi di persone fisiche.</p>
         <ul class="elenco">
             @foreach ($raccolta['relazione']['guida'] as $voce)
                 <li>{{ $voce['fatto'] ? '✓' : '☐' }} <strong>{{ $voce['etichetta'] }}</strong> · {{ $voce['suggerimento'] }}</li>

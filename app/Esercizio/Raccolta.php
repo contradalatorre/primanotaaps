@@ -43,7 +43,7 @@ final class Raccolta
     public const SOGLIA_SPESE_PERCENTO = 90;
 
     /**
-     * @param  list<array{lato: string, riga: ?string, importo: int, conto: string}>  $righe  le imputazioni della raccolta: `riga` è quella dello schema (null: la tabella non la conosce), `conto` «cassa» o «depositi»
+     * @param  list<array{lato: string, riga: ?string, importo: int, conto: string}>  $righe  le imputazioni della raccolta: `riga` è quella dello schema (null: la tabella non la conosce), `conto` «cassa» o «depositi», `data` (facoltativa) quella del movimento, «Y-m-d»
      * @param  list<array{descrizione: string, quantita: int, valore: int, criterio: string, documento: string}>  $liberalita  le liberalità non monetarie, a mano; `valore` è il valore stimato totale
      * @param  array<string, mixed>  $dati  i campi di `CAMPI` più `motivazione`
      */
@@ -51,6 +51,14 @@ final class Raccolta
     {
         $proventi = array_fill_keys(array_keys(self::PROVENTI), 0);
         $oneri = array_fill_keys(array_keys(self::ONERI), 0);
+        // Le date che l'operatore non ha scritto sono quelle dei movimenti della raccolta.
+        // shortcut: l'attività di destinazione non si ricava (le imputazioni della raccolta portano tutte l'attività di raccolta, nessun dato dice dove vanno i fondi): la sceglie l'operatore.
+        $date = array_filter(array_column($righe, 'data'));
+        foreach (['dal' => 'min', 'al' => 'max'] as $campo => $scelta) {
+            if (blank($dati[$campo] ?? null) && $date !== []) {
+                $dati[$campo] = $scelta($date);
+            }
+        }
         $senzaRiga = ['entrate' => ['numero' => 0, 'importo' => 0], 'uscite' => ['numero' => 0, 'importo' => 0]];
         $denaro = ['contanti' => 0, 'conti' => 0];
 
