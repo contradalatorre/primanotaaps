@@ -24,7 +24,9 @@
         @include('esercizio.stato-prospetto', ['merlo' => 'rendiconto-provvisorio', 'gruppi' => ['rendiconto'], 'nota' => 'Fuori i giroconti: compaiono solo nel riepilogo per conto.'])
 
         <form method="GET" action="{{ route('esercizio.rendiconto', $anno) }}" class="modulo-in-riga">
-            <label class="spunta"><input type="checkbox" name="proposte" value="1" @checked($proposte) onchange="this.form.submit()"> <span>Includi anche le imputazioni proposte (la scelta non si salva)</span></label>
+            @unless ($depositato) {{-- il deposito è fissato: nessuna scelta sulle proposte --}}
+                <label class="spunta"><input type="checkbox" name="proposte" value="1" @checked($proposte) onchange="this.form.submit()"> <span>Includi anche le imputazioni proposte (la scelta non si salva)</span></label>
+            @endunless
             <label class="spunta"><input type="checkbox" name="per" value="voce" @checked($perVoce) onchange="this.form.submit()"> <span>Raggruppa per voce del Modello D, poi per tipologia (vista di controllo)</span></label>
             <noscript><button type="submit" class="bottone">Aggiorna</button></noscript>
         </form>

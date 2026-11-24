@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Models\DatiEsercizio;
 use App\Models\Imputazione;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
@@ -94,6 +95,7 @@ final class Forzature
             // A riga bloccata i permessi si rileggono: quelli caricati dal controllo della rotta possono essere di prima di una revoca.
             abort_unless(Classificazione::conPermessiRiletti($utente)->can('importare_e_confermare'), 403);
             $imputazioni = Imputazione::whereIn('id', $ids)->with('movimento', 'tipologia')->orderBy('id')->get();
+            DatiEsercizio::controllaNonDepositato($movimenti->map(fn (Movimento $m) => $m->data->year)->all()); // un esercizio depositato non si forza più (#60)
             // Le imputazioni si riscrivono a ogni classificazione: un id che non c'è più vuol dire che la pagina era vecchia.
             if ($ids === [] || $imputazioni->count() !== count($ids) || $imputazioni->contains(fn (Imputazione $i) => ! $movimenti->has($i->movimento_id))) {
                 throw ValidationException::withMessages(['imputazioni' => 'Le imputazioni sono cambiate dopo che hai aperto la pagina: rileggila e riprova.']);

@@ -4,6 +4,7 @@ namespace App;
 
 use App\Models\ContaDiCassa;
 use App\Models\Conto;
+use App\Models\DatiEsercizio;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
 use App\Models\User;
@@ -46,6 +47,9 @@ final class ConteDiCassa
                     .Euro::formatta(abs($differenza)).' € '.($differenza > 0 ? 'in più' : 'in meno').'. Spiegala con una nota o scegli di correggerla con un movimento.']);
             }
 
+            if ($differenza !== 0 && $correggi) {
+                DatiEsercizio::controllaNonDepositato([(int) substr($data, 0, 4)], 'data'); // la correzione è un movimento: non entra in un esercizio depositato (#60)
+            }
             $correzione = $differenza !== 0 && $correggi ? self::correggi($utente, $conto, $data, $differenza, $contato, $saldo) : null;
             $conta = ContaDiCassa::create([
                 // Gli id crescono: ogni movimento scritto dopo (il conto è bloccato) ha un id più alto, e non fa parte di quel che si è contato.

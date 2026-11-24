@@ -4,6 +4,7 @@ namespace App;
 
 use App\Mail\GirocontiOrfani;
 use App\Models\Conto;
+use App\Models\DatiEsercizio;
 use App\Models\Giroconto;
 use App\Models\ImportEstratto;
 use App\Models\Movimento;
@@ -279,8 +280,10 @@ final class Giroconti
         abort_unless($movimenti->count() === count(array_unique($ids)), 404);
         $utente->unsetRelation('assegnazioniAttive');
         abort_unless($utente->puo(Permesso::ImportareEConfermare), 403);
+        $movimenti->load('conto');
+        DatiEsercizio::controllaNonDepositato($movimenti->map(fn (Movimento $m) => $m->data->year)->all(), 'conferma'); // un esercizio depositato non si tocca più (#60)
 
-        return $movimenti->load('conto');
+        return $movimenti;
     }
 
     /** La regola con cui uno dei due propone l'altro, o null se non c'è più o uno dei due non è più libero. */

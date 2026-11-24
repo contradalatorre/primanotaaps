@@ -20,6 +20,14 @@ use Illuminate\Validation\ValidationException;
  */
 class DatiEsercizioController extends Controller
 {
+    /** Il PDF di deposito e l'istantanea portano costi figurativi, destinazione dell'avanzo e criterio di riparto: dopo il deposito non si scrivono più (#60), come l'annotazione in calce. */
+    private static function nonDepositato(DatiEsercizio $dati): void
+    {
+        if ($dati->stato === 'depositato') {
+            throw ValidationException::withMessages(['stato' => "L'esercizio {$dati->esercizio} è depositato: i suoi dati non si cambiano più. Per correggere un errore l'Amministratore lo riapre."]);
+        }
+    }
+
     public function indice(int $anno)
     {
         return view('esercizio.dati', [
@@ -44,6 +52,7 @@ class DatiEsercizioController extends Controller
         }
 
         DatiEsercizio::sottoBlocco($request->user(), $anno, function (DatiEsercizio $dati) use ($request, $campi, $attivo) {
+            self::nonDepositato($dati);
             $prima = $dati->istantanea(); // dipendenti_medi: una media con decimali sale, mai a favore
             $dati->fill([
                 'dipendenti_medi' => isset($campi['dipendenti_medi']) ? (int) ceil($campi['dipendenti_medi']) : null, 'attivo' => $attivo, 'criterio_riparto' => $campi['criterio_riparto'],
@@ -94,7 +103,8 @@ class DatiEsercizioController extends Controller
         }
         $descrizione = trim($campi['descrizione']).($costo ? ' — '.Euro::formatta($ore).' ore × '.Euro::formatta($tariffa).' €/h' : '');
 
-        DatiEsercizio::sottoBlocco($request->user(), $anno, function () use ($request, $anno, $campi, $importo, $descrizione) {
+        DatiEsercizio::sottoBlocco($request->user(), $anno, function (DatiEsercizio $dati) use ($request, $anno, $campi, $importo, $descrizione) {
+            self::nonDepositato($dati);
             $riga = RigaFigurativa::create(['esercizio' => $anno, 'tipo' => $campi['tipo'], 'area' => $campi['area'], 'descrizione' => $descrizione, 'importo' => $importo]);
             RegistroModifica::registra($request->user(), $riga, 'creata', null, $riga->istantanea());
         });
@@ -118,7 +128,8 @@ class DatiEsercizioController extends Controller
             throw ValidationException::withMessages(['importo' => 'Scrivi un importo in euro maggiore di zero, per esempio 1.234,56.']);
         }
 
-        DatiEsercizio::sottoBlocco($request->user(), $anno, function () use ($request, $anno, $campi, $importo) {
+        DatiEsercizio::sottoBlocco($request->user(), $anno, function (DatiEsercizio $dati) use ($request, $anno, $campi, $importo) {
+            self::nonDepositato($dati);
             $riga = DestinazioneAvanzo::create(['esercizio' => $anno, 'descrizione' => trim($campi['descrizione']), 'importo' => $importo, 'nota' => filled($campi['nota'] ?? null) ? trim($campi['nota']) : null]);
             RegistroModifica::registra($request->user(), $riga, 'creata', null, $riga->istantanea());
         });
@@ -128,7 +139,8 @@ class DatiEsercizioController extends Controller
 
     public function eliminaDestinazione(Request $request, int $anno, int $riga): RedirectResponse
     {
-        DatiEsercizio::sottoBlocco($request->user(), $anno, function () use ($request, $anno, $riga) {
+        DatiEsercizio::sottoBlocco($request->user(), $anno, function (DatiEsercizio $dati) use ($request, $anno, $riga) {
+            self::nonDepositato($dati);
             // Letta a blocco preso: una riga già eliminata da un'altra richiesta è un 404, non un secondo registro.
             $riga = DestinazioneAvanzo::where('esercizio', $anno)->findOrFail($riga);
             $prima = $riga->istantanea();
@@ -141,7 +153,8 @@ class DatiEsercizioController extends Controller
 
     public function eliminaFigurativo(Request $request, int $anno, int $riga): RedirectResponse
     {
-        DatiEsercizio::sottoBlocco($request->user(), $anno, function () use ($request, $anno, $riga) {
+        DatiEsercizio::sottoBlocco($request->user(), $anno, function (DatiEsercizio $dati) use ($request, $anno, $riga) {
+            self::nonDepositato($dati);
             // Letta a blocco preso: una riga già eliminata da un'altra richiesta è un 404, non un secondo registro.
             $riga = RigaFigurativa::where('esercizio', $anno)->findOrFail($riga);
             $prima = $riga->istantanea();

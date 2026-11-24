@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Esercizio\Apertura;
+use App\Esercizio\Deposito;
 use App\Esercizio\Prospetto;
 use App\Models\EsercizioStorico;
 use Illuminate\Http\RedirectResponse;
@@ -22,20 +23,23 @@ class EsercizioController extends Controller
 
     public function modelloD(Request $request, int $anno)
     {
-        $proposte = $request->boolean('proposte');
+        // Un esercizio depositato (#60) si legge solo dall'istantanea, identica al PDF: né proposte né dati di oggi.
+        $salvata = Deposito::salvata($anno);
+        $proposte = $salvata === null && $request->boolean('proposte');
         // Un esercizio storico (#63) non ha movimenti: il suo Modello D è ricalcolato dagli importi caricati dal foglio.
         $proprio = EsercizioStorico::where('esercizio', $anno)->first();
-        $precedente = EsercizioStorico::modelloD($anno - 1);
+        $precedente = $salvata ? $salvata['precedente'] : EsercizioStorico::modelloD($anno - 1);
 
         return view('esercizio.modello-d', [
             'anno' => $anno,
             'proposte' => $proposte,
+            'depositato' => $salvata !== null,
             'storico' => $proprio !== null,
-            'm' => $proprio?->prospetto() ?? Prospetto::modelloD($anno, $proposte),
+            'm' => $salvata ? $salvata['prospetti']['modello_d'] : ($proprio?->prospetto() ?? Prospetto::modelloD($anno, $proposte)),
             'precedente' => $precedente,
             // Si può caricare l'esercizio precedente dal foglio solo se è prima del primo esercizio con movimenti (altrimenti si conterebbe due volte).
             'storicoCaricabile' => $precedente === null && EsercizioStorico::caricabile($anno - 1),
-            'impedimenti' => $proprio ? [] : Prospetto::impedimenti($anno),
+            'impedimenti' => $proprio || $salvata ? [] : Prospetto::impedimenti($anno),
             'aggiornatoAl' => now(),
             'vociCaricate' => DB::table('voci_modello_d')->where('esercizio', $anno)->exists(),
             'sorgenteApertura' => Apertura::sorgente($anno),
@@ -49,14 +53,16 @@ class EsercizioController extends Controller
     public function rendiconto(Request $request, int $anno)
     {
         $storico = EsercizioStorico::where('esercizio', $anno)->exists();
-        $proposte = $request->boolean('proposte');
+        $salvata = Deposito::salvata($anno); // depositato: solo l'istantanea (#60)
+        $proposte = $salvata === null && $request->boolean('proposte');
 
         return view('esercizio.rendiconto', [
             'anno' => $anno,
             'proposte' => $proposte,
+            'depositato' => $salvata !== null,
             'perVoce' => $request->query('per') === 'voce',
             'storico' => $storico,
-            'r' => $storico ? null : Prospetto::rendiconto($anno, $proposte),
+            'r' => $storico ? null : ($salvata ? $salvata['prospetti']['rendiconto'] : Prospetto::rendiconto($anno, $proposte)),
             'aggiornatoAl' => now(),
         ]);
     }

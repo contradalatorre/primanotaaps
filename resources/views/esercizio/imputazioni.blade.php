@@ -5,6 +5,9 @@
 @section('contenuto')
     <h1>Imputazioni {{ $anno }}{{ $titolo !== '' ? ' · '.$titolo : '' }}</h1>
     <p class="nota">Le imputazioni {{ $proposte ? 'confermate e proposte' : 'confermate' }} dietro la cifra del Modello D, fuori dai giroconti.</p>
+    @if (\App\Models\DatiEsercizio::per($anno)->stato === 'depositato')
+        <p class="avviso" role="status" data-merlo="imputazioni-dal-vivo">L’esercizio {{ $anno }} è depositato: questo elenco è letto dai dati di oggi, non è quello depositato (i prospetti del deposito sono nell’istantanea).</p>
+    @endif
     <p data-merlo="imputazioni-totali">
         Entrate <strong>{{ \App\Euro::formatta($elenco['entrate']) }} €</strong> · uscite <strong>{{ \App\Euro::formatta($elenco['uscite']) }} €</strong>
         · differenza <strong>{{ \App\Euro::formatta($elenco['entrate'] - $elenco['uscite']) }} €</strong>

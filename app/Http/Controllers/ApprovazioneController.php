@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Esercizio\Approvazione;
+use App\Esercizio\Deposito;
 use App\Esercizio\Prospetto;
 use App\Esercizio\Verifiche;
 use App\Models\DatiEsercizio;
@@ -30,6 +31,7 @@ class ApprovazioneController extends Controller
             'chiusura' => collect(Prospetto::saldi($anno))->groupBy('riga')->map(fn ($saldi) => $saldi->sum('finale'))->sortKeys()->all(),
             's' => Verifiche::secondarieta($anno),
             'versioni' => VersioneEsercizio::where('esercizio', $anno)->orderByDesc('numero')->get(),
+            'situazione' => Approvazione::situazione($anno), // le differenze dalla versione approvata, per l'avviso del deposito (#60)
         ]);
     }
 
@@ -39,6 +41,14 @@ class ApprovazioneController extends Controller
         $versione = Approvazione::approva($request->user(), $anno, $campi['data']);
 
         return redirect()->route('esercizio.approvazione', $anno)->with('ok', "Esercizio $anno approvato il {$versione->approvata_il->format('d/m/Y')}: versione {$versione->numero} salvata.");
+    }
+
+    public function deposita(Request $request, int $anno): RedirectResponse
+    {
+        $campi = $request->validate(['data' => ['required', 'date_format:Y-m-d'], 'impronta' => ['required', 'string', 'max:20']]);
+        $versione = Deposito::deposita($request->user(), $anno, $campi['data'], $campi['impronta']);
+
+        return redirect()->route('esercizio.approvazione', $anno)->with('ok', "Esercizio $anno depositato il {$versione->depositata_il->format('d/m/Y')}: i prospetti sono fissati e i movimenti non si toccano più.");
     }
 
     public function riapri(Request $request, int $anno): RedirectResponse

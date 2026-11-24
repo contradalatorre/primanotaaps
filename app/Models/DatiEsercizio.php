@@ -6,6 +6,7 @@ use App\Permesso;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /** I dati dell'esercizio che non derivano dai movimenti (glossario: Dati dell'esercizio, #12, #53). Una riga per esercizio, creata alla prima scrittura. */
 class DatiEsercizio extends Model
@@ -32,6 +33,24 @@ class DatiEsercizio extends Model
     public function approvato(): bool
     {
         return in_array($this->stato, ['approvato', 'depositato'], true);
+    }
+
+    /**
+     * Dopo il deposito i movimenti dell'esercizio non si toccano più (#60, #12): ogni scrittura di movimenti e imputazioni lo chiama dopo i suoi blocchi su conti e
+     * movimenti. Lo stato si legge senza bloccare la riga dei dati: `Deposito::deposita` la blocca per prima, poi i conti e i movimenti dell'anno, e il passaggio
+     * a depositato si conclude dopo che le scritture in corso sono finite; chi arriva dopo trova lo stato nuovo (la sua prima lettura semplice viene dopo i suoi blocchi).
+     * Bloccarla qui prenderebbe i blocchi nell'ordine opposto a `SaldiApertura::inserisci` (dati, poi conti).
+     *
+     * @param  list<int>  $anni  gli esercizi dei movimenti che si scrivono
+     *
+     * @throws ValidationException sotto `$campo`
+     */
+    public static function controllaNonDepositato(array $anni, string $campo = 'movimento'): void
+    {
+        $depositato = self::whereIn('esercizio', array_unique($anni))->where('stato', 'depositato')->orderBy('esercizio')->value('esercizio');
+        if ($depositato !== null) {
+            throw ValidationException::withMessages([$campo => "L'esercizio $depositato è depositato: i suoi movimenti non si toccano più. Per correggere un errore l'Amministratore lo riapre."]);
+        }
     }
 
     /** Gli esercizi approvati o depositati: le regole non propongono sui loro movimenti. */

@@ -18,10 +18,12 @@
     @else
         @include('esercizio.stato-prospetto', ['merlo' => 'modello-d-provvisorio'])
 
-        <form method="GET" action="{{ route('modello-d', $anno) }}" class="modulo-in-riga">
-            <label class="spunta"><input type="checkbox" name="proposte" value="1" @checked($proposte) onchange="this.form.submit()"> <span>Includi anche le imputazioni proposte (la scelta non si salva)</span></label>
-            <noscript><button type="submit" class="bottone">Aggiorna</button></noscript>
-        </form>
+        @unless ($depositato) {{-- il deposito è fissato: nessuna scelta sulle proposte --}}
+            <form method="GET" action="{{ route('modello-d', $anno) }}" class="modulo-in-riga">
+                <label class="spunta"><input type="checkbox" name="proposte" value="1" @checked($proposte) onchange="this.form.submit()"> <span>Includi anche le imputazioni proposte (la scelta non si salva)</span></label>
+                <noscript><button type="submit" class="bottone">Aggiorna</button></noscript>
+            </form>
+        @endunless
     @endif
     <p class="nota">
         <a href="{{ route('modello-d', $anno - 1) }}" class="link">Esercizio {{ $anno - 1 }}</a> ·

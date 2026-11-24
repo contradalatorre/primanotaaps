@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Esercizio\Approvazione;
+use App\Esercizio\Deposito;
 use App\Esercizio\Differenze;
 use App\Esercizio\Elenchi;
 use App\Esercizio\Pdf;
 use App\Esercizio\Prospetto;
 use App\Esercizio\Tabelle;
 use App\Esercizio\Xlsx;
+use App\Models\DatiEsercizio;
 use App\Models\EsercizioStorico;
 use App\Models\ImpostazioniAssociazione;
 use App\Models\RegistroAccesso;
@@ -26,12 +28,14 @@ class EsportazioniController extends Controller
 {
     public function modelloD(Request $request, int $anno, string $formato): Response
     {
-        $proposte = $request->boolean('proposte');
+        // Un esercizio depositato (#60) esce dall'istantanea, come la pagina: né proposte né dati di oggi.
+        $salvata = Deposito::salvata($anno);
+        $proposte = $salvata === null && $request->boolean('proposte');
         // Un esercizio storico (#63) non ha movimenti: il suo Modello D è ricalcolato dagli importi caricati dal foglio, come nella pagina.
         $proprio = EsercizioStorico::where('esercizio', $anno)->first();
-        $m = $proprio?->prospetto() ?? Prospetto::modelloD($anno, $proposte);
-        $impedimenti = $proprio ? [] : array_column(Prospetto::impedimenti($anno), 'testo');
-        $sezioni = Tabelle::modelloD($m, EsercizioStorico::modelloD($anno - 1), $anno, $proprio !== null, $impedimenti);
+        $m = $salvata ? $salvata['prospetti']['modello_d'] : ($proprio?->prospetto() ?? Prospetto::modelloD($anno, $proposte));
+        $impedimenti = $proprio || $salvata ? [] : array_column(Prospetto::impedimenti($anno), 'testo');
+        $sezioni = Tabelle::modelloD($m, $salvata ? $salvata['precedente'] : EsercizioStorico::modelloD($anno - 1), $anno, $proprio !== null, $impedimenti);
 
         return $this->consegna($request, $formato, 'ModelloD', 'Modello D', $anno, 'Modello D · Rendiconto per cassa '.$anno, $sezioni, $proprio !== null, $proposte, false);
     }
@@ -40,10 +44,23 @@ class EsportazioniController extends Controller
     public function rendiconto(Request $request, int $anno, string $formato): Response
     {
         abort_if(EsercizioStorico::where('esercizio', $anno)->exists(), 404);
-        $proposte = $request->boolean('proposte');
-        $sezioni = Tabelle::rendiconto(Prospetto::rendiconto($anno, $proposte), $request->user()->can('gestire_esercizio'));
+        $salvata = Deposito::salvata($anno);
+        $proposte = $salvata === null && $request->boolean('proposte');
+        $sezioni = Tabelle::rendiconto($salvata ? $salvata['prospetti']['rendiconto'] : Prospetto::rendiconto($anno, $proposte), $request->user()->can('gestire_esercizio'));
 
         return $this->consegna($request, $formato, 'Rendiconto', 'Rendiconto', $anno, 'Rendiconto per l’assemblea · '.$anno, $sezioni, false, $proposte, true);
+    }
+
+    /**
+     * Il PDF/A-1b di deposito (#60): del rendiconto approvato, e dopo il deposito della sua istantanea. Non è mai «provvisorio» e non dipende dai dati di oggi.
+     * Nome `Deposito_…` e non `Rendiconto_…`: i due file non devono confondersi.
+     */
+    public function deposito(Request $request, int $anno): Response
+    {
+        $istantanea = Deposito::istantanea($anno);
+        abort_if($istantanea === null, 404);
+
+        return $this->scarica($request, Deposito::pdf($istantanea), 'application/pdf', $this->nome('Deposito', $anno, 'pdf', $istantanea['impostazioni']['denominazione'] ?? null));
     }
 
     public function elenco(Request $request, int $anno, string $tipo): Response
@@ -51,7 +68,11 @@ class EsportazioniController extends Controller
         $conNote = $request->user()->can('note');
         $elenco = $tipo === 'imputazioni' ? Elenchi::imputazioni($anno, $request->boolean('proposte'), $conNote) : Elenchi::movimenti($anno, $conNote);
 
-        return $this->scarica($request, Elenchi::csv($elenco), 'text/csv; charset=UTF-8', $this->nome(ucfirst($tipo), $anno, 'csv'));
+        $nome = $this->nome(ucfirst($tipo), $anno, 'csv');
+        // Gli elenchi si leggono dal vivo anche dopo il deposito (#60): il nome lo dice, perché il file non finisca allegato a quello depositato.
+        $nome = DatiEsercizio::per($anno)->stato === 'depositato' ? Str::beforeLast($nome, '.csv').'_DatiDiOggi.csv' : $nome;
+
+        return $this->scarica($request, Elenchi::csv($elenco), 'text/csv; charset=UTF-8', $nome);
     }
 
     /** @param  list<array>  $sezioni */
@@ -63,10 +84,15 @@ class EsportazioniController extends Controller
         // Con `?proposte=1` il prospetto non è quello approvato (ci sono anche le proposte): esce provvisorio.
         $approvata = $storico || $proposte ? null : $situazione['versione'];
         $approvazione = $approvata ? 'Approvato il '.$approvata->approvata_il->format('d/m/Y').' · versione '.$approvata->numero : null;
-        $intestazione = Tabelle::intestazione(ImpostazioniAssociazione::per($anno)?->only(['denominazione', 'codice_fiscale', 'numero_runts']) ?? [], $titolo, $storico, $proposte, $ora, $approvazione, $approvata !== null && Differenze::presenti($situazione['differenze'], $prefisso === 'Rendiconto' ? ['rendiconto'] : ['voci', 'esiti']));
+        // Depositato (#60): intestazione e nome del file dalle impostazioni dell'istantanea, non da quelle di oggi; niente differenze (non c'è da confrontare).
+        $impostazioni = Deposito::salvata($anno)['impostazioni'] ?? ImpostazioniAssociazione::per($anno)?->only(['denominazione', 'codice_fiscale', 'numero_runts']) ?? [];
+        $intestazione = Tabelle::intestazione($impostazioni, $titolo, $storico, $proposte, $ora, $approvazione, $approvata !== null && $situazione['differenze'] !== null && Differenze::presenti($situazione['differenze'], $prefisso === 'Rendiconto' ? ['rendiconto'] : ['voci', 'esiti']));
+        if ($approvata?->depositata_il) {
+            $intestazione[3] = 'Depositato il '.$approvata->depositata_il->format('d/m/Y').' · versione '.$approvata->numero.' · istantanea del deposito.';
+        }
 
         if ($formato === 'pdf') {
-            return $this->scarica($request, Pdf::crea($titolo, $intestazione, $sezioni, Tabelle::piede($anno, $ora, $situazione['numero'], $storico || $approvata !== null), $largo), 'application/pdf', $this->nome($prefisso, $anno, 'pdf'));
+            return $this->scarica($request, Pdf::crea($titolo, $intestazione, $sezioni, Tabelle::piede($anno, $ora, $situazione['numero'], $storico || $approvata !== null), $largo), 'application/pdf', $this->nome($prefisso, $anno, 'pdf', $impostazioni['denominazione'] ?? null));
         }
 
         $fogli = [$foglio => Tabelle::comeRighe($sezioni, $intestazione)];
@@ -74,16 +100,19 @@ class EsportazioniController extends Controller
         if ($prefisso === 'ModelloD') {
             $dettaglio = Elenchi::imputazioni($anno, $proposte, $request->user()->can('note'));
             $fogli['Dettaglio'] = [['celle' => $dettaglio['colonne'], 'grassetto' => true], ...array_map(fn (array $riga) => ['celle' => $riga], $dettaglio['righe'])];
+            if ($approvata?->depositata_il) { // il Modello D è l'istantanea, il dettaglio no
+                array_unshift($fogli['Dettaglio'], ['celle' => ['Dati di oggi, non quelli depositati'], 'grassetto' => true]);
+            }
         }
         $xlsx = Xlsx::crea($fogli);
 
-        return $this->scarica($request, $xlsx, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $this->nome($prefisso, $anno, 'xlsx'));
+        return $this->scarica($request, $xlsx, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $this->nome($prefisso, $anno, 'xlsx', $impostazioni['denominazione'] ?? null));
     }
 
     /** «Rendiconto_2026_ContradaLaTorre.pdf»: l'ente dalla denominazione delle impostazioni, ridotta a lettere e cifre. */
-    private function nome(string $prefisso, int $anno, string $estensione): string
+    private function nome(string $prefisso, int $anno, string $estensione, ?string $denominazione = null): string
     {
-        $ente = Str::of(ImpostazioniAssociazione::per($anno)?->denominazione ?? '')->ascii()->studly()->replaceMatches('/[^A-Za-z0-9]/', '')->toString();
+        $ente = Str::of($denominazione ?? ImpostazioniAssociazione::per($anno)?->denominazione ?? '')->ascii()->studly()->replaceMatches('/[^A-Za-z0-9]/', '')->toString();
 
         return $prefisso.'_'.$anno.'_'.($ente ?: 'Associazione').'.'.$estensione;
     }
