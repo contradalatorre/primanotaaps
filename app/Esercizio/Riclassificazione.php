@@ -160,6 +160,9 @@ final class Riclassificazione
         if ($predefinito->area === $area && $predefinito->attivita_id === $attivitaId) {
             self::rifiuta('area', "«{$iniziativa->nome}» ha già questa area e questa attività nel $anno: non c'è niente da cambiare.");
         }
+        if ($area === Area::C && ($attivitaId === null || Attivita::find($attivitaId)?->raccolta === null)) { // come in Classificazione (#61): da lì la voce è C1 o C2
+            self::rifiuta('attivita_id', "In area C scegli l'attività: raccolta fondi abituale o occasionale (da lì la voce è C1 o C2).");
+        }
         if ($attivitaId !== null) {
             $attivita = Attivita::findOrFail($attivitaId);
             if ($attivita->area !== $area) {
