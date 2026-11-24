@@ -75,7 +75,8 @@ final class Raccolte
             return [];
         }
 
-        return $r->only(RaccoltaOccasionale::CAMPI) + ['attivita_destinazione' => $r->attivitaDestinazione?->nome];
+        // Le date come testo «Y-m-d»: finiscono nell'istantanea, che è JSON.
+        return ['dal' => $r->dal?->toDateString(), 'al' => $r->al?->toDateString()] + $r->only(RaccoltaOccasionale::CAMPI) + ['attivita_destinazione' => $r->attivitaDestinazione?->nome];
     }
 
     /**

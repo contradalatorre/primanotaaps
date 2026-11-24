@@ -20,6 +20,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ImportEstrattiController;
 use App\Http\Controllers\ImpostazioniController;
 use App\Http\Controllers\IniziativeController;
+use App\Http\Controllers\RaccolteController;
 use App\Http\Controllers\ManualeController;
 use App\Http\Controllers\MigrazioniController;
 use App\Http\Controllers\MovimentiController;
@@ -75,6 +76,9 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::get('/esercizi/{anno}/forzature', [ForzatureController::class, 'indice'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.forzature'); // #52
         // Conti per iniziativa con preventivo e scostamento (#57).
         Route::get('/esercizi/{anno}/iniziative', [IniziativeController::class, 'conti'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.iniziative');
+        // Le raccolte fondi occasionali (#61): l'elenco con la quadratura con C2 e il rendiconto con la relazione di ognuna.
+        Route::get('/esercizi/{anno}/raccolte', [RaccolteController::class, 'indice'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.raccolte');
+        Route::get('/esercizi/{anno}/raccolte/{iniziativa}', [RaccolteController::class, 'mostra'])->where(['anno' => '[1-9][0-9]{3}', 'iniziativa' => '[0-9]+'])->name('esercizio.raccolta');
         // Il rendiconto per l'assemblea (#56): dal vivo, senza nomi di persone.
         Route::get('/esercizi/{anno}/rendiconto', [EsercizioController::class, 'rendiconto'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.rendiconto');
         // Le esportazioni dei prospetti (#58): stessi permessi delle pagine da cui nascono; il controller toglie ciò che chi scarica non vedrebbe.
@@ -82,6 +86,7 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
             Route::get('/esercizi/{anno}/modello-d/{formato}', [EsportazioniController::class, 'modelloD'])->name('esporta.modello-d');
             Route::get('/esercizi/{anno}/rendiconto/{formato}', [EsportazioniController::class, 'rendiconto'])->name('esporta.rendiconto');
             Route::get('/esercizi/{anno}/deposito.pdf', [EsportazioniController::class, 'deposito'])->name('esporta.deposito');
+            Route::get('/esercizi/{anno}/raccolte/{iniziativa}/{formato}', [EsportazioniController::class, 'raccolta'])->where('iniziativa', '[0-9]+')->name('esporta.raccolta'); // #61: ogni raccolta da sola
             Route::get('/esercizi/{anno}/{tipo}.csv', [EsportazioniController::class, 'elenco'])->name('esporta.elenco');
         });
     });
@@ -116,6 +121,10 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::delete('/esercizi/{anno}/dati/figurativi/{riga}', [DatiEsercizioController::class, 'eliminaFigurativo'])->name('dati-esercizio.figurativi.elimina');
         Route::post('/esercizi/{anno}/dati/destinazione', [DatiEsercizioController::class, 'aggiungiDestinazione'])->name('dati-esercizio.destinazione.aggiungi'); // #56
         Route::delete('/esercizi/{anno}/dati/destinazione/{riga}', [DatiEsercizioController::class, 'eliminaDestinazione'])->name('dati-esercizio.destinazione.elimina');
+        // I dati a mano di una raccolta fondi occasionale e le sue liberalità non monetarie (#61).
+        Route::put('/esercizi/{anno}/raccolte/{iniziativa}', [RaccolteController::class, 'salva'])->where('iniziativa', '[0-9]+')->name('esercizio.raccolta.salva');
+        Route::post('/esercizi/{anno}/raccolte/{iniziativa}/liberalita', [RaccolteController::class, 'aggiungiLiberalita'])->where('iniziativa', '[0-9]+')->name('esercizio.raccolta.liberalita.aggiungi');
+        Route::delete('/esercizi/{anno}/raccolte/{iniziativa}/liberalita/{riga}', [RaccolteController::class, 'eliminaLiberalita'])->where('iniziativa', '[0-9]+')->name('esercizio.raccolta.liberalita.elimina');
     });
     // Il preventivo di un'iniziativa lo scrive chi gestisce regole, tipologie e iniziative (#16).
     Route::middleware('can:gestire_regole')->where(['anno' => '[1-9][0-9]{3}', 'iniziativa' => '[0-9]+'])->group(function () {

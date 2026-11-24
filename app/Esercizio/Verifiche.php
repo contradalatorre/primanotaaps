@@ -206,9 +206,10 @@ final class Verifiche
 
     /**
      * Quel che si salva all'approvazione e quel con cui si confronta dopo: il Modello D, i test dell'area A, dell'ente e forfettario, la secondarietà
-     * (senza i dati dell'esercizio, che non servono e non sono dati puri) e il rendiconto per l'assemblea. Solo le imputazioni confermate.
+     * (senza i dati dell'esercizio, che non servono e non sono dati puri), il rendiconto per l'assemblea e le raccolte fondi occasionali (#61: rendiconti e relazioni, per il PDF di deposito).
+     * Solo le imputazioni confermate. Le versioni approvate prima delle raccolte non hanno la chiave `raccolte`.
      *
-     * @return array{modello_d: array, catena: array, secondarieta: array, rendiconto: array}
+     * @return array{modello_d: array, catena: array, secondarieta: array, rendiconto: array, raccolte: array}
      */
     public static function istantanea(int $anno): array
     {
@@ -216,7 +217,7 @@ final class Verifiche
         $secondarieta = self::secondarietaDa($anno, $modelloD);
         unset($secondarieta['dati']);
 
-        return ['modello_d' => $modelloD, 'catena' => $catena, 'secondarieta' => $secondarieta, 'rendiconto' => Prospetto::rendiconto($anno)];
+        return ['modello_d' => $modelloD, 'catena' => $catena, 'secondarieta' => $secondarieta, 'rendiconto' => Prospetto::rendiconto($anno), 'raccolte' => Raccolte::calcola($anno)];
     }
 
     /**

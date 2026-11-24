@@ -198,6 +198,15 @@ final class Prospetto
             $impedimenti[] = ['testo' => $senzaGiustificativo.($senzaGiustificativo === 1 ? ' spesa è senza giustificativo' : ' spese sono senza giustificativo'), 'link' => route('movimenti', ['senza_giustificativo' => 1, 'anno' => $anno])];
         }
 
+        // Le raccolte fondi occasionali (#61, storia 130): imputazioni che nessuna raccolta può contare, poi ciò che bloccherebbe l'approvazione e il deposito.
+        $raccolte = Raccolte::calcola($anno);
+        if ($raccolte['senzaRiga'] > 0) {
+            $impedimenti[] = ['testo' => $raccolte['senzaRiga'].($raccolte['senzaRiga'] === 1 ? ' imputazione delle raccolte fondi senza riga dello schema (o senza iniziativa)' : ' imputazioni delle raccolte fondi senza riga dello schema (o senza iniziativa)'), 'link' => route('esercizio.raccolte', $anno)];
+        }
+        foreach ($raccolte['bloccanti'] as $bloccante) {
+            $impedimenti[] = ['testo' => 'Raccolte fondi: '.$bloccante, 'link' => route('esercizio.raccolte', $anno)];
+        }
+
         $senzaMeta = Giroconti::proposte()->where('tipo', '!=', 'coppia')->filter(fn (array $p) => $p['movimento']->data->year === $anno);
         foreach ($senzaMeta as $p) {
             $m = $p['movimento'];
