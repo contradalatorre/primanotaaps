@@ -244,6 +244,73 @@ class DepositoRuntsTest extends TestCase
         $this->assertContains('Depositato il 20/04/2027 · versione 1 · istantanea del deposito.', $celle);
     }
 
+    /** #90: il titolo dell'indice è testo, mai HTML. mPDF lo decodifica e lo riscrive vivo: un nome con un link o un'immagine remota diventerebbe un `/URI`, una richiesta di rete o un PDF che non si genera. */
+    public function test_un_nome_con_html_nel_titolo_resta_testo_nel_pdf_di_deposito(): void
+    {
+        $sezioni = [['titolo' => 'Sezione', 'colonne' => [], 'righe' => [['celle' => ['Voce'], 'grassetto' => false]]]];
+        $nomi = ['<a href="https://esempio.invalid/">clic</a>', '<img src="http://127.0.0.1:9/x.png">', 'Fiera "dei" <b>Fiori</b> & C.'];
+
+        $pdf = Pdf::deposito('T', ['Assoc'], array_map(fn (string $nome) => ['titolo' => 'Raccolta fondi occasionale · '.$nome.' · 2026', 'sezioni' => $sezioni], $nomi), 'p');
+
+        $this->assertStringStartsWith('%PDF-', $pdf);
+        $this->assertStringNotContainsString('/URI', $pdf);
+        $this->assertSame(6, preg_match_all('/\/Subtype \/Link/', $pdf), "Solo i collegamenti interni dell'indice: titolo e pagina di ognuno dei tre documenti");
+    }
+
+    /** #90, #18: dal 2027 il PDF di deposito, la pagina e l'esportazione hanno la colonna 2026 anche se il 2026 non è uno storico ma un esercizio depositato o approvato. */
+    private function conIl2026(bool $depositato): void
+    {
+        $this->esercizio2026();
+        $this->approva();
+        if ($depositato) {
+            $this->deposita('2027-04-20')->assertSessionHasNoErrors();
+        }
+        $this->imputa('entrata', 20000, '2027-02-01', 'Somministrazione');
+    }
+
+    public static function stati2026(): array
+    {
+        return ['depositato' => [true], 'solo approvato' => [false]];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('stati2026')]
+    public function test_la_colonna_dell_esercizio_precedente_viene_dal_2026_depositato_o_approvato(bool $depositato): void
+    {
+        $this->conIl2026($depositato);
+        // Dopo l'approvazione i dati del 2026 possono cambiare: la colonna è quella approvata, non quella di oggi.
+        $this->imputa('entrata', 10000, '2026-07-01', 'Somministrazione');
+
+        $this->assertSame(80000, Deposito::precedente(2027)['gestione']['entrate']['importo']);
+        $this->come($this->tesoriere)->get('/esercizi/2027/modello-d')->assertOk()->assertSeeText('Esercizio 2026')->assertSeeText('800,00')->assertDontSeeText('900,00')->assertDontSeeText('non caricato');
+        $celle = collect(Foglio::leggi($this->come($this->tesoriere)->get('/esercizi/2027/modello-d/xlsx')->assertOk()->getContent())['Modello D'])->flatten()->all();
+        $this->assertContains('Esercizio 2026 (€)', $celle);
+        $this->assertContains(800.0, $celle);
+        $this->assertNotContains(900.0, $celle);
+
+        // Il rendiconto 2027 approvato fissa nel suo PDF di deposito la colonna 2026 (storia 115).
+        $this->travelTo('2028-02-01 10:00');
+        $this->come($this->tesoriere)->post('/esercizi/2027/apertura')->assertRedirect();
+        $this->come($this->tesoriere)->post('/esercizi/2027/approvazione', ['data' => '2028-02-01'])->assertSessionHasNoErrors();
+        $this->assertSame(80000, Deposito::istantanea(2027)['precedente']['gestione']['entrate']['importo']);
+    }
+
+    public function test_senza_il_2026_approvato_la_colonna_viene_dallo_storico_e_senza_storico_manca(): void
+    {
+        $this->assertNull(Deposito::precedente(2027));
+        $storico = EsercizioStorico::create(['esercizio' => 2026, 'importi' => ['entrate:A1' => 1000], 'saldo_cassa' => 0, 'saldo_depositi' => 0, 'figurativi' => [], 'differenze' => []]);
+
+        $this->assertSame($storico->prospetto(), Deposito::precedente(2027));
+    }
+
+    public function test_il_2026_riaperto_non_ha_una_versione_vigente_e_la_colonna_non_viene_dall_approvazione_di_prima(): void
+    {
+        $this->esercizio2026();
+        $this->approva();
+        $this->come($this->amministratore)->post('/esercizi/2026/riapertura', ['motivazione' => 'Errore nel Modello D'])->assertSessionHasNoErrors();
+
+        $this->assertNull(Deposito::precedente(2027));
+    }
+
     public function test_il_pdf_dopo_il_deposito_e_quello_dell_istantanea_e_non_cambia_con_i_dati(): void
     {
         $this->esercizio2026();

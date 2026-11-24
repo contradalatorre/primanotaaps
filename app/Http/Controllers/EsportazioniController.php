@@ -36,7 +36,7 @@ class EsportazioniController extends Controller
         $proprio = EsercizioStorico::where('esercizio', $anno)->first();
         $m = $salvata ? $salvata['prospetti']['modello_d'] : ($proprio?->prospetto() ?? Prospetto::modelloD($anno, $proposte));
         $impedimenti = $proprio || $salvata ? [] : array_column(Prospetto::impedimenti($anno), 'testo');
-        $sezioni = Tabelle::modelloD($m, $salvata ? $salvata['precedente'] : EsercizioStorico::modelloD($anno - 1), $anno, $proprio !== null, $impedimenti);
+        $sezioni = Tabelle::modelloD($m, $salvata ? $salvata['precedente'] : Deposito::precedente($anno), $anno, $proprio !== null, $impedimenti);
 
         return $this->consegna($request, $formato, 'ModelloD', 'Modello D', $anno, 'Modello D · Rendiconto per cassa '.$anno, $sezioni, $proprio !== null, $proposte, false);
     }

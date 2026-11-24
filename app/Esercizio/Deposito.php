@@ -34,9 +34,22 @@ final class Deposito
             'versione' => $versione->numero,
             'approvata_il' => $versione->approvata_il->toDateString(),
             'impostazioni' => ImpostazioniAssociazione::per($anno)?->only(['denominazione', 'codice_fiscale', 'numero_runts']) ?? [],
-            'precedente' => EsercizioStorico::modelloD($anno - 1),
+            'precedente' => self::precedente($anno),
             'prospetti' => $versione->istantanea,
         ];
+    }
+
+    /**
+     * Il Modello D dell'esercizio prima, per la sua colonna (#90, #18): dall'istantanea del suo deposito, altrimenti dalla sua versione approvata vigente (quella che
+     * l'assemblea ha visto, non i dati di oggi), altrimenti dallo storico caricato dal foglio (#63); null se non c'è nessuna delle tre.
+     */
+    public static function precedente(int $anno): ?array
+    {
+        $prima = $anno - 1;
+
+        return self::salvata($prima)['prospetti']['modello_d']
+            ?? (DatiEsercizio::per($prima)->approvato() ? VersioneEsercizio::vigente($prima)?->istantanea['modello_d'] : null)
+            ?? EsercizioStorico::modelloD($prima);
     }
 
     /**

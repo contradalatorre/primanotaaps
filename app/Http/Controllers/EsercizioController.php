@@ -28,7 +28,7 @@ class EsercizioController extends Controller
         $proposte = $salvata === null && $request->boolean('proposte');
         // Un esercizio storico (#63) non ha movimenti: il suo Modello D è ricalcolato dagli importi caricati dal foglio.
         $proprio = EsercizioStorico::where('esercizio', $anno)->first();
-        $precedente = $salvata ? $salvata['precedente'] : EsercizioStorico::modelloD($anno - 1);
+        $precedente = $salvata ? $salvata['precedente'] : Deposito::precedente($anno);
 
         return view('esercizio.modello-d', [
             'anno' => $anno,
