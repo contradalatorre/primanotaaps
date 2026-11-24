@@ -308,6 +308,17 @@ class DepositoRuntsTest extends TestCase
         $this->assertContains('Esercizio 2026 (€)', Deposito::documenti(Deposito::istantanea(2027))[0]['sezioni'][0]['colonne']);
     }
 
+    public function test_con_il_2026_depositato_la_colonna_viene_dall_istantanea_del_deposito_prima_che_dalla_versione(): void
+    {
+        $this->conIl2026(true);
+        $versione = VersioneEsercizio::vigente(2026);
+        $deposito = $versione->istantanea_deposito;
+        $deposito['prospetti']['modello_d']['gestione']['entrate']['importo'] = 123400;
+        $versione->forceFill(['istantanea_deposito' => $deposito])->save();
+
+        $this->assertSame(123400, Deposito::precedente(2027)['gestione']['entrate']['importo']);
+    }
+
     public function test_senza_il_2026_approvato_la_colonna_viene_dallo_storico_e_senza_storico_manca(): void
     {
         $this->assertNull(Deposito::precedente(2027));

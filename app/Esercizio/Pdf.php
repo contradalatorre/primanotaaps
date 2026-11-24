@@ -49,7 +49,9 @@ final class Pdf
         $temporanea = storage_path('app/mpdf');
         File::ensureDirectoryExists($temporanea);
         // Senza `PDFAauto`: se qualcosa non è conforme (trasparenze, font non incorporati) mPDF si ferma e non produce un PDF che sembra PDF/A e non lo è.
-        // `whitelistStreamWrappers` solo `file`: né immagini né fogli di stile remoti (difesa in profondità contro la SSRF, #90); i font e le risorse sono locali.
+        // `whitelistStreamWrappers` solo `file`: niente immagini o fogli di stile con `http(s)://` (difesa in profondità contro la SSRF, #90). Non ferma un `//host/x` senza schema:
+        // la difesa vera è che nessun testo libero arriva a mPDF come HTML (`e()` nelle viste).
+
         $pdf = new Mpdf(['mode' => 'utf-8', 'tempDir' => $temporanea, 'whitelistStreamWrappers' => ['file'], 'orientation' => $largo ? 'L' : 'P', 'margin_top' => 34, 'margin_bottom' => 18, 'margin_header' => 8, 'margin_footer' => 8, 'PDFA' => $pdfa]);
         $pdf->SetTitle($titolo);
         $pdf->SetHTMLHeader($html['intestazione']);
