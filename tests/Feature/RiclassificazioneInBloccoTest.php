@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Classificazione;
 use App\Models\Attivita;
 use App\Models\Conto;
 use App\Models\DatiEsercizio;
@@ -92,7 +93,7 @@ class RiclassificazioneInBloccoTest extends TestCase
         $this->come($this->utenteCon('Consigliere'), false)->post('/riclassificazione', $cambio + ['impronta' => str_repeat('a', 40)])->assertForbidden();
 
         $this->imputa('Utenze');
-        $this->come($this->tesoriere)->get('/riclassificazione')->assertOk()->assertSee('Festa della Torre');
+        $this->come($this->tesoriere)->get('/riclassificazione?esercizio=2026')->assertOk()->assertSee('Festa della Torre');
         $this->come($this->tesoriere, false)->from('/riclassificazione/anteprima')->post('/riclassificazione', $cambio + ['impronta' => str_repeat('a', 40)])->assertRedirect(route('riautentica'));
         $this->assertSame('A', $this->festa->refresh()->predefinitiPer(2026)->area->value);
     }
@@ -119,7 +120,7 @@ class RiclassificazioneInBloccoTest extends TestCase
         $senzaIniziativa = $this->imputa('Utenze', 2000, ['iniziativa_id' => null, 'area' => 'E', 'attivita_id' => null]);
         $cambio = $this->cambioFesta();
 
-        $this->applica($cambio)->assertRedirect(route('riclassificazione'))->assertSessionHasNoErrors()->assertSessionHas('ok');
+        $this->applica($cambio)->assertRedirect(route('riclassificazione', ['esercizio' => 2026]))->assertSessionHasNoErrors()->assertSessionHas('ok');
 
         $this->assertSame('B', $this->festa->refresh()->predefinitiPer(2026)->area->value);
         $this->assertSame('Vendita di beni', $this->festa->predefinitiPer(2026)->attivita->nome);
@@ -158,9 +159,9 @@ class RiclassificazioneInBloccoTest extends TestCase
         $this->applica($this->cambioFesta())->assertSessionHasNoErrors();
         $movimento = $aMano->movimento->refresh();
 
-        $this->come()->post(route('import.revisione.iniziativa', $import), ['movimenti' => [$movimento->id => \App\Classificazione::versione($movimento)], 'iniziativa_id' => $this->festa->id])->assertSessionHasNoErrors();
+        $this->come()->post(route('import.revisione.iniziativa', $import), ['movimenti' => [$movimento->id => Classificazione::versione($movimento)], 'iniziativa_id' => $this->festa->id])->assertSessionHasNoErrors();
 
-        $this->assertSame('B', $aMano->refresh()->area->value);
+        $this->assertSame(['B'], $movimento->imputazioni()->get()->map(fn ($i) => $i->area->value)->all(), 'La revisione riscrive le imputazioni');
         $this->assertSame('confermato', $movimento->refresh()->stato);
     }
 
@@ -298,7 +299,7 @@ class RiclassificazioneInBloccoTest extends TestCase
         $this->imputa('Utenze', 10000, ['area' => 'E', 'iniziativa_id' => null, 'attivita_id' => null]);
 
         $cambio = $this->cambioVoce('Utenze', 'E', 'E5');
-        $this->come()->get('/riclassificazione/anteprima?'.http_build_query($cambio))->assertOk()->assertSee('Uscite E2) Servizi')->assertSee('Uscite E5) Uscite diverse di gestione');
+        $this->come()->get('/riclassificazione/anteprima?'.http_build_query($cambio))->assertOk()->assertSee('Uscite E2) Servizi')->assertSee('Uscite E5) Altre uscite');
         $this->applica($cambio)->assertSessionHasNoErrors();
         $this->assertSame('E5', DB::table('voci_modello_d')->where(['esercizio' => 2026, 'area' => 'E', 'tipologia_id' => Tipologia::where('nome', 'Utenze')->value('id')])->value('voce'));
 

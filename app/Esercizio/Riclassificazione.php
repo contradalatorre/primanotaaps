@@ -118,7 +118,7 @@ final class Riclassificazione
             return [$cambio['esercizio']];
         }
 
-        return DB::table('imputazioni')->join('movimenti', 'movimenti.id', '=', 'imputazioni.movimento_id')->whereNull('movimenti.deleted_at')
+        return DB::table('imputazioni')->join('movimenti', 'movimenti.id', '=', 'imputazioni.movimento_id')->whereNull('movimenti.eliminato_il')
             ->where('imputazioni.tipologia_id', $cambio['tipologia_id'])->selectRaw('distinct year(movimenti.data) as anno')->orderBy('anno')->pluck('anno')
             ->map(fn ($anno) => (int) $anno)->all();
     }
@@ -230,7 +230,7 @@ final class Riclassificazione
             $lato = $tipologia->verso === 'entrata' ? 'entrate' : 'uscite';
             // La voce è una riga del Modello D su quel lato e sta nell'area della riga («A3» in area A), tranne «Imposte» e gli investimenti («I1»).
             if (! SchemaModelloD::conosce($lato, $voce) || ! (str_starts_with($voce, $area->value) || $voce === 'Imposte' || str_starts_with($voce, 'I'))) {
-                self::rifiuta('voce', "«$voce» non è una riga del Modello D delle $lato per l'area {$area->value}.");
+                self::rifiuta('voce', "«{$voce}» non è una riga del Modello D delle $lato per l'area {$area->value}.");
             }
             if ($riga?->voce === $voce) {
                 self::rifiuta('voce', "Nel $anno $nome ha già la voce $voce: non c'è niente da cambiare.");
