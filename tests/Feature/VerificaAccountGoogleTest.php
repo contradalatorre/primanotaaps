@@ -17,6 +17,14 @@ class VerificaAccountGoogleTest extends TestCase
 
     private const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Qui il token lo decide ogni test (anche nessuna risposta, per provare che non si chiede): niente risposta di default.
+        $this->httpDaCapo(null);
+    }
+
     /** Utente la cui ultima verifica con Google risale a più di un'ora fa. */
     private function utenteDaVerificare(): User
     {

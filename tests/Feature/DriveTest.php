@@ -102,6 +102,7 @@ class DriveTest extends TestCase
 
     public function test_senza_rete_il_messaggio_non_porta_dettagli(): void
     {
+        $this->httpDaCapo(null); // senza il token di default: la rete cade già alla prima richiesta
         Http::fake(fn () => throw new ConnectionException('cURL error 6: '.self::SEGNALE));
 
         try {
