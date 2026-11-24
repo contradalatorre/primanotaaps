@@ -21,6 +21,7 @@ use App\Models\Tipologia;
 use App\Models\User;
 use App\Models\VersioneEsercizio;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /** Il deposito al RUNTS (#60, #12, #18): PDF/A di deposito, data dell'invio, istantanea immutabile, movimenti bloccati. Dati inventati. */
@@ -65,9 +66,9 @@ class DepositoRuntsTest extends TestCase
     }
 
     /** Una raccolta fondi occasionale (#61) con relazione scritta e una liberalità non monetaria: il PDF di deposito ha un allegato in più, e veraPDF lo controlla con il resto. */
-    private function raccoltaOccasionale(): void
+    private function raccoltaOccasionale(string $nome = 'Notte delle lanterne'): void
     {
-        $iniziativa = Iniziativa::create(['nome' => 'Notte delle lanterne']);
+        $iniziativa = Iniziativa::create(['nome' => $nome]);
         foreach ([['entrata', 50000, 'Erogazioni liberali'], ['uscita', 12000, 'Materiale di comunicazione']] as [$verso, $importo, $tipologia]) {
             $m = Movimento::factory()->create(['conto_id' => $this->cassa->id, 'verso' => $verso, 'importo' => $importo, 'data' => '2026-05-10', 'inserito_da' => $this->tesoriere->id, 'stato' => 'confermato']);
             Imputazione::create(['movimento_id' => $m->id, 'importo' => $importo, 'area' => 'C', 'attivita_id' => Attivita::where('raccolta', 'occasionale')->value('id'), 'iniziativa_id' => $iniziativa->id, 'tipologia_id' => Tipologia::where('nome', $tipologia)->value('id')]);
@@ -257,6 +258,18 @@ class DepositoRuntsTest extends TestCase
         $this->assertSame(6, preg_match_all('/\/Subtype \/Link/', $pdf), "Solo i collegamenti interni dell'indice: titolo e pagina di ognuno dei tre documenti");
     }
 
+    public function test_il_nome_di_un_iniziativa_con_un_link_non_porta_un_uri_nel_pdf_scaricato(): void
+    {
+        $this->esercizio2026();
+        $this->raccoltaOccasionale('<a href="https://esempio.invalid/">clic</a>');
+        $this->approva();
+
+        $pdf = $this->come($this->tesoriere)->get('/esercizi/2026/deposito.pdf')->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('/URI', $pdf);
+        $this->assertSame(4, preg_match_all('/\/Subtype \/Link/', $pdf), 'Modello D e raccolta, ognuno con titolo e pagina');
+    }
+
     /** #90, #18: dal 2027 il PDF di deposito, la pagina e l'esportazione hanno la colonna 2026 anche se il 2026 non è uno storico ma un esercizio depositato o approvato. */
     private function conIl2026(bool $depositato): void
     {
@@ -273,7 +286,7 @@ class DepositoRuntsTest extends TestCase
         return ['depositato' => [true], 'solo approvato' => [false]];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('stati2026')]
+    #[DataProvider('stati2026')]
     public function test_la_colonna_dell_esercizio_precedente_viene_dal_2026_depositato_o_approvato(bool $depositato): void
     {
         $this->conIl2026($depositato);
@@ -292,6 +305,7 @@ class DepositoRuntsTest extends TestCase
         $this->come($this->tesoriere)->post('/esercizi/2027/apertura')->assertRedirect();
         $this->come($this->tesoriere)->post('/esercizi/2027/approvazione', ['data' => '2028-02-01'])->assertSessionHasNoErrors();
         $this->assertSame(80000, Deposito::istantanea(2027)['precedente']['gestione']['entrate']['importo']);
+        $this->assertContains('Esercizio 2026 (€)', Deposito::documenti(Deposito::istantanea(2027))[0]['sezioni'][0]['colonne']);
     }
 
     public function test_senza_il_2026_approvato_la_colonna_viene_dallo_storico_e_senza_storico_manca(): void
