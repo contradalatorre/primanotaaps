@@ -206,8 +206,8 @@ final class TestNatura
                 continue;
             }
             // Le raccolte fondi abituali (C1) possono avere corrispettivo continuativo (neutro nel test dell'ente, ricerca #7 § d) e le liberalità di C1 si tengono neutre
-            // anch'esse, mai tra le non commerciali, finché nessuna fonte dice altro; una forzatura le sposta (prevale).
-            if ($i->area === 'C' && $i->voce === 'C1' && $i->forzata === null) {
+            // anch'esse, mai tra le non commerciali, finché nessuna fonte dice altro. Una forzatura le sposta (prevale), ma una forzatura a non commerciale non sposta il corrispettivo di C1: darebbe all'ente un esito più favorevole della norma.
+            if ($i->area === 'C' && $i->voce === 'C1' && ($i->forzata === null || ($i->forzata === false && ! $i->liberalita))) {
                 $neutre += $i->importo;
 
                 continue;

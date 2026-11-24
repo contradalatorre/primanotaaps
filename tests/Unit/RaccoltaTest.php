@@ -124,9 +124,12 @@ class RaccoltaTest extends TestCase
         $this->assertSame('2026-12-09', $derivate['campi']['al']);
         $this->assertTrue(array_column($derivate['guida'], 'fatto', 'campo')['dal']);
 
-        $scritte = Raccolta::calcola($righe, [], ['dal' => '2026-12-01', 'al' => null])['relazione']['campi'];
-        $this->assertSame('2026-12-01', $scritte['dal']); // ciò che scrive l'operatore vince
-        $this->assertSame('2026-12-09', $scritte['al']);
+        $scritte = Raccolta::calcola($righe, [], ['dal' => '2026-12-01', 'al' => '2026-12-02'])['relazione']['campi'];
+        $this->assertSame(['2026-12-01', '2026-12-02'], [$scritte['dal'], $scritte['al']]); // ciò che scrive l'operatore vince
+
+        $una = Raccolta::calcola($righe, [], ['dal' => '2026-12-15'])['relazione'];
+        $this->assertArrayNotHasKey('al', $una['campi']); // con una sola data scritta l'altra non si ricava: potrebbe invertire il periodo
+        $this->assertFalse(array_column($una['guida'], 'fatto', 'campo')['al']);
 
         $this->assertArrayNotHasKey('dal', Raccolta::calcola([$this->e('liberalita_monetarie', 1000)], [], [])['relazione']['campi']); // senza date non si inventa nulla
     }

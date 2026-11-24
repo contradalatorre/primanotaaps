@@ -66,6 +66,7 @@ class NaturaCommercialeTest extends TestCase
 
         $this->assertStringContainsString('forfettario', $perche);
         $this->assertStringContainsString('art. 86', $perche);
+        $this->assertStringContainsString('neutra nel test dell’ente', $perche);
     }
 
     #[DataProvider('casi')]

@@ -51,13 +51,12 @@ final class Raccolta
     {
         $proventi = array_fill_keys(array_keys(self::PROVENTI), 0);
         $oneri = array_fill_keys(array_keys(self::ONERI), 0);
-        // Le date che l'operatore non ha scritto sono quelle dei movimenti della raccolta.
+        // Se l'operatore non ha scritto nessuna delle due date, sono quelle dei movimenti della raccolta; con una sola scritta l'altra resta da completare (derivata, potrebbe invertire il periodo).
         // shortcut: l'attività di destinazione non si ricava (le imputazioni della raccolta portano tutte l'attività di raccolta, nessun dato dice dove vanno i fondi): la sceglie l'operatore.
         $date = array_filter(array_column($righe, 'data'));
-        foreach (['dal' => 'min', 'al' => 'max'] as $campo => $scelta) {
-            if (blank($dati[$campo] ?? null) && $date !== []) {
-                $dati[$campo] = $scelta($date);
-            }
+        if ($date !== [] && blank($dati['dal'] ?? null) && blank($dati['al'] ?? null)) {
+            $dati['dal'] = min($date);
+            $dati['al'] = max($date);
         }
         $senzaRiga = ['entrate' => ['numero' => 0, 'importo' => 0], 'uscite' => ['numero' => 0, 'importo' => 0]];
         $denaro = ['contanti' => 0, 'conti' => 0];

@@ -200,8 +200,16 @@ class TestNaturaTest extends TestCase
                 [self::e('C', 'C1', 7000, ['proprieta' => ['liberalita']]), self::e('B', 'B3', 3000)],
                 ['ente.neutre' => 7000, 'ente.nonCommerciali' => 0, 'ente.commerciali' => 3000],
             ],
-            'una forzatura sposta anche una raccolta fondi abituale dai neutri' => [
+            'forzata a commerciale una raccolta fondi abituale esce dai neutri' => [
+                [self::e('C', 'C1', 8000, ['forzata' => true]), self::e('B', 'B3', 3000)],
+                ['ente.neutre' => 0, 'ente.commerciali' => 11000, 'ente.nonCommerciali' => 0],
+            ],
+            'forzata a non commerciale la parte corrispettiva di C1 resta neutra: nessun esito più favorevole della norma' => [
                 [self::e('C', 'C1', 8000, ['forzata' => false]), self::e('B', 'B3', 3000)],
+                ['ente.neutre' => 8000, 'ente.nonCommerciali' => 0, 'ente.commerciali' => 3000, 'ente.esito' => 'non_rispettato'],
+            ],
+            'una liberalità in C1 forzata a non commerciale passa tra le non commerciali (lo sono per legge, art. 79 c. 5-bis)' => [
+                [self::e('C', 'C1', 8000, ['proprieta' => ['liberalita'], 'forzata' => false]), self::e('B', 'B3', 3000)],
                 ['ente.neutre' => 0, 'ente.nonCommerciali' => 8000, 'ente.esito' => 'rispettato'],
             ],
             'il valore normale delle prestazioni gratuite dell\'area A pesa tra le non commerciali' => [
