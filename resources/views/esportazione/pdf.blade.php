@@ -21,7 +21,8 @@
         <tocpagebreak toc-preHTML="&lt;h1&gt;Indice&lt;/h1&gt;" links="1" />
     @endif
     @foreach ($documenti ?? [['titolo' => $titolo, 'sezioni' => $sezioni]] as $documento)
-        @if ($indicizzato)<tocentry content="{{ $documento['titolo'] }}" />@endif
+        {{-- Doppio escape: mPDF decodifica `content` e lo riscrive come HTML nell'indice, quindi un `<a>` o un `<img>` nel nome di un'iniziativa lì diventerebbe vivo (#90). --}}
+        @if ($indicizzato)<tocentry content="{{ e($documento['titolo']) }}" />@endif
         <h1>{{ $documento['titolo'] }}</h1>
         @foreach ($documento['sezioni'] as $sezione)
             <h2>{{ $sezione['titolo'] }}</h2>
