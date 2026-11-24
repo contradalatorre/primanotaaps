@@ -156,6 +156,60 @@ final class Tabelle
     }
 
     /**
+     * Il rendiconto di una raccolta fondi occasionale con la sua relazione illustrativa (#61, schema del DM 9/6/2022): quello che il PDF di deposito allega e che si scarica
+     * da solo, in PDF e XLSX. Nessun nome di persona: solo ciò che l'operatore ha scritto, con gli importi dal calcolo. Ciò che non ha ancora scritto si stampa «da completare».
+     *
+     * @param  array  $r  un risultato di `Raccolta::calcola` con il `nome` dell'iniziativa (`Raccolte::calcola`)
+     * @return list<Sezione>
+     */
+    public static function raccolta(array $r, int $anno): array
+    {
+        $riga = fn (string $etichetta, string|Importo|null $valore = null, bool $grassetto = false) => ['celle' => [$etichetta, ...($valore === null ? [] : [$valore])], 'grassetto' => $grassetto];
+        $importo = fn (int $c) => new Importo($c);
+        $c = $r['relazione']['campi'];
+        $testo = fn (string $campo) => filled($c[$campo] ?? null) ? (string) $c[$campo] : 'da completare';
+        $cifra = fn (string $campo) => ($c[$campo] ?? null) === null ? 'da completare' : $importo((int) $c[$campo]);
+        $data = fn (string $campo) => filled($c[$campo] ?? null) ? date('d/m/Y', strtotime((string) $c[$campo])) : null;
+
+        $proventi = [$riga('Liberalità monetarie', $importo($r['proventi']['liberalita_monetarie'])), $riga('Liberalità non monetarie (valore di mercato)', $importo($r['proventi']['liberalita_non_monetarie'])), $riga('Altri proventi', $importo($r['proventi']['altri_proventi'])), $riga('Totale proventi', $importo($r['proventi']['totale']), true)];
+        $oneri = [...array_map(fn (string $k, string $etichetta) => $riga($etichetta, $importo($r['oneri']['righe'][$k])), array_keys(Raccolta::ONERI), Raccolta::ONERI), $riga('Totale oneri', $importo($r['oneri']['totale']), true)];
+
+        $sezioni = [
+            ['titolo' => 'Evento', 'colonne' => ['Campo', 'Valore'], 'righe' => [
+                $riga('Denominazione', $r['nome']), $riga('Esercizio', (string) $anno),
+                $riga('Date', $data('dal') !== null && $data('al') !== null ? 'dal '.$data('dal').' al '.$data('al') : 'da completare'),
+            ]],
+            ['titolo' => 'Proventi (a)', 'colonne' => ['Riga', 'Importo (€)'], 'righe' => $proventi],
+            ['titolo' => 'Oneri (b)', 'colonne' => ['Riga', 'Importo (€)'], 'righe' => $oneri],
+            ['titolo' => 'Risultato (a − b)', 'colonne' => ['Riga', 'Importo (€)'], 'righe' => [$riga('Risultato', $importo($r['risultato']), true)]],
+        ];
+        if ($r['liberalita'] !== []) {
+            $sezioni[] = ['titolo' => 'Liberalità non monetarie', 'colonne' => ['Descrizione', 'Quantità', 'Valore stimato (€)', 'Criterio di stima', 'Documento'], 'righe' => array_map(
+                fn (array $l) => ['celle' => [$l['descrizione'], (string) $l['quantita'], $importo($l['valore']), $l['criterio'], $l['documento']], 'grassetto' => false], $r['liberalita'],
+            )];
+        }
+
+        $denaro = $r['relazione']['denaro'];
+        $relazione = [
+            $riga('Ricorrenza o campagna', $testo('occasione')), $riga('Descrizione', $testo('descrizione')), $riga('Luogo', $testo('luogo')), $riga('Modalità', $testo('modalita')),
+            $riga('Finalità', $testo('finalita')), $riga('Beni o servizi offerti', $testo('beni_servizi')),
+            $riga('Denaro raccolto in contanti', $importo($denaro['contanti'])), $riga('Denaro raccolto su conto corrente o altro', $importo($denaro['conti'])),
+            $riga('Valore dei beni (liberalità non monetarie)', $importo($r['relazione']['valore_beni'])),
+            $riga('Costi sostenuti', $importo($r['oneri']['totale'])), $riga('Dettaglio dei costi', $testo('dettaglio_costi')),
+            $riga('Netto raccolto', $importo($r['risultato']), true), $riga('Attività di destinazione', $testo('attivita_destinazione')),
+            $riga('Beni di modico valore ceduti (numero)', ($c['beni_modico_numero'] ?? null) === null ? 'da completare' : (string) $c['beni_modico_numero']),
+            $riga('Beni di modico valore ceduti (prezzo di ciascuno)', $cifra('beni_modico_prezzo')),
+            $riga('Elargizioni di persone fisiche', $cifra('elargizioni_persone_fisiche')), $riga('Elargizioni di persone giuridiche', $cifra('elargizioni_persone_giuridiche')),
+        ];
+        if ($r['motivazione']['richiesta'] || filled($c['motivazione'] ?? null)) {
+            $relazione[] = $riga('Motivazione', $testo('motivazione'));
+        }
+        $sezioni[] = ['titolo' => 'Relazione illustrativa', 'colonne' => ['Voce', 'Valore'], 'righe' => $relazione];
+
+        return $sezioni;
+    }
+
+    /**
      * Le righe sopra ogni prospetto, dalle impostazioni dell'associazione: ente, codice fiscale e RUNTS, titolo e lo stato. Un esercizio aperto è sempre
      * «provvisorio – aggiornato al …»: sta qui, in intestazione, e non in filigrana (il PDF/A non ammette trasparenze). Un esercizio approvato (#59) porta al suo posto
      * `$approvazione` («Approvato il … · versione N») e, se i dati di oggi non sono più quelli approvati, la frase sulle differenze.
