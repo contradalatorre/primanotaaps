@@ -271,6 +271,46 @@ class RiclassificazioneInBloccoTest extends TestCase
         $this->assertSame('C2', $utenze->refresh()->voce());
     }
 
+    public function test_il_cambio_d_area_verso_c_controlla_anche_la_tabella_delle_righe_delle_raccolte(): void
+    {
+        $utenze = $this->imputa('Utenze');
+        $riga = DB::table('righe_raccolta')->where(['esercizio' => 2026, 'tipologia_id' => $utenze->tipologia_id])->first();
+        DB::table('righe_raccolta')->where('id', $riga->id)->delete(); // la voce C1 c'è, la riga dello schema delle raccolte no
+
+        // Occasionale: l'imputazione andrebbe in C2 senza riga dello schema, e la quadratura non tornerebbe mai.
+        $cambio = $this->cambioFesta('C', 'Raccolta fondi occasionale');
+        $this->come()->get('/riclassificazione/anteprima?'.http_build_query($cambio))->assertSessionHasErrors('area');
+        $this->assertStringContainsString('Utenze', session('errors')->first('area'));
+        $this->assertStringContainsString('raccolte', session('errors')->first('area'));
+        $this->assertSame('A', $utenze->refresh()->area->value);
+
+        // Abituale: è C1, la riga dello schema delle raccolte non serve.
+        $this->applica($this->cambioFesta('C', 'Raccolta fondi abituale'))->assertSessionHasNoErrors();
+        $this->assertSame('C1', $utenze->refresh()->voce());
+    }
+
+    public function test_il_cambio_d_area_verso_c_occasionale_passa_con_la_riga_delle_raccolte(): void
+    {
+        $utenze = $this->imputa('Utenze');
+
+        $this->applica($this->cambioFesta('C', 'Raccolta fondi occasionale'))->assertSessionHasNoErrors();
+        $this->assertSame('C2', $utenze->refresh()->voce());
+    }
+
+    public function test_in_area_c_la_tabella_delle_voci_accetta_solo_c1(): void
+    {
+        $quote = Tipologia::where('nome', 'Quote associative')->firstOrFail();
+        $chiave = ['esercizio' => 2026, 'area' => 'C', 'tipologia_id' => $quote->id];
+
+        foreach (['C2', 'C3', 'I1', 'Imposte', 'A1'] as $voce) { // C1 o C2 lo decide l'attività di raccolta, non la tabella
+            $this->come()->get('/riclassificazione/anteprima?'.http_build_query($this->cambioVoce('Quote associative', 'C', $voce)))->assertSessionHasErrors('voce');
+        }
+        $this->assertDatabaseMissing('voci_modello_d', $chiave);
+
+        $this->applica($this->cambioVoce('Quote associative', 'C', 'C1'))->assertSessionHasNoErrors();
+        $this->assertSame('C1', DB::table('voci_modello_d')->where($chiave)->value('voce'));
+    }
+
     public function test_un_esercizio_depositato_non_si_tocca(): void
     {
         $imputazione = $this->imputa('Utenze');

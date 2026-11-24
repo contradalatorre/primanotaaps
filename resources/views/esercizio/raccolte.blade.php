@@ -13,6 +13,7 @@
         <a href="{{ route('esercizio.raccolte', $anno + 1) }}" class="link">Esercizio {{ $anno + 1 }}</a> ·
         <a href="{{ route('modello-d', $anno) }}" class="link">Modello D {{ $anno }}</a> ·
         <a href="{{ route('esercizio.approvazione', $anno) }}" class="link">Approvazione {{ $anno }}</a>
+        @can('gestire_esercizio') · <a href="{{ route('esercizio.raccolte.righe', $anno) }}" class="link">Righe delle raccolte {{ $anno }}</a> @endcan
     </p>
 
     <section data-merlo="raccolte-quadratura">

@@ -8,6 +8,7 @@ use App\Models\Iniziativa;
 use App\Models\LiberalitaNonMonetaria;
 use App\Models\RaccoltaOccasionale;
 use App\Models\RegistroModifica;
+use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -137,6 +138,35 @@ final class Raccolte
             $testo = self::testo($liberalita);
             $liberalita->delete();
             RegistroModifica::registra($utente, $raccolta, 'liberalita_tolta', ['esercizio' => $anno, 'liberalita' => $testo], null);
+        });
+    }
+
+    /**
+     * La tabella tipologia → riga dello schema delle raccolte (#61, #89): per esercizio come la tabella delle voci, si scrive dalla sua pagina con `gestire_esercizio` (come i dati della
+     * raccolta che alimenta), non dopo l'approvazione né il deposito. `$riga` nulla toglie la riga. Un esercizio non ancora aperto non si cambia: `Apertura::apri` la copia dal precedente
+     * e una riga già scritta la farebbe fermare sulla chiave unica (esercizio, tipologia).
+     */
+    public static function impostaRiga(User $utente, int $anno, int $tipologia, ?string $riga): void
+    {
+        DatiEsercizio::sottoBlocco($utente, $anno, function (DatiEsercizio $dati) use ($utente, $anno, $tipologia, $riga) {
+            self::controllaScrivibile($dati, $anno);
+            if (Apertura::sorgente($anno) !== null) {
+                throw ValidationException::withMessages(['esercizio' => "L'esercizio $anno non è ancora aperto: la tabella delle righe si copia dall'esercizio precedente con l'apertura, e solo dopo si cambia."]);
+            }
+            $verso = Tipologia::findOrFail($tipologia)->verso;
+            if ($riga !== null && ! array_key_exists($riga, $verso === 'entrata' ? Raccolta::PROVENTI : Raccolta::ONERI)) {
+                throw ValidationException::withMessages(['riga' => $verso === 'entrata' ? 'Una entrata va in una riga dei proventi.' : 'Una uscita va in una riga degli oneri.']);
+            }
+            $chiave = ['esercizio' => $anno, 'tipologia_id' => $tipologia];
+            $prima = DB::table('righe_raccolta')->where($chiave)->lockForUpdate()->value('riga');
+            if ($prima === $riga) {
+                return;
+            }
+            $riga === null ? DB::table('righe_raccolta')->where($chiave)->delete() : DB::table('righe_raccolta')->updateOrInsert($chiave, ['riga' => $riga]);
+            RegistroModifica::create([
+                'user_id' => $utente->id, 'oggetto_tipo' => 'esercizio', 'oggetto_id' => $anno, 'azione' => $riga === null ? 'riga_raccolta_tolta' : 'riga_raccolta_impostata',
+                'prima' => ['tipologia_id' => $tipologia, 'riga' => $prima], 'dopo' => ['tipologia_id' => $tipologia, 'riga' => $riga],
+            ]);
         });
     }
 

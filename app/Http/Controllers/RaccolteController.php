@@ -2,15 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Esercizio\Apertura;
 use App\Esercizio\Deposito;
+use App\Esercizio\Raccolta;
 use App\Esercizio\Raccolte;
 use App\Euro;
 use App\Models\Attivita;
 use App\Models\DatiEsercizio;
 use App\Models\Iniziativa;
 use App\Models\RaccoltaOccasionale;
+use App\Models\Tipologia;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -67,6 +71,27 @@ class RaccolteController extends Controller
         Raccolte::salva($request->user(), $anno, $iniziativa->id, $campi + array_fill_keys(RaccoltaOccasionale::CAMPI, null));
 
         return redirect()->route('esercizio.raccolta', [$anno, $iniziativa])->with('ok', 'Dati della raccolta salvati.');
+    }
+
+    /** La tabella tipologia → riga dello schema delle raccolte (#89): le tipologie con una voce in area C nell'esercizio, o con una riga già scritta, e la riga di ognuna. */
+    public function righe(int $anno)
+    {
+        $righe = DB::table('righe_raccolta')->where('esercizio', $anno)->pluck('riga', 'tipologia_id');
+        $conVoceC = DB::table('voci_modello_d')->where('esercizio', $anno)->where('area', 'C')->pluck('tipologia_id');
+
+        return view('esercizio.righe-raccolta', [
+            'anno' => $anno, 'righe' => $righe,
+            'tipologie' => Tipologia::whereIn('id', $conVoceC->merge($righe->keys()))->orderBy('verso')->orderBy('nome')->get(),
+            'approvato' => DatiEsercizio::per($anno)->approvato(), 'aperto' => Apertura::sorgente($anno) === null,
+        ]);
+    }
+
+    public function impostaRiga(Request $request, int $anno, int $tipologia): RedirectResponse
+    {
+        $riga = $request->validate(['riga' => ['nullable', 'string', Rule::in([...array_keys(Raccolta::PROVENTI), ...array_keys(Raccolta::ONERI)])]])['riga'] ?? null;
+        Raccolte::impostaRiga($request->user(), $anno, Tipologia::findOrFail($tipologia)->id, $riga);
+
+        return redirect()->route('esercizio.raccolte.righe', $anno)->with('ok', $riga === null ? 'Riga tolta.' : 'Riga impostata.');
     }
 
     public function aggiungiLiberalita(Request $request, int $anno, Iniziativa $iniziativa): RedirectResponse
