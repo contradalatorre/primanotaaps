@@ -122,6 +122,27 @@ class DatiDiBaseClassificazioneTest extends TestCase
         $this->assertSame($areaPrima, $festa->predefinitiPer(2026)->area->value);
     }
 
+    public function test_il_modulo_della_pagina_rinomina_un_iniziativa_usata_anche_con_l_attivita_predefinita_archiviata(): void
+    {
+        $this->actingAs($this->utenteCon('Tesoriere'));
+        $festa = Iniziativa::firstWhere('nome', 'Festa della Torre');
+        $lettera = $festa->predefinitiPer(2026)->attivita;
+        $movimento = Movimento::factory()->create(['data' => '2026-05-10']);
+        Imputazione::create(['movimento_id' => $movimento->id, 'importo' => 1250, 'area' => 'A', 'iniziativa_id' => $festa->id, 'tipologia_id' => Tipologia::firstWhere('nome', 'Utenze')->id, 'attivita_id' => $lettera->id]);
+        $lettera->forceFill(['archiviata_il' => now()])->save();
+
+        // Quello che il browser manda: il modulo della scheda, letto dall'HTML, con il solo nome cambiato.
+        $pagina = $this->get('/classificazione?esercizio=2026')->assertOk()->getContent();
+        $this->assertSame(1, preg_match('#<form method="POST" action="[^"]*/classificazione/iniziative/'.$festa->id.'".*?</form>#s', $pagina, $modulo));
+        $selezionato = fn (string $campo) => preg_match('#<select name="'.$campo.'">.*?</select>#s', $modulo[0], $select) && preg_match('#<option value="([^"]*)"\s+selected#', $select[0], $o) ? $o[1] : '';
+        $dati = ['nome' => 'Festa della Torre 2.0', 'esercizio' => 2026, 'area' => $selezionato('area'), 'attivita_id' => $selezionato('attivita_id')];
+
+        $this->put("/classificazione/iniziative/{$festa->id}", $dati)->assertSessionHasNoErrors();
+        $festa->refresh()->load('predefiniti');
+        $this->assertSame('Festa della Torre 2.0', $festa->nome);
+        $this->assertSame($lettera->id, $festa->predefinitiPer(2026)->attivita_id, 'L’attività archiviata resta quella predefinita');
+    }
+
     public function test_si_rinomina_una_tipologia_ma_non_si_cambia_il_verso(): void
     {
         $this->actingAs($this->utenteCon('Tesoriere'));
