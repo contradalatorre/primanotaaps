@@ -28,6 +28,7 @@ use App\Http\Controllers\PreferenzeController;
 use App\Http\Controllers\RegistroController;
 use App\Http\Controllers\RegoleController;
 use App\Http\Controllers\RevisioneImportController;
+use App\Http\Controllers\RiclassificazioneController;
 use App\Http\Controllers\RuoliController;
 use App\Http\Controllers\SatispayController;
 use App\Http\Controllers\StatoSistemaController;
@@ -124,6 +125,12 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
     });
     // Aprire un esercizio nuovo copia voci e predefiniti: è «modificare la tabella delle voci» (#16).
     Route::post('/esercizi/{anno}/apertura', [EsercizioController::class, 'apri'])->where('anno', '[1-9][0-9]{3}')->middleware('can:riclassificare_in_blocco')->name('esercizio.apri');
+    // La riclassificazione in blocco (#62): anteprima (GET, così dopo la riautenticazione si torna a lei) e applicazione, azione delicata come l'approvazione.
+    Route::middleware('can:riclassificare_in_blocco')->group(function () {
+        Route::get('/riclassificazione', [RiclassificazioneController::class, 'indice'])->name('riclassificazione');
+        Route::get('/riclassificazione/anteprima', [RiclassificazioneController::class, 'anteprima'])->name('riclassificazione.anteprima');
+        Route::post('/riclassificazione', [RiclassificazioneController::class, 'applica'])->middleware('password.confirm:riautentica')->name('riclassificazione.applica');
+    });
     // L'esercizio storico dal foglio approvato (#63, #18): lo vede chi vede, lo carica chi gestisce i dati dell'esercizio, lo modifica solo chi può riaprirlo.
     Route::middleware('can:vedere')->get('/esercizi/{anno}/storico', [EsercizioStoricoController::class, 'indice'])->where('anno', '[1-9][0-9]{3}')->name('esercizio.storico');
     Route::middleware('can:gestire_esercizio')->where(['anno' => '[1-9][0-9]{3}', 'token' => '[A-Za-z0-9]{40}'])->group(function () {
