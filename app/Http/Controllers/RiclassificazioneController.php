@@ -62,7 +62,7 @@ class RiclassificazioneController extends Controller
         return ['tipo' => $tipo] + match ($tipo) {
             'iniziativa' => $this->tipati($request->validate($esercizio + ['iniziativa_id' => ['required', 'integer', 'exists:iniziative,id'], 'area' => $area, 'attivita_id' => ['nullable', 'integer', 'exists:attivita,id']]), ['iniziativa_id', 'esercizio', 'attivita_id']),
             'tipologia' => $this->tipati($request->validate(['tipologia_id' => ['required', 'integer', 'exists:tipologie,id'], 'proprieta' => ['nullable', 'array'], 'proprieta.*' => [Rule::in(array_keys(Tipologia::PROPRIETA))]]), ['tipologia_id']) + ['proprieta' => $request->input('proprieta', [])],
-            'voce' => $this->tipati($request->validate($esercizio + ['tipologia_id' => ['required', 'integer', 'exists:tipologie,id'], 'area' => $area, 'voce' => ['nullable', 'string', 'max:20']]), ['tipologia_id', 'esercizio']),
+            'voce' => $this->tipati($request->validate($esercizio + ['tipologia_id' => ['required', 'integer', 'exists:tipologie,id'], 'area' => $area, 'voce' => ['nullable', 'string', 'max:20']]) + ['voce' => null], ['tipologia_id', 'esercizio']), // la chiave c'è sempre: un modulo senza `voce` (riga da togliere) non cambia l'impronta
         };
     }
 

@@ -5,12 +5,14 @@ namespace Tests\Feature;
 use App\Classificazione;
 use App\Models\Attivita;
 use App\Models\Conto;
+use App\Models\ConversioneCausale;
 use App\Models\DatiEsercizio;
 use App\Models\ImportEstratto;
 use App\Models\Imputazione;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
 use App\Models\RegistroModifica;
+use App\Models\Regola;
 use App\Models\Tipologia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -71,17 +73,29 @@ class RiclassificazioneInBloccoTest extends TestCase
         DatiEsercizio::updateOrCreate(['esercizio' => $anno], ['criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'stato' => 'depositato']);
     }
 
-    private function impronta(array $cambio): string
+    /** I campi nascosti del modulo dell'anteprima, come li rimanda il browser (letti dall'HTML, non ricostruiti da `$cambio`): `impronta` compresa, il `_token` no. */
+    private function modulo(array $cambio): array
     {
         $pagina = $this->come()->get('/riclassificazione/anteprima?'.http_build_query($cambio))->assertOk();
-        preg_match('/name="impronta" value="([0-9a-f]{40})"/', $pagina->getContent(), $trovata);
+        preg_match_all('/<input type="hidden" name="([^"]+)" value="([^"]*)"/', $pagina->getContent(), $campi, PREG_SET_ORDER);
+        $campi = array_filter($campi, fn (array $c) => $c[1] !== '_token');
+        parse_str(implode('&', array_map(fn (array $c) => urlencode(html_entity_decode($c[1])).'='.urlencode(html_entity_decode($c[2])), $campi)), $dati);
+        $dati['impronta'] ?? $this->fail('L’anteprima non porta l’impronta da riscrivere nell’applicazione.');
 
-        return $trovata[1] ?? $this->fail('L’anteprima non porta l’impronta da riscrivere nell’applicazione.');
+        return $dati;
     }
 
+    private function impronta(array $cambio): string
+    {
+        return $this->modulo($cambio)['impronta'];
+    }
+
+    /** Con `$impronta` si manda `$cambio` con quella; senza, si manda quello che il modulo dell'anteprima manda davvero. */
     private function applica(array $cambio, ?string $impronta = null, ?User $utente = null, bool $riautenticato = true)
     {
-        return $this->come($utente, $riautenticato)->post('/riclassificazione', $cambio + ['impronta' => $impronta ?? $this->impronta($cambio)]);
+        $dati = $impronta === null ? $this->modulo($cambio) : $cambio + ['impronta' => $impronta];
+
+        return $this->come($utente, $riautenticato)->post('/riclassificazione', $dati);
     }
 
     public function test_senza_il_permesso_e_un_403_e_senza_riautenticazione_si_va_a_riautenticarsi(): void
@@ -141,6 +155,57 @@ class RiclassificazioneInBloccoTest extends TestCase
         $this->assertDatabaseHas('registro_modifiche', ['oggetto_tipo' => 'movimento', 'oggetto_id' => $segue->movimento_id, 'azione' => 'riclassificato']);
         $this->assertDatabaseHas('registro_modifiche', ['oggetto_tipo' => 'movimento', 'oggetto_id' => $proposta->movimento_id, 'azione' => 'riclassificato']);
         $this->assertDatabaseMissing('registro_modifiche', ['oggetto_tipo' => 'movimento', 'oggetto_id' => $aMano->movimento_id]);
+    }
+
+    public function test_l_anteprima_non_blocca_nessuna_riga_l_applicazione_si(): void
+    {
+        $this->imputa('Utenze');
+        $cambio = $this->cambioFesta();
+        $conBlocco = fn () => collect(DB::getQueryLog())->contains(fn (array $q) => stripos($q['query'], 'for update') !== false);
+
+        DB::enableQueryLog();
+        $this->come()->get('/riclassificazione/anteprima?'.http_build_query($cambio))->assertOk();
+        $this->assertFalse($conBlocco(), 'Una GET non fa aspettare import e conferme degli altri');
+
+        $dati = $this->modulo($cambio);
+        DB::flushQueryLog();
+        $this->come()->post('/riclassificazione', $dati)->assertSessionHasNoErrors();
+        $this->assertTrue($conBlocco(), 'L’applicazione blocca conti, movimenti e righe che legge');
+    }
+
+    public function test_anteprima_ed_esito_elencano_regole_e_righe_di_conversione_che_portano_ancora_l_area_vecchia(): void
+    {
+        $this->imputa('Utenze');
+        $tipologia = Tipologia::where('nome', 'Utenze')->firstOrFail();
+        $altra = Iniziativa::where('nome', 'Carnevale')->firstOrFail();
+        $regola = fn (string $nome, Iniziativa $i, string $area) => Regola::create(['nome' => $nome, 'posizione' => 1, 'tipologia_id' => $tipologia->id, 'iniziativa_id' => $i->id, 'area' => $area]);
+        $vecchia = $regola('Bolletta della festa', $this->festa, 'A');
+        $regola('Già in area B', $this->festa, 'B');
+        $regola('Di un altro evento', $altra, 'A');
+        ConversioneCausale::query()->delete();
+        $riga = fn (string $causale, Iniziativa $i, string $area) => ConversioneCausale::create(['causale' => $causale, 'chiave' => strtolower($causale), 'verso' => 'uscita', 'tipologia_id' => $tipologia->id, 'iniziativa_id' => $i->id, 'area' => $area]);
+        $riga('Causale inventata della festa', $this->festa, 'A');
+        $riga('Causale già in B', $this->festa, 'B');
+        $riga('Causale di un altro evento', $altra, 'A');
+        $cambio = $this->cambioFesta();
+
+        $this->come()->get('/riclassificazione/anteprima?'.http_build_query($cambio))->assertOk()
+            ->assertSee('Bolletta della festa')->assertSee(route('regole.modifica', $vecchia), false)
+            ->assertSee('Causale inventata della festa')->assertSee(route('conversione'), false)
+            ->assertDontSee('Già in area B')->assertDontSee('Di un altro evento')->assertDontSee('Causale già in B')->assertDontSee('Causale di un altro evento');
+        $this->assertSame('A', $vecchia->refresh()->area, 'Non si cambiano in automatico');
+
+        $this->applica($cambio)->assertSessionHasNoErrors();
+        $this->get(route('riclassificazione', ['esercizio' => 2026]))->assertOk()->assertSee('Bolletta della festa')->assertSee('Causale inventata della festa')->assertDontSee('Di un altro evento');
+    }
+
+    public function test_togliendo_una_riga_della_tabella_si_elencano_regole_e_righe_di_conversione_che_la_usano(): void
+    {
+        $utenze = Tipologia::where('nome', 'Utenze')->firstOrFail();
+        Regola::create(['nome' => 'Bolletta in area E', 'posizione' => 1, 'tipologia_id' => $utenze->id, 'area' => 'E']);
+        Regola::create(['nome' => 'Bolletta in area C', 'posizione' => 2, 'tipologia_id' => $utenze->id, 'area' => 'C']);
+
+        $this->come()->get('/riclassificazione/anteprima?'.http_build_query($this->cambioVoce('Utenze', 'E', null)))->assertOk()->assertSee('Bolletta in area E')->assertDontSee('Bolletta in area C');
     }
 
     public function test_l_anteprima_elenca_i_cambiati_a_mano_per_import_con_il_collegamento_alla_revisione(): void

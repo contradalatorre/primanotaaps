@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Area;
 use App\Models\Attivita;
+use App\Models\Imputazione;
 use App\Models\Iniziativa;
 use App\Models\RegistroModifica;
 use App\Models\Tag;
@@ -157,13 +158,23 @@ class DatiDiClassificazioneController extends Controller
         };
     }
 
-    /** Area e attività che l'iniziativa propone ai movimenti dell'esercizio; l'area vuota toglie il predefinito. */
+    /**
+     * Area e attività che l'iniziativa propone ai movimenti dell'esercizio; l'area vuota toglie il predefinito. Come le proprietà delle tipologie (#39, #62), un predefinito
+     * già presente non si cambia da qui se l'iniziativa ha imputazioni in quell'esercizio: cambierebbe l'area di un esercizio anche depositato, senza anteprima né riautenticazione.
+     */
     private function impostaPredefiniti(string $tipo, Model $elemento, array $dati): void
     {
         if ($tipo !== 'iniziative') {
             return;
         }
-        $elemento->predefiniti()->where('esercizio', $dati['esercizio'])->delete();
+        $anno = (int) $dati['esercizio'];
+        $esistente = $elemento->predefiniti()->where('esercizio', $anno)->lockForUpdate()->first();
+        $attivitaId = isset($dati['attivita_id']) ? (int) $dati['attivita_id'] : null;
+        $uguale = $esistente !== null && $esistente->area->value === ($dati['area'] ?? null) && $esistente->attivita_id === $attivitaId;
+        if ($esistente !== null && ! $uguale && Imputazione::where('iniziativa_id', $elemento->id)->whereHas('movimento', fn ($q) => $q->whereBetween('data', ["$anno-01-01", "$anno-12-31"]))->exists()) {
+            throw ValidationException::withMessages(['area' => '«'.$elemento->nome."» ha già movimenti nel $anno: l'area e l'attività predefinite non si cambiano da qui, ma con la riclassificazione in blocco."]);
+        }
+        $elemento->predefiniti()->where('esercizio', $anno)->delete();
         if (! empty($dati['area'])) {
             $elemento->predefiniti()->create(['esercizio' => $dati['esercizio'], 'area' => $dati['area'], 'attivita_id' => $dati['attivita_id'] ?? null]);
         }
