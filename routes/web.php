@@ -126,6 +126,9 @@ Route::middleware(['auth', VerificaAccountGoogle::class, ProvaMiddleware::class]
         Route::put('/esercizi/{anno}/raccolte/{iniziativa}', [RaccolteController::class, 'salva'])->where('iniziativa', '[0-9]+')->name('esercizio.raccolta.salva');
         Route::post('/esercizi/{anno}/raccolte/{iniziativa}/liberalita', [RaccolteController::class, 'aggiungiLiberalita'])->where('iniziativa', '[0-9]+')->name('esercizio.raccolta.liberalita.aggiungi');
         Route::delete('/esercizi/{anno}/raccolte/{iniziativa}/liberalita/{riga}', [RaccolteController::class, 'eliminaLiberalita'])->where('iniziativa', '[0-9]+')->name('esercizio.raccolta.liberalita.elimina');
+        // La tabella tipologia → riga dello schema delle raccolte (#89): per esercizio, con `gestire_esercizio` come i dati della raccolta che alimenta.
+        Route::get('/esercizi/{anno}/raccolte/righe', [RaccolteController::class, 'righe'])->name('esercizio.raccolte.righe');
+        Route::put('/esercizi/{anno}/raccolte/righe/{tipologia}', [RaccolteController::class, 'impostaRiga'])->where('tipologia', '[0-9]+')->name('esercizio.raccolte.righe.imposta');
     });
     // Il preventivo di un'iniziativa lo scrive chi gestisce regole, tipologie e iniziative (#16).
     Route::middleware('can:gestire_regole')->where(['anno' => '[1-9][0-9]{3}', 'iniziativa' => '[0-9]+'])->group(function () {

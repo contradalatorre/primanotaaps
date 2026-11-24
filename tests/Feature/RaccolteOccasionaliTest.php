@@ -506,4 +506,94 @@ class RaccolteOccasionaliTest extends TestCase
 
         $this->assertSame(['Notte delle lanterne'], array_column(Raccolte::calcola(2026)['raccolte'], 'nome'));
     }
+
+    public function test_una_voce_c2_nella_tabella_con_un_attivita_abituale_resta_c1_e_non_e_una_raccolta_occasionale(): void
+    {
+        $liberali = Tipologia::where('nome', 'Erogazioni liberali')->firstOrFail();
+        DB::table('voci_modello_d')->where(['esercizio' => 2026, 'area' => 'C', 'tipologia_id' => $liberali->id])->update(['voce' => 'C2']); // un dato di prima della correzione
+        $i = $this->imputaC('Erogazioni liberali', 10000, $this->notte, ['attivita_id' => Attivita::where('raccolta', 'abituale')->value('id')]);
+
+        $this->assertSame('C1', $i->voce());
+        $this->assertSame([], Raccolte::calcola(2026)['raccolte']);
+        $this->assertSame(0, Raccolte::calcola(2026)['quadratura']['entrate']['c2']);
+    }
+
+    /** Toglie la riga dello schema delle raccolte di una tipologia (la voce C1 della tabella resta). */
+    private function senzaRiga(string $tipologia): int
+    {
+        $id = Tipologia::where('nome', $tipologia)->value('id');
+        DB::table('righe_raccolta')->where(['esercizio' => 2026, 'tipologia_id' => $id])->delete();
+
+        return $id;
+    }
+
+    public function test_la_tabella_delle_righe_si_cambia_dalla_pagina_e_la_quadratura_torna(): void
+    {
+        $this->raccoltaCheQuadra();
+        $id = $this->senzaRiga('Materiale di comunicazione');
+        $this->assertFalse(Raccolte::calcola(2026)['quadratura']['quadra']);
+
+        $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/righe')->assertOk()->assertSeeText('Materiale di comunicazione')->assertSeeText('nessuna riga');
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/righe/'.$id, ['riga' => 'oneri_promozionali'])->assertSessionHasNoErrors()->assertRedirect('/esercizi/2026/raccolte/righe');
+
+        $this->assertSame('oneri_promozionali', DB::table('righe_raccolta')->where(['esercizio' => 2026, 'tipologia_id' => $id])->value('riga'));
+        $this->assertTrue(Raccolte::calcola(2026)['quadratura']['quadra']);
+        $this->assertDatabaseHas('registro_modifiche', ['oggetto_tipo' => 'esercizio', 'oggetto_id' => 2026, 'azione' => 'riga_raccolta_impostata', 'user_id' => $this->tesoriere->id]);
+
+        // Una riga si cambia, e si toglie lasciando vuoto.
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/righe/'.$id, ['riga' => 'altri_oneri'])->assertSessionHasNoErrors();
+        $this->assertSame('altri_oneri', DB::table('righe_raccolta')->where(['esercizio' => 2026, 'tipologia_id' => $id])->value('riga'));
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/righe/'.$id, ['riga' => ''])->assertSessionHasNoErrors();
+        $this->assertDatabaseMissing('righe_raccolta', ['esercizio' => 2026, 'tipologia_id' => $id]);
+        $this->assertDatabaseHas('registro_modifiche', ['oggetto_tipo' => 'esercizio', 'oggetto_id' => 2026, 'azione' => 'riga_raccolta_tolta']);
+        $this->come($this->tesoriere)->get('/registro')->assertOk()->assertSeeText('ha impostato una riga dello schema delle raccolte')->assertSeeText('ha tolto una riga dello schema delle raccolte');
+    }
+
+    public function test_una_riga_dalla_parte_sbagliata_dello_schema_si_rifiuta(): void
+    {
+        $uscita = $this->senzaRiga('Materiale di comunicazione');
+        $entrata = $this->senzaRiga('Erogazioni liberali');
+
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/righe/'.$uscita, ['riga' => 'liberalita_monetarie'])->assertSessionHasErrors('riga'); // un provento per una spesa
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/righe/'.$entrata, ['riga' => 'acquisto_beni'])->assertSessionHasErrors('riga');
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/righe/'.$entrata, ['riga' => 'inventata'])->assertSessionHasErrors('riga');
+        $this->assertSame(0, DB::table('righe_raccolta')->where('esercizio', 2026)->whereIn('tipologia_id', [$uscita, $entrata])->count());
+    }
+
+    public function test_la_tabella_delle_righe_non_si_scrive_dopo_l_approvazione_ne_dopo_il_deposito(): void
+    {
+        $this->raccoltaCheQuadra();
+        $id = Tipologia::where('nome', 'Materiale di comunicazione')->value('id');
+        $this->approva()->assertSessionHasNoErrors();
+
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/righe/'.$id, ['riga' => 'altri_oneri'])->assertSessionHasErrors('esercizio');
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/righe/'.$id, ['riga' => ''])->assertSessionHasErrors('esercizio');
+        $this->assertSame('oneri_promozionali', DB::table('righe_raccolta')->where(['esercizio' => 2026, 'tipologia_id' => $id])->value('riga'));
+        $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/righe')->assertOk()->assertDontSee('data-merlo="righe-raccolta-modulo"', false);
+
+        $this->come($this->tesoriere)->post('/esercizi/2026/deposito', ['data' => '2027-04-20', 'impronta' => Deposito::impronta(2026)])->assertSessionHasNoErrors();
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/righe/'.$id, ['riga' => 'altri_oneri'])->assertSessionHasErrors('esercizio');
+        $this->assertSame('oneri_promozionali', DB::table('righe_raccolta')->where(['esercizio' => 2026, 'tipologia_id' => $id])->value('riga'));
+    }
+
+    public function test_la_tabella_di_un_esercizio_non_ancora_aperto_non_si_cambia_perche_l_apertura_la_copia(): void
+    {
+        $id = Tipologia::where('nome', 'Materiale di comunicazione')->value('id');
+
+        $this->come($this->tesoriere)->put('/esercizi/2027/raccolte/righe/'.$id, ['riga' => 'altri_oneri'])->assertSessionHasErrors('esercizio');
+        $this->assertDatabaseMissing('righe_raccolta', ['esercizio' => 2027]);
+
+        $this->come($this->tesoriere)->post('/esercizi/2027/apertura')->assertSessionHasNoErrors(); // senza il rifiuto, la copia si fermerebbe sulla chiave unica
+        $this->assertSame(DB::table('righe_raccolta')->where('esercizio', 2026)->count(), DB::table('righe_raccolta')->where('esercizio', 2027)->count());
+    }
+
+    public function test_la_tabella_delle_righe_e_di_chi_gestisce_l_esercizio(): void
+    {
+        $id = $this->senzaRiga('Materiale di comunicazione');
+        $consigliere = $this->utenteCon('Consigliere');
+
+        $this->come($consigliere)->get('/esercizi/2026/raccolte/righe')->assertForbidden();
+        $this->come($consigliere)->put('/esercizi/2026/raccolte/righe/'.$id, ['riga' => 'altri_oneri'])->assertForbidden();
+        $this->assertDatabaseMissing('righe_raccolta', ['esercizio' => 2026, 'tipologia_id' => $id]);
+    }
 }

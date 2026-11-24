@@ -218,7 +218,11 @@ class RaccoltaTest extends TestCase
             'senza attività di raccolta in area C non si sa: senza riga' => ['C', 'C1', null, null],
             'senza voce in tabella resta senza voce' => ['C', null, 'occasionale', null],
             'fuori dall’area C l’attività non conta' => ['A', 'A4', 'occasionale', 'A4'],
-            'una voce di C diversa da C1 non si cambia' => ['C', 'C3', 'occasionale', 'C3'],
+            'in area C la tabella non decide: C2 con attività abituale è C1 (mai a favore dell’ente)' => ['C', 'C2', 'abituale', 'C1'],
+            'C3 con attività abituale è C1' => ['C', 'C3', 'abituale', 'C1'],
+            'C2 con attività occasionale è C2' => ['C', 'C2', 'occasionale', 'C2'],
+            'C3 con attività occasionale è C2' => ['C', 'C3', 'occasionale', 'C2'],
+            'una voce di C diversa da C1 senza attività di raccolta: senza riga' => ['C', 'C2', null, null],
         ];
     }
 

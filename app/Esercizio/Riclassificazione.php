@@ -183,6 +183,14 @@ final class Riclassificazione
         if ($mancano->isNotEmpty()) {
             self::rifiuta('area', "Per l'area {$area->value} nel $anno la tabella delle voci non ha una riga per: ".$mancano->join(', ').'. Senza riga i movimenti non avrebbero una voce del Modello D: aggiungi le righe (qui sotto, «Tabella delle voci») e riprova.');
         }
+        // Una raccolta occasionale (C2) senza la riga dello schema delle raccolte (#61) lascia la quadratura con C2 sbagliata e l'approvazione rifiutata: la riga si imposta dalla pagina della tabella (#89).
+        if ($area === Area::C && ($attivita ?? null)?->raccolta === 'occasionale') {
+            $conRigaRaccolta = DB::table('righe_raccolta')->where('esercizio', $anno)->whereIn('tipologia_id', $tipologie)->when($blocca, fn ($q) => $q->lockForUpdate())->pluck('tipologia_id');
+            $senzaRiga = Tipologia::whereIn('id', $tipologie->diff($conRigaRaccolta))->orderBy('nome')->pluck('nome');
+            if ($senzaRiga->isNotEmpty()) {
+                self::rifiuta('area', "Per le raccolte occasionali del $anno la tabella delle righe dello schema delle raccolte non ha una riga per: ".$senzaRiga->join(', ').'. Senza riga la quadratura con la voce C2 non torna e l’esercizio non si approva: aggiungi le righe (pagina «Righe delle raccolte», dalle raccolte fondi occasionali) e riprova.');
+            }
+        }
 
         $daCambiare = Movimento::whereIn('id', $seguono->pluck('movimento_id')->unique())->orderBy('id')->when($blocca, fn ($q) => $q->lockForUpdate())->get(); // con blocco: legge il confermato, non la fotografia di prima dei blocchi
         // shortcut: due letture complete (prima e dopo) per movimento cambiato, per il registro; da ripensare solo se un'iniziativa ha migliaia di movimenti in un esercizio.
@@ -257,6 +265,10 @@ final class Riclassificazione
             // La voce è una riga del Modello D su quel lato e sta nell'area della riga («A3» in area A), tranne «Imposte» e gli investimenti («I1»).
             if (! SchemaModelloD::conosce($lato, $voce) || ! (str_starts_with($voce, $area->value) || str_starts_with($voce, 'I'))) {
                 self::rifiuta('voce', "«{$voce}» non è una riga del Modello D delle $lato per l'area {$area->value}.");
+            }
+            // In area C la tabella dice solo «C1»: C1 o C2 lo decide l'attività di raccolta (`SchemaModelloD::voceDi`, #89); una raccolta abituale non deve mai finire in C2.
+            if ($area === Area::C && $voce !== 'C1') {
+                self::rifiuta('voce', 'In area C la tabella delle voci dice solo «C1»: C1 o C2 lo decide l’attività di raccolta (abituale o occasionale), non la tabella.');
             }
             if ($riga?->voce === $voce) {
                 self::rifiuta('voce', "Nel $anno $nome ha già la voce $voce: non c'è niente da cambiare.");
