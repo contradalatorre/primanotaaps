@@ -4,7 +4,9 @@
 
 @section('contenuto')
     <h1>Classificazione</h1>
-    <p class="nota">Tipologie, attività, iniziative e tag con cui si classificano i movimenti. Un elemento già usato non si cancella: si archivia, e non si sceglie più.</p>
+    <p class="nota">Tipologie, attività, iniziative e tag con cui si classificano i movimenti. Un elemento già usato non si cancella: si archivia, e non si sceglie più.
+        @can('riclassificare_in_blocco') Per cambiare in blocco l’area di un’iniziativa, le proprietà di una tipologia già usata o la tabella delle voci: <a href="{{ route('riclassificazione', ['esercizio' => $esercizio]) }}" class="link">riclassificazione in blocco</a>. @endcan
+    </p>
 
     {{-- ——— Tipologie ——— --}}
     <h2>Tipologie</h2>
@@ -40,7 +42,7 @@
                 <p>{{ $tipologia->spiegazione }}@unless ($tipologia->archiviata()) <a href="{{ route('manuale') }}#tipologia-{{ $tipologia->id }}">Nel manuale</a>@endunless</p>
                 <p class="nota">
                     Voce Modello D {{ $esercizio }}:
-                    {{ ($voci[$tipologia->id] ?? collect())->sortBy('area')->map(fn ($v) => "area $v->area → $v->voce")->join(' · ') ?: 'nessuna: la tipologia si potrà usare quando la tabella delle voci avrà una riga per lei (vedi riclassificazione in blocco)' }}
+                    {{ ($voci[$tipologia->id] ?? collect())->sortBy('area')->map(fn ($v) => "area $v->area → $v->voce")->join(' · ') ?: 'nessuna: la tipologia si potrà usare quando la tabella delle voci avrà una riga per lei (riclassificazione in blocco, «Tabella delle voci»)' }}
                 </p>
                 @can('gestire_regole')
                     <details>
@@ -53,7 +55,7 @@
                                 <label class="spunta"><input type="checkbox" name="proprieta[]" value="{{ $valore }}" @checked(in_array($valore, $tipologia->proprieta, true)) @disabled($tipologia->usata())> <span>{{ $etichetta }}</span></label>
                                 @if ($tipologia->usata() && in_array($valore, $tipologia->proprieta, true)) <input type="hidden" name="proprieta[]" value="{{ $valore }}"> @endif
                             @endforeach
-                            @if ($tipologia->usata()) <p class="nota">Già usata: le proprietà fiscali non si cambiano da qui.</p> @endif
+                            @if ($tipologia->usata()) <p class="nota">Già usata: le proprietà fiscali non si cambiano da qui. @can('riclassificare_in_blocco') Si cambiano con la <a href="{{ route('riclassificazione', ['esercizio' => $esercizio]) }}" class="link">riclassificazione in blocco</a>. @endcan</p> @endif
                             <button type="submit" class="bottone">Salva</button>
                         </form>
                     </details>

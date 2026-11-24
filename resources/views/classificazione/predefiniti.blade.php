@@ -8,7 +8,7 @@
 <label>Attività predefinita
     <select name="attivita_id">
         <option value="">Nessuna</option>
-        @foreach ($attivita->where('archiviata_il', null) as $a) <option value="{{ $a->id }}" @selected($predefiniti?->attivita_id === $a->id)>{{ $a->area->value }} · {{ $a->nome }}</option> @endforeach
+        @foreach ($attivita->filter(fn ($a) => $a->archiviata_il === null || $a->id === $predefiniti?->attivita_id) as $a) <option value="{{ $a->id }}" @selected($predefiniti?->attivita_id === $a->id)>{{ $a->area->value }} · {{ $a->nome }}</option> @endforeach
     </select>
     <span class="nota">Deve stare nell’area scelta.</span>
 </label>
