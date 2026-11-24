@@ -49,7 +49,7 @@ class RiclassificazioneController extends Controller
         $ok = $esito['descrizione'].($esito['aggiornate'] === 0 ? '' : ' '.$esito['aggiornate'].($esito['aggiornate'] === 1 ? ' imputazione aggiornata.' : ' imputazioni aggiornate.'))
             .($esito['a_mano'] === [] ? '' : ' '.count($esito['a_mano']).(count($esito['a_mano']) === 1 ? ' movimento cambiato a mano non è stato toccato' : ' movimenti cambiati a mano non sono stati toccati').': l’elenco è qui sotto.');
 
-        return redirect()->route('riclassificazione', ['esercizio' => $cambio['esercizio'] ?? today()->year])->with('ok', $ok)->with('a_mano', $esito['a_mano']);
+        return redirect()->route('riclassificazione', ['esercizio' => $cambio['esercizio'] ?? today()->year])->with('ok', $ok)->with('a_mano', $esito['a_mano'])->with('da_rivedere', $esito['da_rivedere']);
     }
 
     /** @return array{tipo: string, iniziativa_id?: int, esercizio?: int, area?: string, attivita_id?: ?int, tipologia_id?: int, proprieta?: list<string>, voce?: ?string} */

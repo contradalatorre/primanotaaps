@@ -17,6 +17,7 @@
     @endif
 
     @if (session('a_mano')) @include('riclassificazione.a-mano', ['aMano' => session('a_mano')]) @endif
+    @if (session('da_rivedere')) @include('riclassificazione.da-rivedere', ['daRivedere' => session('da_rivedere')]) @endif
 
     <h2>Area di un’iniziativa nel {{ $esercizio }}</h2>
     <p class="nota">I movimenti che seguivano l’area predefinita la seguono; quelli con un’altra area o attività, scelte a mano, restano come sono e si elencano. Servono le righe della tabella delle voci per la nuova area.</p>

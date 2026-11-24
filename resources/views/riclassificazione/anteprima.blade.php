@@ -55,6 +55,9 @@
     @if ($esito['a_mano'] !== [])
         @include('riclassificazione.a-mano', ['aMano' => $esito['a_mano']])
     @endif
+    @if ($esito['da_rivedere'] !== [])
+        @include('riclassificazione.da-rivedere', ['daRivedere' => $esito['da_rivedere']])
+    @endif
 
     <form method="POST" action="{{ route('riclassificazione.applica') }}" class="modulo modulo-stretto">
         @csrf
