@@ -184,7 +184,7 @@ final class Riclassificazione
             self::rifiuta('area', "Per l'area {$area->value} nel $anno la tabella delle voci non ha una riga per: ".$mancano->join(', ').'. Senza riga i movimenti non avrebbero una voce del Modello D: aggiungi le righe (qui sotto, «Tabella delle voci») e riprova.');
         }
         // Una raccolta occasionale (C2) senza la riga dello schema delle raccolte (#61) lascia la quadratura con C2 sbagliata e l'approvazione rifiutata: la riga si imposta dalla pagina della tabella (#89).
-        if ($area === Area::C && Attivita::find($attivitaId)?->raccolta === 'occasionale') {
+        if ($area === Area::C && ($attivita ?? null)?->raccolta === 'occasionale') {
             $conRigaRaccolta = DB::table('righe_raccolta')->where('esercizio', $anno)->whereIn('tipologia_id', $tipologie)->when($blocca, fn ($q) => $q->lockForUpdate())->pluck('tipologia_id');
             $senzaRiga = Tipologia::whereIn('id', $tipologie->diff($conRigaRaccolta))->orderBy('nome')->pluck('nome');
             if ($senzaRiga->isNotEmpty()) {

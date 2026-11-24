@@ -89,7 +89,7 @@ La natura di un'imputazione, indipendente dall'area (es. "Quote associative", "A
 _Avoid_: categoria, causale, nuova causale, sottovoce
 
 **Voce Modello D**:
-Una riga dello schema ministeriale del rendiconto per cassa (DM 5 marzo 2020), es. "A1) Entrate da quote associative e apporti dei fondatori"; per ogni imputazione è determinata dalla coppia area e tipologia.
+Una riga dello schema ministeriale del rendiconto per cassa (DM 5 marzo 2020), es. "A1) Entrate da quote associative e apporti dei fondatori"; per ogni imputazione è determinata dalla coppia area e tipologia, tranne in area C: la tabella dice solo «C1» e la voce vera (C1 o C2) la decide l'attività di raccolta, abituale o occasionale.
 _Avoid_: voce rendiconto, macro voce
 
 **Natura commerciale**:
@@ -145,6 +145,10 @@ _Avoid_: utilizzo dell'avanzo, piano spese
 **Raccolta fondi occasionale**:
 Un'iniziativa dell'area C svolta in occasione di una celebrazione, ricorrenza o campagna di sensibilizzazione, che ha un proprio rendiconto con relazione illustrativa, allegato al rendiconto dell'esercizio e depositato con esso. Si riconosce dall'attività dell'imputazione («Raccolta fondi occasionale»: voce C2 del Modello D; l'abituale è C1, senza allegato); la somma delle raccolte deve coincidere con la voce C2 e, dove serve, la motivazione deve esserci, altrimenti l'esercizio non si approva. Dall'approvazione i dati scritti a mano (relazione, liberalità non monetarie) non si cambiano più, perché il PDF di deposito stampa la versione approvata: per completarli si riapre l'esercizio.
 _Avoid_: raccolta pubblica, evento di raccolta
+
+**Riga dello schema delle raccolte**:
+Una riga del rendiconto di una raccolta fondi occasionale (proventi: liberalità monetarie, altri proventi; oneri: acquisto di beni, di servizi, …) in cui va una tipologia; la tabella tipologia → riga è per esercizio, si cambia dalla sua pagina (permesso «gestire l'esercizio») e non dopo l'approvazione. Una tipologia in C senza riga lascia la quadratura con la voce C2 sbagliata.
+_Avoid_: voce della raccolta
 
 **Liberalità non monetaria**:
 Un bene o un servizio donato per una raccolta fondi occasionale, inserito a mano nel suo rendiconto con descrizione, quantità, valore di mercato stimato (DM 28/11/2019), criterio di stima e documento; entra solo in quel rendiconto, mai nel Modello D né nei test. Non va confusa con la tipologia «Erogazioni liberali», che è denaro.

@@ -89,7 +89,7 @@ class RaccolteController extends Controller
     public function impostaRiga(Request $request, int $anno, int $tipologia): RedirectResponse
     {
         $riga = $request->validate(['riga' => ['nullable', 'string', Rule::in([...array_keys(Raccolta::PROVENTI), ...array_keys(Raccolta::ONERI)])]])['riga'] ?? null;
-        Raccolte::impostaRiga($request->user(), $anno, Tipologia::findOrFail($tipologia)->id, $riga);
+        Raccolte::impostaRiga($request->user(), $anno, $tipologia, $riga); // una tipologia che non c'è è un 404 (`findOrFail` sotto blocco)
 
         return redirect()->route('esercizio.raccolte.righe', $anno)->with('ok', $riga === null ? 'Riga tolta.' : 'Riga impostata.');
     }
