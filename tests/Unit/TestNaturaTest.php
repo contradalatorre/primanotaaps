@@ -26,7 +26,7 @@ class TestNaturaTest extends TestCase
             'proprieta' => $o['proprieta'] ?? [], 'tipo_controparte' => $o['controparte'] ?? null, 'affiliazione_rete' => false,
         ]);
 
-        return new Imputata('entrate', $voce, $importo, $area, $o['iniziativa'] ?? null, $natura, $o['forzata'] ?? null, in_array('neutra_nel_test_dell_ente', $o['proprieta'] ?? [], true));
+        return new Imputata('entrate', $voce, $importo, $area, $o['iniziativa'] ?? null, $natura, $o['forzata'] ?? null, in_array('neutra_nel_test_dell_ente', $o['proprieta'] ?? [], true), in_array('liberalita', $o['proprieta'] ?? [], true));
     }
 
     private static function sponsor(int $importo): Imputata
@@ -196,6 +196,10 @@ class TestNaturaTest extends TestCase
                 [self::e('C', 'C2', 4000), self::e('C', 'C1', 7000), self::e('B', 'B3', 3000)],
                 ['ente.nonCommerciali' => 4000, 'ente.neutre' => 7000, 'ente.commerciali' => 3000, 'ente.esito' => 'rispettato'],
             ],
+            'nel test dell’ente anche una liberalità in C1 resta neutra, finché nessuna fonte dice altro (#61)' => [
+                [self::e('C', 'C1', 7000, ['proprieta' => ['liberalita']]), self::e('B', 'B3', 3000)],
+                ['ente.neutre' => 7000, 'ente.nonCommerciali' => 0, 'ente.commerciali' => 3000],
+            ],
             'una forzatura sposta anche una raccolta fondi abituale dai neutri' => [
                 [self::e('C', 'C1', 8000, ['forzata' => false]), self::e('B', 'B3', 3000)],
                 ['ente.neutre' => 0, 'ente.nonCommerciali' => 8000, 'ente.esito' => 'rispettato'],
@@ -347,6 +351,14 @@ class TestNaturaTest extends TestCase
             'una raccolta fondi abituale (C1) conta tra i ricavi per prudenza e si vede a parte, forzata a non commerciale no' => [
                 [self::e('C', 'C1', 4000), self::e('C', 'C1', 600, ['forzata' => true]), self::e('C', 'C1', 900, ['forzata' => false])],
                 ['forfettario.ricavi' => 4600, 'forfettario.perArea.C' => 4600, 'forfettario.raccolteC1' => 4000],
+            ],
+            'una liberalità in C1 non è un ricavo: conta solo la parte corrispettiva della raccolta abituale (#61)' => [
+                [self::e('C', 'C1', 4000, ['proprieta' => ['liberalita']]), self::e('C', 'C1', 1500)],
+                ['forfettario.ricavi' => 1500, 'forfettario.perArea.C' => 1500, 'forfettario.raccolteC1' => 1500],
+            ],
+            'una liberalità in C1 forzata a commerciale conta, come ogni forzatura' => [
+                [self::e('C', 'C1', 4000, ['proprieta' => ['liberalita'], 'forzata' => true])],
+                ['forfettario.ricavi' => 4000],
             ],
             'un’entrata senza tipologia non si sa se è commerciale: per prudenza conta' => [
                 [self::e('B', 'B3', 700, ['senzaTipologia' => true])],

@@ -106,7 +106,8 @@ class Imputazione extends Model
             'area' => $this->area->value,
             'voce' => $voce,
             'tipologia_id' => $this->tipologia_id,
-            'proprieta' => collect($this->tipologia?->proprieta)->sort()->values()->all(),
+            // «Liberalità» (#61) non entra nella natura commerciale (la legge `TestNatura` dalla tipologia): tra gli ingressi segnerebbe «da rivedere» ogni forzatura già fatta.
+            'proprieta' => collect($this->tipologia?->proprieta)->reject(fn (string $p) => $p === 'liberalita')->sort()->values()->all(),
             'tipo_controparte' => $this->movimento->tipo_controparte,
             'affiliazione_rete' => $affiliazioneRete,
         ];

@@ -82,7 +82,7 @@ final class Prospetto
             return new Imputata(
                 $r['lato'], $r['voce'], abs($i->importo), $i->area->value, $i->iniziativa_id,
                 $r['lato'] === 'entrate' ? Natura::calcola($ingressi) : null,
-                $forzata, in_array('neutra_nel_test_dell_ente', $i->tipologia?->proprieta ?? [], true),
+                $forzata, in_array('neutra_nel_test_dell_ente', $i->tipologia?->proprieta ?? [], true), in_array('liberalita', $i->tipologia?->proprieta ?? [], true),
             );
         })->all();
     }

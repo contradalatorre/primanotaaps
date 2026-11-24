@@ -205,8 +205,8 @@ final class TestNatura
 
                 continue;
             }
-            // Le raccolte fondi abituali (C1) possono avere corrispettivo continuativo, e finché non si distingue dalle liberalità
-            // si tengono neutre, mai tra le non commerciali; una forzatura le sposta (prevale).
+            // Le raccolte fondi abituali (C1) possono avere corrispettivo continuativo (neutro nel test dell'ente, ricerca #7 § d) e le liberalità di C1 si tengono neutre
+            // anch'esse, mai tra le non commerciali, finché nessuna fonte dice altro; una forzatura le sposta (prevale).
             if ($i->area === 'C' && $i->voce === 'C1' && $i->forzata === null) {
                 $neutre += $i->importo;
 
@@ -258,9 +258,9 @@ final class TestNatura
                 continue;
             }
             $commerciale = self::commerciale($i, $areaACommerciale);
-            // shortcut: C1 conta tutta tra i ricavi dell'art. 86 (ricerca #7 § d: parte corrispettiva continuativa), da rivedere quando #61 la distingue
-            // dalle liberalità. Una forzatura prevale, in entrambi i sensi.
-            $c1 = $i->area === 'C' && $i->voce === 'C1' && $i->forzata === null;
+            // C1 conta per la sola parte corrispettiva continuativa (ricerca #7 § d): le liberalità (proprietà della tipologia, #61) no, restano non commerciali.
+            // Una forzatura prevale, in entrambi i sensi.
+            $c1 = $i->area === 'C' && $i->voce === 'C1' && $i->forzata === null && ! $i->liberalita;
             if ($c1) {
                 $commerciale = true;
             }

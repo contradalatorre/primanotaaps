@@ -69,6 +69,14 @@ class RaccolteOccasionaliTest extends TestCase
         $this->assertSame('liberalita_monetarie', DB::table('righe_raccolta')->where(['esercizio' => 2026, 'tipologia_id' => Tipologia::where('nome', 'Erogazioni liberali')->value('id')])->value('riga'));
     }
 
+    public function test_la_proprieta_liberalita_non_segna_da_rivedere_le_forzature_gia_fatte(): void
+    {
+        $i = $this->imputaC('Erogazioni liberali', 1000, $this->notte);
+
+        $this->assertContains('liberalita', $i->tipologia->proprieta);
+        $this->assertNotContains('liberalita', $i->ingressiNatura()['proprieta']);
+    }
+
     public function test_in_area_c_la_voce_dipende_dall_attivita_c1_abituale_c2_occasionale(): void
     {
         $this->imputaC('Erogazioni liberali', 10000, $this->notte);
