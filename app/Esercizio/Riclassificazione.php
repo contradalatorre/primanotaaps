@@ -111,7 +111,10 @@ final class Riclassificazione
         }, Permesso::RiclassificareInBlocco);
     }
 
-    /** Gli esercizi da bloccare: quello del cambio; per una tipologia tutti quelli in cui ha imputazioni. */
+    /**
+     * Gli esercizi da bloccare: quello del cambio; per una tipologia tutti quelli in cui ha imputazioni.
+     * shortcut: per una tipologia l'elenco si legge prima dei blocchi; un movimento che la usa per la prima volta in un altro anno, in quel momento, non entra nell'anteprima. Rileggerlo sotto blocco se capita.
+     */
     private static function anniDa(array $cambio): array
     {
         if ($cambio['tipo'] !== 'tipologia') {
