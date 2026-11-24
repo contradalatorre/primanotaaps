@@ -66,6 +66,6 @@
         <input type="hidden" name="impronta" value="{{ $esito['impronta'] }}">
         <p class="nota">È un’azione delicata: ti si chiede di rifare l’accesso se l’ultimo è di più di un’ora fa; poi riapri questa anteprima e conferma. Finisce nel registro delle modifiche.</p>
         <button type="submit" class="bottone">Applica la riclassificazione</button>
-        <a href="{{ route('riclassificazione', array_filter(['esercizio' => $cambio['esercizio'] ?? null])) }}" class="link">Annulla</a>
+        <a href="{{ route('riclassificazione', array_filter(['esercizio' => $cambio['esercizio'] ?? null])) }}" class="link">Torna indietro</a>
     </form>
 @endsection

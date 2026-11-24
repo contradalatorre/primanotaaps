@@ -30,8 +30,10 @@ use Illuminate\Validation\ValidationException;
  * una combinazione senza riga non è ammessa. Le proprietà di una tipologia valgono per tutti gli esercizi (la colonna è una sola): quelli depositati leggono la loro istantanea e
  * non cambiano.
  * shortcut: le proprietà cambiate si vedono dal vivo anche sui movimenti di un esercizio depositato (natura sulla pagina del movimento, forzature da rivedere), mentre i prospetti
- * restano quelli depositati; versionare le proprietà per esercizio se serve. Il confronto di prima e dopo legge sotto l'istantanea di MySQL presa al controllo del permesso: una
- * scrittura confermata tra il controllo e i blocchi non entra nell'anteprima (l'impronta le rende uguali a quelle dell'applicazione, e la scrittura sulle imputazioni è letta con blocco).
+ * restano quelli depositati; versionare le proprietà per esercizio se serve.
+ * shortcut: il confronto di prima e dopo legge sotto l'istantanea di MySQL presa al controllo del permesso, prima dei blocchi: una scrittura confermata tra il controllo e i blocchi non
+ * entra nell'anteprima (l'impronta le rende uguali a quelle dell'applicazione; imputazioni e movimenti che si scrivono sono letti con blocco); bloccare conti e movimenti prima del
+ * controllo del permesso se serve un confronto esatto.
  */
 final class Riclassificazione
 {
@@ -165,7 +167,7 @@ final class Riclassificazione
             self::rifiuta('area', "Per l'area {$area->value} nel $anno la tabella delle voci non ha una riga per: ".$mancano->join(', ').'. Senza riga i movimenti non avrebbero una voce del Modello D: aggiungi le righe (qui sotto, «Tabella delle voci») e riprova.');
         }
 
-        $daCambiare = Movimento::whereIn('id', $seguono->pluck('movimento_id')->unique())->orderBy('id')->get();
+        $daCambiare = Movimento::whereIn('id', $seguono->pluck('movimento_id')->unique())->orderBy('id')->lockForUpdate()->get(); // con blocco: legge il confermato, non la fotografia di prima dei blocchi
         // shortcut: due letture complete (prima e dopo) per movimento cambiato, per il registro; da ripensare solo se un'iniziativa ha migliaia di movimenti in un esercizio.
         $prima = $daCambiare->mapWithKeys(fn (Movimento $m) => [$m->id => $m->istantanea()]);
         $primaIniziativa = $iniziativa->istantanea();
@@ -215,6 +217,10 @@ final class Riclassificazione
         $tipologia = Tipologia::findOrFail($cambio['tipologia_id']);
         $area = Area::from($cambio['area']);
         $voce = $cambio['voce'] ?? null;
+        // Un esercizio non ancora aperto (senza voci, con un precedente che le ha) si apre prima: una riga sola gli toglierebbe la copia (`Apertura::sorgente`).
+        if (Apertura::sorgente($anno) !== null) {
+            self::rifiuta('esercizio', "L'esercizio $anno non è ancora aperto: la tabella delle voci si copia dall'esercizio precedente con l'apertura, e solo dopo si cambia.");
+        }
         $riga = DB::table('voci_modello_d')->where('esercizio', $anno)->where('area', $area->value)->where('tipologia_id', $tipologia->id)->lockForUpdate()->first();
         $chiave = ['esercizio' => $anno, 'area' => $area->value, 'tipologia_id' => $tipologia->id];
         $nome = "«{$tipologia->nome}» in area {$area->value}";
@@ -232,7 +238,7 @@ final class Riclassificazione
         } else {
             $lato = $tipologia->verso === 'entrata' ? 'entrate' : 'uscite';
             // La voce è una riga del Modello D su quel lato e sta nell'area della riga («A3» in area A), tranne «Imposte» e gli investimenti («I1»).
-            if (! SchemaModelloD::conosce($lato, $voce) || ! (str_starts_with($voce, $area->value) || $voce === 'Imposte' || str_starts_with($voce, 'I'))) {
+            if (! SchemaModelloD::conosce($lato, $voce) || ! (str_starts_with($voce, $area->value) || str_starts_with($voce, 'I'))) {
                 self::rifiuta('voce', "«{$voce}» non è una riga del Modello D delle $lato per l'area {$area->value}.");
             }
             if ($riga?->voce === $voce) {

@@ -55,7 +55,7 @@
                                 <label class="spunta"><input type="checkbox" name="proprieta[]" value="{{ $valore }}" @checked(in_array($valore, $tipologia->proprieta, true)) @disabled($tipologia->usata())> <span>{{ $etichetta }}</span></label>
                                 @if ($tipologia->usata() && in_array($valore, $tipologia->proprieta, true)) <input type="hidden" name="proprieta[]" value="{{ $valore }}"> @endif
                             @endforeach
-                            @if ($tipologia->usata()) <p class="nota">Già usata: le proprietà fiscali non si cambiano da qui@can('riclassificare_in_blocco'), ma con la <a href="{{ route('riclassificazione', ['esercizio' => $esercizio]) }}" class="link">riclassificazione in blocco</a>@endcan.</p> @endif
+                            @if ($tipologia->usata()) <p class="nota">Già usata: le proprietà fiscali non si cambiano da qui. @can('riclassificare_in_blocco') Si cambiano con la <a href="{{ route('riclassificazione', ['esercizio' => $esercizio]) }}" class="link">riclassificazione in blocco</a>. @endcan</p> @endif
                             <button type="submit" class="bottone">Salva</button>
                         </form>
                     </details>

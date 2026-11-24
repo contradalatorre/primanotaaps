@@ -120,7 +120,9 @@ class RiclassificazioneInBloccoTest extends TestCase
         $senzaIniziativa = $this->imputa('Utenze', 2000, ['iniziativa_id' => null, 'area' => 'E', 'attivita_id' => null]);
         $cambio = $this->cambioFesta();
 
-        $this->applica($cambio)->assertRedirect(route('riclassificazione', ['esercizio' => 2026]))->assertSessionHasNoErrors()->assertSessionHas('ok');
+        $risposta = $this->applica($cambio);
+        $risposta->assertRedirect(route('riclassificazione', ['esercizio' => 2026]))->assertSessionHasNoErrors()->assertSessionHas('ok');
+        $this->assertSame([$aMano->movimento_id], array_column(session('a_mano'), 'movimento_id'), 'I cambiati a mano si elencano nell’esito');
 
         $this->assertSame('B', $this->festa->refresh()->predefinitiPer(2026)->area->value);
         $this->assertSame('Vendita di beni', $this->festa->predefinitiPer(2026)->attivita->nome);
@@ -134,7 +136,7 @@ class RiclassificazioneInBloccoTest extends TestCase
         $this->assertSame('E', $senzaIniziativa->refresh()->area->value);
         $this->assertSame('confermato', $segue->movimento->refresh()->stato, 'Resta confermato');
 
-        $this->come()->get('/riclassificazione')->assertOk(); // la lista dei cambiati a mano sta nell'esito
+        $this->get(route('riclassificazione', ['esercizio' => 2026]))->assertOk()->assertSee('Bolletta della sede')->assertSee('Cambiati a mano: non si toccano'); // l'elenco dopo l'applicazione (session flash)
         $this->assertDatabaseHas('registro_modifiche', ['oggetto_tipo' => 'iniziativa', 'oggetto_id' => $this->festa->id, 'azione' => 'riclassificata', 'user_id' => $this->tesoriere->id]);
         $this->assertDatabaseHas('registro_modifiche', ['oggetto_tipo' => 'movimento', 'oggetto_id' => $segue->movimento_id, 'azione' => 'riclassificato']);
         $this->assertDatabaseHas('registro_modifiche', ['oggetto_tipo' => 'movimento', 'oggetto_id' => $proposta->movimento_id, 'azione' => 'riclassificato']);
@@ -319,6 +321,14 @@ class RiclassificazioneInBloccoTest extends TestCase
         $this->applica($this->cambioVoce('Utenze', 'E', null))->assertSessionHasNoErrors();
         $this->assertDatabaseMissing('voci_modello_d', ['esercizio' => 2026, 'area' => 'E', 'tipologia_id' => $utenze->id]);
         $this->assertDatabaseHas('registro_modifiche', ['oggetto_tipo' => 'esercizio', 'azione' => 'voce_tolta']);
+    }
+
+    public function test_la_tabella_di_un_esercizio_non_ancora_aperto_non_si_cambia_prima_dell_apertura(): void
+    {
+        $cambio = $this->cambioVoce('Utenze', 'E', 'E5', 2027); // il 2027 non ha voci, il 2026 sì: una riga sola impedirebbe la copia dell'apertura
+
+        $this->come()->get('/riclassificazione/anteprima?'.http_build_query($cambio))->assertSessionHasErrors('esercizio');
+        $this->assertDatabaseMissing('voci_modello_d', ['esercizio' => 2027]);
     }
 
     public function test_la_tabella_delle_voci_di_un_esercizio_depositato_non_si_cambia(): void
