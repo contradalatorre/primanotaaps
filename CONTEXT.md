@@ -143,7 +143,7 @@ L'impiego dell'avanzo dell'esercizio proposto all'assemblea, in righe con descri
 _Avoid_: utilizzo dell'avanzo, piano spese
 
 **Raccolta fondi occasionale**:
-Un'iniziativa dell'area C svolta in occasione di una celebrazione, ricorrenza o campagna di sensibilizzazione, che ha un proprio rendiconto con relazione illustrativa, allegato al rendiconto dell'esercizio e depositato con esso. Si riconosce dall'attività dell'imputazione («Raccolta fondi occasionale»: voce C2 del Modello D; l'abituale è C1, senza allegato); la somma delle raccolte deve coincidere con la voce C2.
+Un'iniziativa dell'area C svolta in occasione di una celebrazione, ricorrenza o campagna di sensibilizzazione, che ha un proprio rendiconto con relazione illustrativa, allegato al rendiconto dell'esercizio e depositato con esso. Si riconosce dall'attività dell'imputazione («Raccolta fondi occasionale»: voce C2 del Modello D; l'abituale è C1, senza allegato); la somma delle raccolte deve coincidere con la voce C2 e, dove serve, la motivazione deve esserci, altrimenti l'esercizio non si approva. Dall'approvazione i dati scritti a mano (relazione, liberalità non monetarie) non si cambiano più, perché il PDF di deposito stampa la versione approvata: per completarli si riapre l'esercizio.
 _Avoid_: raccolta pubblica, evento di raccolta
 
 **Liberalità non monetaria**:

@@ -14,6 +14,7 @@ use App\Models\ImpostazioniAssociazione;
 use App\Models\Imputazione;
 use App\Models\Iniziativa;
 use App\Models\Movimento;
+use App\Models\RaccoltaOccasionale;
 use App\Models\RegistroModifica;
 use App\Models\RigaFigurativa;
 use App\Models\Tipologia;
@@ -61,6 +62,21 @@ class DepositoRuntsTest extends TestCase
     {
         $this->imputa('entrata', 80000, '2026-06-01', 'Somministrazione');
         $this->imputa('uscita', 35000, '2026-06-02', 'Acquisti per la somministrazione');
+    }
+
+    /** Una raccolta fondi occasionale (#61) con relazione scritta e una liberalità non monetaria: il PDF di deposito ha un allegato in più, e veraPDF lo controlla con il resto. */
+    private function raccoltaOccasionale(): void
+    {
+        $iniziativa = Iniziativa::create(['nome' => 'Notte delle lanterne']);
+        foreach ([['entrata', 50000, 'Erogazioni liberali'], ['uscita', 12000, 'Materiale di comunicazione']] as [$verso, $importo, $tipologia]) {
+            $m = Movimento::factory()->create(['conto_id' => $this->cassa->id, 'verso' => $verso, 'importo' => $importo, 'data' => '2026-05-10', 'inserito_da' => $this->tesoriere->id, 'stato' => 'confermato']);
+            Imputazione::create(['movimento_id' => $m->id, 'importo' => $importo, 'area' => 'C', 'attivita_id' => Attivita::where('raccolta', 'occasionale')->value('id'), 'iniziativa_id' => $iniziativa->id, 'tipologia_id' => Tipologia::where('nome', $tipologia)->value('id')]);
+        }
+        $raccolta = RaccoltaOccasionale::create([
+            'iniziativa_id' => $iniziativa->id, 'esercizio' => 2026, 'dal' => '2026-05-10', 'al' => '2026-05-10', 'occasione' => 'Giornata del volontariato', 'descrizione' => 'Banchetto in piazza',
+            'luogo' => 'Piazza', 'modalita' => 'Offerte libere', 'finalita' => 'Restauro del lavatoio', 'beni_servizi' => 'Nessuno', 'dettaglio_costi' => 'Stampa dei volantini',
+        ]);
+        $raccolta->liberalita()->create(['descrizione' => 'Cesti di prodotti locali', 'quantita' => 4, 'valore' => 8000, 'criterio' => 'Prezzo di listino', 'documento' => 'Ricevuta n. 1']);
     }
 
     private function come(User $utente, bool $riautenticato = true): static
@@ -157,6 +173,7 @@ class DepositoRuntsTest extends TestCase
     public function test_l_esercizio_approvato_si_scarica_in_pdfa_1b_con_il_nome_di_deposito(): void
     {
         $this->esercizio2026();
+        $this->raccoltaOccasionale(); // l'allegato di una raccolta sta nello stesso PDF/A
         $this->approva();
 
         $r = $this->come($this->tesoriere)->get('/esercizi/2026/deposito.pdf')->assertOk();
