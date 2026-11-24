@@ -399,6 +399,17 @@ class RaccolteOccasionaliTest extends TestCase
         $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id.'/csv')->assertNotFound();
     }
 
+    public function test_aprire_un_esercizio_copia_anche_la_tabella_tipologia_riga_delle_raccolte(): void
+    {
+        $this->come($this->tesoriere)->post('/esercizi/2027/apertura')->assertSessionHasNoErrors();
+
+        $this->assertGreaterThan(0, DB::table('righe_raccolta')->where('esercizio', 2026)->count());
+        $this->assertSame(
+            DB::table('righe_raccolta')->where('esercizio', 2026)->orderBy('tipologia_id')->pluck('riga', 'tipologia_id')->all(),
+            DB::table('righe_raccolta')->where('esercizio', 2027)->orderBy('tipologia_id')->pluck('riga', 'tipologia_id')->all(),
+        );
+    }
+
     public function test_un_iniziativa_predefinita_in_area_c_occasionale_compare_prima_di_avere_movimenti(): void
     {
         DB::table('iniziativa_esercizio')->insert(['iniziativa_id' => $this->notte->id, 'esercizio' => 2026, 'area' => 'C', 'attivita_id' => $this->occasionale()->id]);

@@ -69,7 +69,7 @@ La voce Modello D è la riga indicata, nella sezione dell'area dell'imputazione.
 | Corrispettivi dei soci per attività | A2 | |
 | Cessioni ai soci | A3, B1 | Beni nuovi prodotti per la vendita: commerciali (art. 85 c. 3 CTS) |
 | Somministrazione ai soci | A2, B1 | Esclusa dalla decommercializzazione (art. 85 c. 3 CTS) |
-| Erogazioni liberali | A4 | Liberalità |
+| Erogazioni liberali | A4 | Liberalità (proprietà `liberalita`, #61: nel forfettario non è un corrispettivo) |
 | 5 per mille | A5 | |
 | Contributi da privati | A6, B2 | |
 | Somministrazione | A7, B3 | Esclusa dalla decommercializzazione (art. 85 c. 3 CTS) |
@@ -79,7 +79,7 @@ La voce Modello D è la riga indicata, nella sezione dell'area dell'imputazione.
 | Sponsorizzazioni e pubblicità | B3 | Commerciale; neutra nel test dell'ente (art. 79 c. 5 CTS) |
 | Interessi attivi | D1 | |
 
-Nessuna causale attuale va in area C. Le raccolte fondi useranno le stesse tipologie, con la voce C1 o C2.
+Nessuna causale attuale va in area C. Le raccolte fondi usano le stesse tipologie (quelle con una riga nello schema delle raccolte, `righe_raccolta`): la tabella delle voci dice C1 e la voce vera dipende dall'attività dell'imputazione, «Raccolta fondi abituale» (C1) o «Raccolta fondi occasionale» (C2), #61.
 
 ## Attività
 

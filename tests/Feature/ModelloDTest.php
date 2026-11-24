@@ -144,7 +144,7 @@ class ModelloDTest extends TestCase
 
     public function test_un_imputazione_senza_riga_non_sparisce_in_silenzio(): void
     {
-        // Area C: la tabella delle voci non ha ancora C1/C2 (shortcut di #39), quindi la combinazione non ha voce.
+        // Area C senza un'attività di raccolta (#61): non si sa se è C1 o C2, quindi la combinazione non ha voce.
         $this->imputa($this->movimento($this->cassa, 'entrata', 2500), 'Erogazioni liberali', 'C');
 
         $m = Prospetto::modelloD(2026);
