@@ -4,7 +4,7 @@
     <p class="nota">Continuano a proporre l’area di prima. La riclassificazione non le cambia: se serve, le correggi tu.</p>
     <ul>
         @foreach ($daRivedere as $voce)
-            <li>{{ $voce['cosa'] }} <a href="{{ $voce['url'] }}" class="link">Apri</a></li>
+            <li>{{ $voce['cosa'] }} @can('gestire_regole') <a href="{{ $voce['url'] }}" class="link">Apri</a> @endcan</li>
         @endforeach
     </ul>
 </section>

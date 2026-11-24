@@ -35,7 +35,7 @@ use Illuminate\Validation\ValidationException;
  * restano quelli depositati; versionare le proprietà per esercizio se serve.
  * shortcut: il confronto di prima e dopo legge sotto l'istantanea di MySQL presa al controllo del permesso, prima dei blocchi: una scrittura confermata tra il controllo e i blocchi non
  * entra nell'anteprima (l'impronta la rende diversa da quella dell'applicazione, che si rifiuta; imputazioni e movimenti che si scrivono sono letti con blocco); bloccare conti e
- * movimenti prima del controllo del permesso se serve un confronto esatto. L'anteprima non blocca nulla: è una GET e non fa aspettare import e conferme degli altri.
+ * movimenti prima del controllo del permesso se serve un confronto esatto. L'anteprima è una GET e non legge con `FOR UPDATE` (conti e movimenti non si bloccano); le righe che scrive per calcolare l'effetto restano però bloccate fino all'annullamento.
  */
 final class Riclassificazione
 {
@@ -62,7 +62,7 @@ final class Riclassificazione
     /**
      * Si bloccano i dati degli esercizi (in ordine di anno), poi i conti, poi i movimenti di ogni anno, come `Deposito::deposita`; le righe che si leggono per decidere si
      * leggono con blocco (MySQL, REPEATABLE READ: una lettura semplice vedrebbe la fotografia di prima dei blocchi).
-     * L'anteprima è una GET e non blocca nulla (import e conferme degli altri non aspettano): legge la fotografia della sua transazione e poi annulla; l'applicazione
+     * L'anteprima è una GET e non legge con blocco (conti e movimenti degli altri non aspettano le sue letture): legge la fotografia della sua transazione e poi annulla; l'applicazione
      * blocca e confronta la propria impronta con quella dell'anteprima, e se nel frattempo è cambiato qualcosa si rifiuta.
      *
      * @param  array{tipo: string, iniziativa_id?: int, esercizio?: int, area?: string, attivita_id?: ?int, tipologia_id?: int, proprieta?: list<string>, voce?: ?string}  $cambio
