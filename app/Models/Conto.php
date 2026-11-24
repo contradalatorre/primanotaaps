@@ -1,0 +1,220 @@
+<?php
+
+namespace App\Models;
+
+use App\Euro;
+use App\Import\Estratto;
+use App\Import\RigaEstratto;
+use Carbon\Carbon;
+use Carbon\CarbonInterface;
+use Database\Factories\ContoFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+/** Un luogo in cui l'associazione tiene denaro (glossario: Conto). Può esistere solo per un periodo. */
+#[Fillable(['tipo', 'nome', 'formato_import', 'riga_modello_d', 'aperto_il', 'chiuso_il', 'saldo_iniziale', 'passaggio_il'])]
+class Conto extends Model
+{
+    /** @use HasFactory<ContoFactory> */
+    use HasFactory;
+
+    protected $table = 'conti';
+
+    public const TIPI = ['cassa' => 'Cassa', 'banca' => 'Banca', 'paypal' => 'PayPal', 'satispay' => 'Satispay'];
+
+    /** Formati di import per tipo: un file di un altro conto si rifiuta (#14). I moduli veri arrivano con l'import. */
+    public const FORMATI_IMPORT = [
+        'cassa' => ['manuale' => 'Inserimento a mano', 'foglio_cassa' => 'Foglio di calcolo (cassa)'],
+        'banca' => ['credit_agricole_csv' => 'Crédit Agricole (CSV)'],
+        'paypal' => ['paypal_csv' => 'PayPal (CSV)'],
+        'satispay' => ['satispay_csv' => 'Satispay (report transazioni)'],
+    ];
+
+    public const RIGHE_MODELLO_D = ['cassa' => 'Cassa', 'depositi' => 'Depositi'];
+
+    protected function casts(): array
+    {
+        return ['aperto_il' => 'date', 'chiuso_il' => 'date', 'saldo_iniziale' => 'integer', 'passaggio_il' => 'date'];
+    }
+
+    public function movimenti(): HasMany
+    {
+        return $this->hasMany(Movimento::class);
+    }
+
+    public function saldiDichiarati(): HasMany
+    {
+        return $this->hasMany(SaldoDichiarato::class);
+    }
+
+    public function importEstratti(): HasMany
+    {
+        return $this->hasMany(ImportEstratto::class);
+    }
+
+    public function conte(): HasMany
+    {
+        return $this->hasMany(ContaDiCassa::class);
+    }
+
+    /** Il saldo dell'app: saldo di partenza più i movimenti non eliminati fino a quella data (compresa o no). */
+    public function saldoAl(string $data, bool $compresa = true): int
+    {
+        return $this->saldoDi($this->movimenti()->where('data', $compresa ? '<=' : '<', $data));
+    }
+
+    /** Il saldo che una conta di cassa deve ancora spiegare: quel che c'era quando si è contato, cioè senza i movimenti della sua data scritti dopo (id oltre `ultimo_movimento_id`). */
+    public function saldoDellaConta(ContaDiCassa $conta): int
+    {
+        $data = $conta->data->toDateString();
+
+        return $this->saldoDi($this->movimenti()->where(fn (Builder $m) => $m->where('data', '<', $data)
+            ->orWhere(fn (Builder $oggi) => $oggi->where('data', $data)->where('id', '<=', $conta->ultimo_movimento_id))));
+    }
+
+    private function saldoDi(HasMany $movimenti): int
+    {
+        $somma = $movimenti
+            ->selectRaw("coalesce(sum(case when verso = 'entrata' then cast(importo as signed) else -cast(importo as signed) end), 0) as somma")
+            ->value('somma');
+
+        return $this->saldo_iniziale + (int) $somma;
+    }
+
+    /** L'ultima conta di cassa che concorda ancora col saldo dell'app: la cassa è riconciliata fino alla sua data (#50). */
+    public function contaRiconciliata(): ?ContaDiCassa
+    {
+        // Dal vivo, come per gli estratti: una correzione eliminata o un movimento arrivato dopo con data antecedente la fanno arretrare.
+        // shortcut: una query di saldo per conta; le conte sono poche (una per festa o per mese), da ripensare se diventano migliaia.
+        return $this->conte()->orderByDesc('data')->orderByDesc('id')->get()->first(fn (ContaDiCassa $conta) => $conta->setRelation('conto', $this)->quadra());
+    }
+
+    /**
+     * La data fino a cui l'app concorda con la banca: l'ultimo estratto confermato il cui saldo finale è quello
+     * dell'app a fine periodo. Un buco o un import annullato lo fanno arretrare, senza nulla da correggere a mano.
+     * Un conflitto non deciso no: il movimento già presente ha lo stesso importo. Null se nessun estratto concorda.
+     * shortcut: se un movimento con data operazione dentro un estratto compare solo in quello successivo,
+     * l'estratto precedente risulta non riconciliato; da rivedere con estratti veri (#11, punto 6).
+     */
+    public function riconciliatoFinoAl(): ?CarbonInterface
+    {
+        // Satispay non ha saldi nell'estratto (#49): vale l'ultimo saldo dichiarato che l'app conferma.
+        if ($this->formato_import === 'satispay_csv') {
+            return $this->saldiDichiarati()->orderByDesc('data')->get()->first(fn (SaldoDichiarato $s) => $s->differenza($this) === 0)?->data;
+        }
+
+        if ($this->tipo === 'cassa') { // la cassa non ha estratti: vale l'ultima conta che concorda ancora col saldo dell'app (#50)
+            return $this->contaRiconciliata()?->data;
+        }
+
+        foreach ($this->importEstratti()->where('stato', 'confermato')->orderByDesc('periodo_al')->get() as $import) {
+            if ($this->saldoAl($import->periodo_al->toDateString()) === $import->saldo_finale) {
+                return $import->periodo_al;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Le righe dell'estratto divise in nuove, già presenti (stessa chiave e stessi dati) e in conflitto (stessa
+     * chiave, dati diversi: data valuta o causale). Con la stessa chiave la data operazione, l'importo, la
+     * descrizione e il saldo parziale sono già uguali; sono presenti anche le righe con un conflitto già deciso.
+     *
+     * @return array{nuove: list<RigaEstratto>, presenti: list<RigaEstratto>, conflitti: list<array{riga: RigaEstratto, movimento: Movimento}>}
+     */
+    public function classifica(Estratto $estratto): array
+    {
+        $esistenti = $this->movimenti()->whereIn('chiave', array_map(fn (RigaEstratto $r) => $r->chiave(), $estratto->righe))->get()->groupBy('chiave');
+        // Un conflitto già deciso «tieni il presente» non si riapre a ogni file che si sovrappone.
+        $tenuti = ImportConflitto::where('decisione', 'tieni_esistente')->whereIn('movimento_id', $esistenti->flatten()->pluck('id'))->get()
+            ->map(fn (ImportConflitto $c) => $c->movimento_id.'|'.RigaEstratto::daArray($c->riga)->impronta())->flip();
+        $risultato = ['nuove' => [], 'presenti' => [], 'conflitti' => []];
+
+        foreach ($estratto->righe as $riga) {
+            $uguali = $esistenti->get($riga->chiave(), collect());
+            if ($uguali->isEmpty()) {
+                $risultato['nuove'][] = $riga;
+            } elseif ($uguali->contains(fn (Movimento $m) => $this->stessaRiga($m, $riga) || $tenuti->has($m->id.'|'.$riga->impronta()))) {
+                $risultato['presenti'][] = $riga;
+            } else {
+                $risultato['conflitti'][] = ['riga' => $riga, 'movimento' => $uguali->first()];
+            }
+        }
+
+        return $risultato;
+    }
+
+    /**
+     * Il movimento è già quella riga: tutto ciò che il file dice coincide. Con la chiave fatta di data, importo, descrizione e saldo
+     * (Crédit Agricole) restano da guardare data valuta e causale; con una chiave che è solo un codice (PayPal, Satispay) anche il resto.
+     */
+    public function stessaRiga(Movimento $movimento, RigaEstratto $riga): bool
+    {
+        return $this->differenze($movimento, $riga) === [];
+    }
+
+    /**
+     * Cosa cambia tra la riga del file e il movimento già presente, già scritto per la pagina dei conflitti.
+     *
+     * @return array<string, array{file: string, presente: string}> campo => i due valori
+     */
+    public function differenze(Movimento $movimento, RigaEstratto $riga): array
+    {
+        $euro = fn (?int $c) => $c === null ? '–' : Euro::formatta($c).' €';
+        $data = fn (?string $d) => $d === null ? '–' : Carbon::parse($d)->format('d/m/Y');
+        $presente = $movimento->verso === 'uscita' ? -$movimento->importo : $movimento->importo;
+
+        $campi = [
+            'Data' => [$data($riga->data), $data($movimento->data->toDateString())],
+            'Importo' => [$euro($riga->importo), $euro($presente)],
+            'Descrizione' => [$riga->descrizione, $movimento->descrizione],
+            'Saldo parziale' => [$euro($riga->saldoParziale), $euro($movimento->saldo_parziale)],
+            'Commissione' => [$euro($riga->commissione), $euro($movimento->commissione)],
+            'Data valuta' => [$data($riga->dataValuta), $data($movimento->data_valuta?->toDateString())],
+            'Causale' => [$riga->causale ?? '–', $movimento->causale ?? '–'],
+        ];
+
+        return collect($campi)->reject(fn (array $v) => $v[0] === $v[1])->map(fn (array $v) => ['file' => $v[0], 'presente' => $v[1]])->all();
+    }
+
+    public function scopeAperti(Builder $query): void
+    {
+        $query->whereNull('chiuso_il');
+    }
+
+    public function chiuso(): bool
+    {
+        return $this->chiuso_il !== null;
+    }
+
+    /** Il conto è la cassa che si importa dal foglio (#64). */
+    public function importaDalFoglio(): bool
+    {
+        return $this->formato_import === 'foglio_cassa';
+    }
+
+    /** Il foglio non è più in uso: la data di passaggio è passata. Da lì l'import e la tabella di conversione sono chiusi e la cassa si registra solo nell'app (#19). */
+    public function foglioChiuso(): bool
+    {
+        return $this->importaDalFoglio() && $this->passaggio_il !== null && $this->passaggio_il->lt(today());
+    }
+
+    public function etichettaTipo(): string
+    {
+        return self::TIPI[$this->tipo];
+    }
+
+    /** I campi che il registro delle modifiche conserva prima e dopo ogni cambiamento. */
+    public function istantanea(): array
+    {
+        return [
+            'tipo' => $this->tipo, 'nome' => $this->nome, 'formato_import' => $this->formato_import,
+            'riga_modello_d' => $this->riga_modello_d, 'aperto_il' => $this->aperto_il?->toDateString(),
+            'chiuso_il' => $this->chiuso_il?->toDateString(), 'saldo_iniziale' => $this->saldo_iniziale, 'passaggio_il' => $this->passaggio_il?->toDateString(),
+        ];
+    }
+}

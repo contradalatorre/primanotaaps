@@ -1,0 +1,40 @@
+#!/bin/sh
+# Prova a secco di scrivi-env.sh con valori inventati: sh scripts/prova-scrivi-env.sh
+set -u
+cd "$(dirname "$0")"
+
+export APP_URL=https://sito.example/contabilita APP_KEY=base64:abc DB_HOST=db DB_DATABASE=d DB_USERNAME=u
+export DB_PASSWORD='p#a$s"w' GOOGLE_CLIENT_ID=i GOOGLE_CLIENT_SECRET=s GOOGLE_WORKSPACE_DOMAIN=associazione.example
+export AMMINISTRATORI_INIZIALI=maria@associazione.example MIGRAZIONI_TOKEN=t CRON_TOKEN=abcdefghijklmnopqrstuvwxyz0123456789
+export MAIL_MAILER=smtp MAIL_HOST=smtp.associazione.example MAIL_PORT=465 MAIL_USERNAME=posta@associazione.example MAIL_PASSWORD=m MAIL_FROM_ADDRESS=prima-nota@associazione.example
+export EMERGENZA_PASSWORD_HASH='$2y$12$abcDEF.ghi/JKL' EMERGENZA_TOTP_SECRET=JBSWY3DPEHPK3PXP
+
+fallimenti=0
+verifica() { if ! eval "$1"; then echo "FALLITO: $2" >&2; fallimenti=1; fi; }
+
+env_scritto=$(sh ./scrivi-env.sh)
+verifica 'echo "$env_scritto" | grep -qxF "DB_PASSWORD='"'"'p#a\$s\"w'"'"'"' "la password con # \$ e \" è scritta alla lettera"
+verifica 'echo "$env_scritto" | grep -qxF "EMERGENZA_PASSWORD_HASH='"'"'\$2y\$12\$abcDEF.ghi/JKL'"'"'"' "l hash bcrypt dell account di emergenza è scritto alla lettera"
+verifica '! (EMERGENZA_TOTP_SECRET= sh ./scrivi-env.sh >/dev/null 2>&1)' "il segreto TOTP mancante è rifiutato"
+verifica 'echo "$env_scritto" | grep -qxF "GOOGLE_REDIRECT_URI='"'"'https://sito.example/contabilita/accesso/google/ritorno'"'"'"' "il redirect di Google segue APP_URL"
+verifica '! (DB_PASSWORD="a'"'"'b" sh ./scrivi-env.sh >/dev/null 2>&1)' "un apice singolo in un valore è rifiutato"
+verifica '! (DB_PASSWORD="$(printf "a\nb")" sh ./scrivi-env.sh >/dev/null 2>&1)' "un a capo in un valore è rifiutato"
+verifica 'APP_URL=https://sito.example/contabilita/ sh ./scrivi-env.sh | grep -qxF "GOOGLE_REDIRECT_URI='"'"'https://sito.example/contabilita/accesso/google/ritorno'"'"'"' "la barra finale di APP_URL non finisce nel redirect"
+verifica 'echo "$env_scritto" | grep -qxF "SESSION_PATH='"'"'/contabilita'"'"'"' "il cookie di sessione è limitato al percorso dell app"
+verifica 'APP_URL=https://sito.example/contabilita-test/ sh ./scrivi-env.sh | grep -qxF "SESSION_PATH='"'"'/contabilita-test'"'"'"' "la prova ha un percorso di sessione diverso dalla produzione"
+verifica 'APP_URL=https://sito.example sh ./scrivi-env.sh | grep -qxF "SESSION_PATH='"'"'/'"'"'"' "senza percorso nell indirizzo la sessione vale per tutto il sito"
+verifica 'echo "$env_scritto" | grep -qxF "QUEUE_CONNECTION=sync"' "le code girano in modo sincrono, senza worker"
+verifica 'echo "$env_scritto" | grep -qxF "MAIL_MAILER='"'"'smtp'"'"'"' "il trasporto della posta è scritto nel .env"
+verifica '! (CRON_TOKEN=corto sh ./scrivi-env.sh >/dev/null 2>&1)' "un token del cron corto è rifiutato"
+verifica '! (MAIL_HOST= sh ./scrivi-env.sh >/dev/null 2>&1)' "la posta mancante è rifiutata"
+verifica '! (EMERGENZA_PASSWORD_HASH=password-in-chiaro sh ./scrivi-env.sh >/dev/null 2>&1)' "un hash che non è bcrypt è rifiutato"
+verifica '! (EMERGENZA_TOTP_SECRET="jbsw y3dp" sh ./scrivi-env.sh >/dev/null 2>&1)' "un segreto TOTP non base32 è rifiutato"
+verifica '! (DB_HOST= sh ./scrivi-env.sh >/dev/null 2>&1)' "un segreto mancante è rifiutato"
+verifica '! echo "$env_scritto" | grep -q "^DRIVE_"' "senza drive condiviso il .env non ha le sue chiavi e la pubblicazione non si ferma"
+verifica 'DRIVE_CREDENZIALI=eyJhIjoxfQ== DRIVE_CARTELLA_BACKUP=cartella123 sh ./scrivi-env.sh | grep -qxF "DRIVE_CREDENZIALI='"'"'eyJhIjoxfQ=='"'"'"' "le credenziali del drive sono scritte alla lettera"
+verifica '! echo "$env_scritto" | grep -q "^DB_PROVA_DATABASE"' "senza database di prova dedicato il .env non ha la chiave e l app usa il nome predefinito"
+verifica 'DB_PROVA_DATABASE=d_prova sh ./scrivi-env.sh | grep -qxF "DB_PROVA_DATABASE='"'"'d_prova'"'"'"' "il database di prova dedicato è scritto alla lettera"
+verifica '! (DB_PROVA_DATABASE="a'"'"'b" sh ./scrivi-env.sh >/dev/null 2>&1)' "un apice singolo nel nome del database di prova è rifiutato"
+verifica '! (DRIVE_CREDENZIALI="{\"a\":1}" sh ./scrivi-env.sh >/dev/null 2>&1)' "credenziali del drive che non sono base64 sono rifiutate"
+
+exit "$fallimenti"

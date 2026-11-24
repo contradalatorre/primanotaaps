@@ -1,0 +1,103 @@
+<?php
+
+namespace App\Models;
+
+use App\Permesso;
+use Closure;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+
+/** I dati dell'esercizio che non derivano dai movimenti (glossario: Dati dell'esercizio, #12, #53). Una riga per esercizio, creata alla prima scrittura. */
+class DatiEsercizio extends Model
+{
+    /** @var array<string, string> costi promiscui: come si ripartiscono (predefinito: la quota dei ricavi, Circolare 1/E) */
+    public const CRITERI_RIPARTO = ['ricavi' => 'Quota dei ricavi dell’attività (Circolare 1/E)', 'costi_diretti' => 'Quota dei costi diretti'];
+
+    protected $table = 'dati_esercizio';
+
+    protected $guarded = [];
+
+    protected function casts(): array
+    {
+        return ['esercizio' => 'integer', 'dipendenti_medi' => 'integer', 'attivo' => 'integer', 'figurativi_dichiarati' => 'boolean', 'saldi_apertura_il' => 'datetime', 'versione' => 'integer'];
+    }
+
+    /** I dati dell'esercizio, o quelli di partenza (non salvati) se nessuno li ha ancora scritti. */
+    public static function per(int $esercizio): self
+    {
+        return self::where('esercizio', $esercizio)->first() ?? new self(['esercizio' => $esercizio, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'stato' => 'aperto', 'versione' => 1]);
+    }
+
+    /** Dopo l'approvazione i prospetti sono quelli che l'assemblea ha visto: le modifiche sono ammesse, con avviso, e le regole non toccano più i movimenti. */
+    public function approvato(): bool
+    {
+        return in_array($this->stato, ['approvato', 'depositato'], true);
+    }
+
+    /**
+     * Dopo il deposito i movimenti dell'esercizio non si toccano più (#60, #12): ogni scrittura di movimenti e imputazioni lo chiama dopo i suoi blocchi su conti e
+     * movimenti. Lo stato si legge senza bloccare la riga dei dati: `Deposito::deposita` la blocca per prima, poi i conti e i movimenti dell'anno, e il passaggio
+     * a depositato si conclude dopo che le scritture in corso sono finite; chi arriva dopo trova lo stato nuovo (la sua prima lettura semplice viene dopo i suoi blocchi).
+     * Bloccarla qui prenderebbe i blocchi nell'ordine opposto a `SaldiApertura::inserisci` (dati, poi conti).
+     *
+     * @param  list<int>  $anni  gli esercizi dei movimenti che si scrivono
+     *
+     * @throws ValidationException sotto `$campo`
+     */
+    public static function controllaNonDepositato(array $anni, string $campo = 'movimento'): void
+    {
+        $depositato = self::whereIn('esercizio', array_unique($anni))->where('stato', 'depositato')->orderBy('esercizio')->value('esercizio');
+        if ($depositato !== null) {
+            throw ValidationException::withMessages([$campo => "L'esercizio $depositato è depositato: i suoi movimenti non si toccano più. Per correggere un errore l'Amministratore lo riapre."]);
+        }
+    }
+
+    /** Gli esercizi approvati o depositati: le regole non propongono sui loro movimenti. */
+    public static function anniApprovati(): array
+    {
+        return self::whereIn('stato', ['approvato', 'depositato'])->pluck('esercizio')->map(fn ($anno) => (int) $anno)->all();
+    }
+
+    /**
+     * Ogni scrittura dei dati dell'esercizio passa di qui: crea la riga se manca, la blocca, rilegge i permessi (quelli caricati
+     * dal controllo della rotta possono essere di prima di una revoca) ed esegue `$scrittura($dati)` nella stessa transazione.
+     * La riga si crea FUORI dalla transazione: un `INSERT IGNORE` su una riga che c'è già prende un blocco condiviso, e due
+     * richieste che poi chiedono quello esclusivo si bloccano a vicenda (deadlock su MySQL). Non si blocca una riga che non c'è:
+     * il blocco sullo spazio vuoto lascia correre due scritture insieme. Anche le righe figurative si scrivono sotto questo blocco, e l'apertura
+     * dell'esercizio (`Apertura`, permesso `$permesso` diverso): la riga dell'esercizio fa da serratura anche per scritture che non la toccano.
+     */
+    public static function sottoBlocco(User $utente, int $esercizio, Closure $scrittura, Permesso $permesso = Permesso::GestireEsercizio): mixed
+    {
+        return self::sottoBlocchi($utente, [$esercizio], fn (array $dati) => $scrittura($dati[$esercizio]), $permesso);
+    }
+
+    /**
+     * Come `sottoBlocco` per più esercizi insieme (anche nessuno: solo la transazione e il permesso): le righe si bloccano in un'unica
+     * lettura, in ordine di anno, e `$scrittura` riceve quelle bloccate per esercizio.
+     *
+     * @param  list<int>  $esercizi
+     * @param  Closure(array<int, DatiEsercizio>): mixed  $scrittura
+     */
+    public static function sottoBlocchi(User $utente, array $esercizi, Closure $scrittura, Permesso $permesso = Permesso::GestireEsercizio): mixed
+    {
+        $utente->unsetRelation('assegnazioniAttive'); // quelle in cache sono del controllo della rotta, forse di prima di una revoca
+        abort_unless($utente->puo($permesso), 403); // prima di inserire: chi è stato revocato non crea la riga (si rilegge poi a riga bloccata)
+        foreach ($esercizi as $esercizio) {
+            DB::table('dati_esercizio')->insertOrIgnore(['esercizio' => $esercizio, 'criterio_riparto' => 'ricavi', 'figurativi_dichiarati' => false, 'created_at' => now(), 'updated_at' => now()]);
+        }
+
+        return DB::transaction(function () use ($utente, $esercizi, $scrittura, $permesso) {
+            $dati = $esercizi === [] ? [] : self::whereIn('esercizio', $esercizi)->orderBy('esercizio')->lockForUpdate()->get()->keyBy('esercizio')->all();
+            $utente->unsetRelation('assegnazioniAttive');
+            abort_unless($utente->puo($permesso), 403);
+
+            return $scrittura($dati);
+        });
+    }
+
+    public function istantanea(): array
+    {
+        return $this->only(['esercizio', 'dipendenti_medi', 'attivo', 'criterio_riparto', 'criterio_secondarieta', 'annotazione_in_calce']) + ['figurativi_dichiarati' => $this->figurativi_dichiarati ? 'sì' : 'no'];
+    }
+}

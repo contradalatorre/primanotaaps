@@ -1,0 +1,433 @@
+<?php
+
+namespace App;
+
+use App\Models\Attivita;
+use App\Models\ConversioneCausale;
+use App\Models\DatiEsercizio;
+use App\Models\Imputazione;
+use App\Models\Iniziativa;
+use App\Models\Movimento;
+use App\Models\RegistroModifica;
+use App\Models\Regola;
+use App\Models\Tag;
+use App\Models\Tipologia;
+use App\Models\User;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+
+/**
+ * La classificazione di un movimento in imputazioni (glossario: Imputazione) e la sua conferma manuale.
+ * Le regole stanno qui e non nei controllori: la somma delle imputazioni è l'importo del movimento, area e attività
+ * si ereditano dall'iniziativa e si possono cambiare, la voce Modello D non si sceglie (si ricava da area e
+ * tipologia per l'esercizio del movimento) e una combinazione fuori tabella si rifiuta.
+ */
+final class Classificazione
+{
+    /**
+     * Sostituisce le imputazioni del movimento con `$righe` (campi: importo, tipologia_id, iniziativa_id, area,
+     * attivita_id, tag) e la controparte. Le righe senza alcun campo si ignorano; nessuna riga toglie la classificazione.
+     * Un movimento non confermato con imputazioni nuove è «proposto» (da chi le ha scritte); uno confermato resta
+     * confermato, a nome di chi lo ha riclassificato (#16: l'autore non riprende mai i diritti).
+     *
+     * Riclassificare un confermato chiude i suoi dubbi aperti: tutti, o solo quelli in `$dubbiVisti` (id delle note) se
+     * chi salva parte da una pagina che li mostrava; un dubbio nato dopo non lo ha visto nessuno e non si chiude in silenzio.
+     *
+     * @param  ?list<int>  $dubbiVisti  null: tutti (per chi ha già controllato la versione, come la revisione)
+     *
+     * @throws ValidationException con gli errori sotto `imputazioni.N.campo`
+     */
+    public static function salva(User $utente, Movimento $movimento, ?string $tipoControparte, array $righe, ?array $dubbiVisti = null): void
+    {
+        $righe = array_filter($righe, fn (array $r) => array_filter($r, fn ($v) => $v !== null && $v !== '' && $v !== []) !== []);
+
+        DB::transaction(function () use ($utente, $movimento, $tipoControparte, $righe, $dubbiVisti) {
+            self::bloccaEControlla($utente, $movimento);
+            // Dopo il blocco: somma e verso si controllano sul movimento com'è adesso, non su quello letto prima.
+            $imputazioni = self::risolvi($movimento, $righe);
+            $prima = $movimento->istantanea();
+            $firmaPrima = self::firma($movimento->imputazioni()->orderBy('id')->get()->map->only(self::CAMPI_DELLA_CLASSIFICAZIONE));
+            self::scriviImputazioni($movimento, $imputazioni);
+            // I tag non hanno effetti (spec #33): cambiandoli soli lo stato non si muove.
+            $cambiata = $firmaPrima !== self::firma(collect($imputazioni)->map(fn ($i) => Arr::only($i, self::CAMPI_DELLA_CLASSIFICAZIONE)));
+            $stato = [];
+            if ($movimento->confermato()) {
+                // Confermato resta: chi lo riclassifica lo riconferma a suo nome (la conferma vale come verifica) e
+                // l'autore non riprende mai i diritti di ritiro e modifica. Se non si confermerebbe più, non si salva.
+                if (($problemi = self::problemiDiConferma($movimento)) !== []) {
+                    throw ValidationException::withMessages(['conferma' => $problemi]);
+                }
+                // Cambiata la classificazione, la fonte «tabella di conversione» non vale più: non è più da correggere sulla tabella.
+                $stato = $cambiata ? ['confermato_da' => $utente->id, 'confermato_il' => now(), 'conversione_causale_id' => null] : [];
+            } elseif ($cambiata || $movimento->regola_id !== null || $movimento->storico_movimento_id !== null || $movimento->storico_esempio_id !== null || $movimento->conversione_causale_id !== null) {
+                // Salvare a mano una proposta di regola, dello storico o della tabella di conversione ne fa una scelta della persona (anche senza cambiare nulla): non la toccano più.
+                $stato = ['stato' => $imputazioni === [] ? 'da_classificare' : 'proposto', 'proposto_da' => $imputazioni === [] ? null : $utente->id, 'regola_id' => null, 'storico_movimento_id' => null, 'storico_esempio_id' => null, 'conversione_causale_id' => null];
+            }
+            $movimento->forceFill(['tipo_controparte' => $tipoControparte ?: null] + $stato)->save();
+            RegistroModifica::registra($utente, $movimento, 'classificato', $prima, $movimento->istantanea());
+            if ($cambiata && $movimento->confermato()) {
+                Note::chiudiDubbi($utente, $movimento, $dubbiVisti); // riclassificare un confermato lo riconferma: scioglie il dubbio come la conferma
+            }
+        });
+    }
+
+    /** @param list<array<string,mixed>> $imputazioni come le restituisce `risolvi` */
+    private static function scriviImputazioni(Movimento $movimento, array $imputazioni): void
+    {
+        // Le forzature della natura (#52) seguono l'importo, non la posizione (la commissione non conta): la riga con la stessa
+        // classificazione (o, in mancanza, lo stesso importo) di una forzata la eredita, con la fotografia di allora: se area,
+        // tipologia o altro sono cambiati, risulta da rivedere. Le forzature senza una riga corrispondente passano alle righe
+        // rimaste, in ordine, da rivedere sull'importo; se le righe sono meno, la forzatura si perde e il registro lo mostra,
+        // perché il riassunto dell'imputazione la riporta.
+        $forzate = $movimento->imputazioni()->orderBy('id')->get()->reject->commissione()->filter->forzata()->values();
+        $movimento->imputazioni()->delete(); // le righe dei tag seguono con la chiave esterna
+        $libere = [];
+        foreach ($imputazioni as $dati) {
+            $tag = $dati['tag'];
+            unset($dati['tag']);
+            $nuova = $movimento->imputazioni()->create($dati);
+            $nuova->tag()->sync($tag);
+            if (! $nuova->commissione()) {
+                $libere[] = $nuova;
+            }
+        }
+        // Tre passate su tutte le forzate: prima la riga uguale nella classificazione, poi quella con lo stesso importo, poi le rimaste.
+        foreach ([
+            fn (Imputazione $f, Imputazione $n) => $f->only(self::CAMPI_DELLA_CLASSIFICAZIONE) == $n->only(self::CAMPI_DELLA_CLASSIFICAZIONE),
+            fn (Imputazione $f, Imputazione $n) => $f->importo === $n->importo,
+            fn () => true,
+        ] as $uguale) {
+            foreach ($forzate as $f => $forzata) {
+                foreach ($libere as $k => $nuova) {
+                    if ($uguale($forzata, $nuova)) {
+                        $nuova->forceFill($forzata->only(self::CAMPI_DELLA_FORZATURA))->save();
+                        unset($forzate[$f], $libere[$k]);
+
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Le imputazioni che la regola propone per il movimento (una sola, per tutto l'importo, più la commissione se il movimento ne ha una), o null se non si possono
+     * proporre: tipologia o iniziativa archiviata, combinazione fuori dalla tabella delle voci, area non ricavabile.
+     * Non scrive nulla: la usano anche l'anteprima e il controllo di chi applica.
+     *
+     * @return list<array<string,mixed>>|null
+     */
+    public static function imputazioniDellaRegola(Movimento $movimento, Regola $regola): ?array
+    {
+        // Una regola con un elemento archiviato non propone più, nemmeno dove la proposta c'è già (`risolvi` lascia ripetere quello che il movimento ha).
+        if ($regola->archiviata()) {
+            return null;
+        }
+        try {
+            return self::risolvi($movimento, [[
+                'tipologia_id' => $regola->tipologia_id, 'iniziativa_id' => $regola->iniziativa_id, 'area' => $regola->area,
+                'attivita_id' => $regola->attivita_id, 'tag' => $regola->tag->modelKeys(),
+            ]]);
+        } catch (ValidationException) {
+            return null;
+        }
+    }
+
+    /**
+     * Le imputazioni che la tabella di conversione del foglio propone per il movimento (#64), come per le regole, o null se non si possono proporre:
+     * senza tipologia, elemento archiviato, segno diverso, combinazione fuori dalla tabella delle voci, area non ricavabile.
+     *
+     * @return list<array<string,mixed>>|null
+     */
+    public static function imputazioniDellaConversione(Movimento $movimento, ConversioneCausale $riga): ?array
+    {
+        $riga->loadMissing('tipologia', 'iniziativa', 'attivita', 'tag');
+        if ($riga->tipologia_id === null || $riga->archiviata()) {
+            return null;
+        }
+        try {
+            return self::risolvi($movimento, [[
+                'tipologia_id' => $riga->tipologia_id, 'iniziativa_id' => $riga->iniziativa_id, 'area' => $riga->area,
+                'attivita_id' => $riga->attivita_id, 'tag' => $riga->tag_id ? [$riga->tag_id] : [],
+            ]]);
+        } catch (ValidationException) {
+            return null;
+        }
+    }
+
+    /**
+     * Le imputazioni che lo storico propone per il movimento, copiando la classificazione del precedente, o null se non
+     * si possono proporre: un elemento archiviato (come per le regole, nemmeno dove la proposta c'è già), una
+     * combinazione fuori dalla tabella delle voci per l'esercizio del movimento.
+     *
+     * @return list<array<string,mixed>>|null
+     */
+    public static function imputazioniDelloStorico(Movimento $movimento, Precedente $precedente): ?array
+    {
+        if ($precedente->archiviato()) {
+            return null;
+        }
+        try {
+            return self::risolvi($movimento, [$precedente->riga]);
+        } catch (ValidationException) {
+            return null;
+        }
+    }
+
+    /** Il movimento ha già queste imputazioni, con i loro tag (una proposta può cambiare solo quelli): per non riscrivere una proposta che non cambia. */
+    public static function haGia(Movimento $movimento, array $imputazioni): bool
+    {
+        $esistenti = $movimento->imputazioni()->with('tag:id')->orderBy('id')->get()
+            ->map(fn (Imputazione $i) => $i->only(self::CAMPI_DELLA_CLASSIFICAZIONE) + ['tag' => $i->tag->pluck('id')->sort()->values()->all()]);
+
+        return self::firma($esistenti) === self::firma(collect($imputazioni)->map(fn ($i) => Arr::only($i, self::CAMPI_DELLA_CLASSIFICAZIONE) + ['tag' => collect($i['tag'])->sort()->values()->all()]));
+    }
+
+    /**
+     * Mette sul movimento la proposta della regola o dello storico, o la toglie (nessuno dei due: torna da classificare).
+     * Per chi ha già bloccato la riga e controllato che sia da classificare o proposta da una regola o dallo storico: i
+     * permessi sono di chi salva la regola o importa, non del movimento. Una regola ha la precedenza sullo storico.
+     *
+     * @param  list<array<string,mixed>>  $imputazioni  quelle di `imputazioniDellaRegola` o `imputazioniDelloStorico`, già controllate da chi chiama
+     * @param  ?string  $tipoDiPrima  il socio o terzo che aveva la regola di prima quando ha proposto (non quello di adesso: può essere stata appena modificata)
+     */
+    public static function proponi(User $utente, Movimento $movimento, ?Regola $regola, ?Precedente $precedente, array $imputazioni, ?string $tipoDiPrima = null, ?ConversioneCausale $conversione = null): void
+    {
+        $prima = $movimento->istantanea();
+        $azione = match (true) {
+            $conversione !== null => 'proposto_da_conversione',
+            $movimento->conversione_causale_id !== null && $regola === null && $precedente === null => 'proposta_di_conversione_tolta',
+            $regola !== null => 'proposto_da_regola',
+            $precedente !== null => 'proposto_da_storico',
+            $movimento->regola_id !== null => 'proposta_di_regola_tolta',
+            default => 'proposta_dello_storico_tolta', // anche quella rimasta senza origine: una regola non sparisce (restrictOnDelete), lo storico sì
+        };
+        self::scriviImputazioni($movimento, $imputazioni);
+        // Socio o terzo: si toglie solo quello che aveva messo la regola di prima; una scelta a mano resta e vince sulla regola nuova.
+        // Lo storico non propone il socio o terzo: la regola sa quale controparte è, un caso simile no.
+        $tipo = $movimento->tipo_controparte;
+        if ($tipo !== null && $movimento->regola_id !== null && $tipo === $tipoDiPrima) {
+            $tipo = null;
+        }
+        $tipo ??= $regola?->tipo_controparte;
+        $movimento->forceFill([
+            'stato' => $regola || $precedente || $conversione ? 'proposto' : 'da_classificare', 'proposto_da' => null, 'regola_id' => $regola?->id, 'conversione_causale_id' => $conversione?->id,
+            'storico_movimento_id' => $precedente?->movimento?->id, 'storico_esempio_id' => $precedente?->esempio?->id, 'tipo_controparte' => $tipo,
+        ])->save();
+        RegistroModifica::registra($utente, $movimento, $azione, $prima, $movimento->istantanea());
+    }
+
+    private const CAMPI_DELLA_FORZATURA = ['natura_forzata', 'forzatura_motivazione', 'forzatura_da', 'forzatura_il', 'forzatura_ingressi'];
+
+    /** Quello che fa cambiare la classificazione: i tag no. */
+    private const CAMPI_DELLA_CLASSIFICAZIONE = ['importo', 'area', 'attivita_id', 'iniziativa_id', 'tipologia_id'];
+
+    private static function firma(Collection $righe): string
+    {
+        return json_encode($righe->map(fn ($r) => array_map(fn ($v) => $v instanceof \BackedEnum ? $v->value : $v, $r))->values());
+    }
+
+    /**
+     * Conferma il movimento: ogni imputazione ha la tipologia, la somma è l'importo, il verso torna e la voce c'è
+     * (importo, verso e data del movimento possono essere cambiati dopo la classificazione).
+     *
+     * @throws ValidationException sotto `conferma`
+     */
+    public static function conferma(User $utente, Movimento $movimento, string $versioneVista): void
+    {
+        // Controlli e scrittura nella stessa transazione, a riga bloccata: un salvataggio che arriva in mezzo
+        // non può lasciare confermata un'imputazione senza tipologia.
+        DB::transaction(function () use ($utente, $movimento, $versioneVista) {
+            self::blocca($movimento);
+            abort_unless(self::conPermessiRiletti($utente)->puo(Permesso::ImportareEConfermare), 403);
+            $movimento->refresh();
+            DatiEsercizio::controllaNonDepositato([$movimento->data->year]); // un esercizio depositato non si conferma più (#60)
+            if (! hash_equals(self::versione($movimento), $versioneVista)) {
+                throw ValidationException::withMessages(['conferma' => 'Il movimento è cambiato dopo che lo hai aperto: rileggilo prima di confermarlo.']);
+            }
+            $problemi = self::problemiDiConferma($movimento);
+            if ($problemi !== []) {
+                throw ValidationException::withMessages(['conferma' => $problemi]);
+            }
+
+            $prima = $movimento->istantanea();
+            $movimento->forceFill(['stato' => 'confermato', 'confermato_da' => $utente->id, 'confermato_il' => now()])->save();
+            RegistroModifica::registra($utente, $movimento, 'confermato', $prima, $movimento->istantanea());
+            Note::chiudiDubbi($utente, $movimento); // la conferma scioglie il dubbio (#16)
+        });
+    }
+
+    /**
+     * Un'impronta di quello che si conferma (classificazione, importo, data, giustificativi e dubbio aperto): la conferma
+     * vale per la versione vista, e confermare chiude il dubbio, quindi chi non l'ha visto non lo chiude in silenzio.
+     * Le note semplici no: non cambiano la versione. Con `$relazioniCaricate` il dubbio si legge da `conNote()`, senza query.
+     */
+    public static function versione(Movimento $movimento, bool $relazioniCaricate = false): string
+    {
+        return hash('sha256', json_encode($movimento->istantanea($relazioniCaricate) + ['dubbio' => $movimento->inDubbio()]));
+    }
+
+    /** @return list<string> */
+    private static function problemiDiConferma(Movimento $movimento): array
+    {
+        $imputazioni = $movimento->imputazioni()->with('tipologia')->get();
+        $problemi = [];
+        if ($imputazioni->isEmpty()) {
+            $problemi[] = 'Il movimento non ha imputazioni: classificalo prima di confermarlo.';
+        }
+        if ($imputazioni->contains(fn (Imputazione $i) => $i->tipologia_id === null)) {
+            $problemi[] = 'Ogni imputazione ha bisogno della tipologia: senza non si conferma.';
+        }
+        if ($imputazioni->isNotEmpty() && $imputazioni->sum('importo') !== $movimento->importo) {
+            $problemi[] = 'La somma delle imputazioni non è più l’importo del movimento: rifai la classificazione.';
+        }
+        // La commissione è in uscita su un'entrata: il suo verso lo mette l'app, non si confronta con quello del movimento.
+        if ($imputazioni->contains(fn (Imputazione $i) => ! $i->commissione() && $i->tipologia && $i->tipologia->verso !== $movimento->verso)) {
+            $problemi[] = 'Il verso del movimento non corrisponde più alla tipologia: rifai la classificazione.';
+        }
+        if ($imputazioni->contains(fn (Imputazione $i) => $i->tipologia_id !== null && $i->voce() === null)) {
+            $problemi[] = 'La combinazione di area e tipologia non è ammessa per l’esercizio del movimento: rifai la classificazione.';
+        }
+
+        return $problemi;
+    }
+
+    /** Un movimento eliminato nel frattempo non si trova più: 404, non lo si ripesca con refresh() senza scope. */
+    public static function blocca(Movimento $movimento): void
+    {
+        Movimento::whereKey($movimento->id)->lockForUpdate()->firstOrFail();
+    }
+
+    /**
+     * Da chiamare a inizio transazione prima di scrivere: blocca la riga, la rilegge e rifà il controllo di chi può
+     * (il Tesoriere può aver confermato dopo il controllo del controllore: l'autore non scrive più).
+     */
+    public static function bloccaEControlla(User $utente, Movimento $movimento): void
+    {
+        self::blocca($movimento);
+        $movimento->refresh();
+        abort_unless($movimento->classificabileDa(self::conPermessiRiletti($utente)), 403);
+        DatiEsercizio::controllaNonDepositato([$movimento->data->year]); // un esercizio depositato non si classifica più (#60)
+    }
+
+    /** A riga bloccata i permessi si rileggono (come `Note::controllaPermesso`): quelli caricati dal controllo della rotta possono essere di prima di una revoca. */
+    public static function conPermessiRiletti(User $utente): User
+    {
+        return $utente->unsetRelation('assegnazioniAttive');
+    }
+
+    /**
+     * Le righe con i valori che si salvano: importo in centesimi, area e attività ereditate dall'iniziativa se non
+     * sono scelte. Tutti gli errori insieme, così la pagina li mostra accanto ai campi.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private static function risolvi(Movimento $movimento, array $righe): array
+    {
+        $esercizio = $movimento->data->year;
+        $errori = [];
+        // Quello che il movimento ha già si può ripetere anche se nel frattempo è stato archiviato.
+        $esistenti = $movimento->imputazioni()->with('tag:id')->get();
+        $giaUsati = [
+            'tipologia_id' => $esistenti->pluck('tipologia_id')->all(), 'iniziativa_id' => $esistenti->pluck('iniziativa_id')->all(),
+            'attivita_id' => $esistenti->pluck('attivita_id')->all(), 'tag' => $esistenti->flatMap->tag->pluck('id')->all(),
+        ];
+        $scegliibile = fn ($elemento, string $campo, $id) => ! $elemento->archiviata() || in_array($id, $giaUsati[$campo], true);
+
+        $risolte = [];
+        foreach ($righe as $i => $riga) {
+            $chiave = fn (string $campo) => "imputazioni.$i.$campo";
+            $importo = (string) ($riga['importo'] ?? '');
+            if ($importo === '' && count($righe) === 1) {
+                $centesimi = $movimento->lordo();
+            } else {
+                $centesimi = Euro::daTesto($importo);
+                if ($centesimi === null || $centesimi <= 0) {
+                    $errori[$chiave('importo')] = 'Scrivi l’importo in euro, più di zero e con al più due decimali (es. 12,50).';
+                }
+            }
+
+            $iniziativa = ($riga['iniziativa_id'] ?? '') === '' ? null : Iniziativa::with('predefiniti')->find($riga['iniziativa_id']);
+            if ($iniziativa && ! $scegliibile($iniziativa, 'iniziativa_id', $iniziativa->id)) {
+                $errori[$chiave('iniziativa_id')] = "L’iniziativa «{$iniziativa->nome}» è archiviata: non si sceglie più.";
+            }
+            $predefiniti = $iniziativa?->predefinitiPer($esercizio);
+
+            $area = ($riga['area'] ?? '') !== '' ? Area::from($riga['area']) : $predefiniti?->area;
+            if ($area === null) {
+                $errori[$chiave('area')] = 'Scegli l’area: l’iniziativa non ne propone una per il '.$esercizio.'.';
+            }
+
+            // L'attività dell'iniziativa vale solo se l'area è rimasta la sua.
+            $attivitaScelta = ($riga['attivita_id'] ?? '') !== '';
+            $attivitaId = $attivitaScelta ? (int) $riga['attivita_id'] : ($predefiniti?->area === $area ? $predefiniti?->attivita_id : null);
+            if ($attivitaId !== null) {
+                $attivita = Attivita::find($attivitaId);
+                if ($attivita->area !== $area) {
+                    $errori[$chiave('attivita_id')] = "L’attività «{$attivita->nome}» non è dell’area {$area?->value}.";
+                } elseif ($attivitaScelta && ! $scegliibile($attivita, 'attivita_id', $attivita->id)) { // quella ereditata resta anche se archiviata
+                    $errori[$chiave('attivita_id')] = "L’attività «{$attivita->nome}» è archiviata: non si sceglie più.";
+                }
+            }
+
+            // In area C la voce è C1 o C2 secondo l'attività (#61): senza un'attività di raccolta l'imputazione non avrebbe riga nel Modello D.
+            if ($area === Area::C && ! isset($errori[$chiave('attivita_id')]) && ($attivitaId === null || Attivita::find($attivitaId)?->raccolta === null)) {
+                $errori[$chiave('attivita_id')] = 'In area C scegli l’attività: raccolta fondi abituale o occasionale (da lì la voce è C1 o C2).';
+            }
+
+            $tipologiaId = ($riga['tipologia_id'] ?? '') !== '' ? (int) $riga['tipologia_id'] : null;
+            if ($tipologiaId !== null) {
+                $tipologia = Tipologia::find($tipologiaId);
+                if (! $scegliibile($tipologia, 'tipologia_id', $tipologia->id)) {
+                    $errori[$chiave('tipologia_id')] = "La tipologia «{$tipologia->nome}» è archiviata: non si sceglie più.";
+                } elseif ($tipologia->verso !== $movimento->verso) {
+                    $errori[$chiave('tipologia_id')] = "«{$tipologia->nome}» è una tipologia di ".Tipologia::VERSI[$tipologia->verso].', il movimento è un’'.Movimento::VERSI[$movimento->verso].'.';
+                } elseif ($area !== null && ! DB::table('voci_modello_d')->where(['esercizio' => $esercizio, 'area' => $area->value, 'tipologia_id' => $tipologiaId])->exists()) {
+                    $errori[$chiave('tipologia_id')] = "La tipologia «{$tipologia->nome}» non è ammessa nell’area {$area->value} per il $esercizio.";
+                }
+            }
+
+            $tag = array_map('intval', $riga['tag'] ?? []);
+            foreach (Tag::whereIn('id', $tag)->get() as $t) {
+                if (! $scegliibile($t, 'tag', $t->id)) {
+                    $errori[$chiave('tag')] = "Il tag «{$t->nome}» è archiviato: non si sceglie più.";
+                }
+            }
+
+            $risolte[] = ['importo' => $centesimi, 'area' => $area?->value, 'attivita_id' => $attivitaId, 'iniziativa_id' => $iniziativa?->id,
+                'tipologia_id' => $tipologiaId, 'tag' => $tag];
+        }
+
+        if ($errori === [] && $risolte !== [] && array_sum(array_column($risolte, 'importo')) !== $movimento->lordo()) {
+            $errori['imputazioni'] = 'La somma delle imputazioni ('.Euro::formatta(array_sum(array_column($risolte, 'importo'))).' €) deve essere pari all’importo del movimento'.($movimento->commissione ? ' al lordo della commissione' : '').' ('.Euro::formatta($movimento->lordo()).' €).';
+        }
+        if ($errori === [] && $risolte !== [] && $movimento->commissione > 0) {
+            $risolte[] = self::commissione($movimento);
+        }
+        if ($errori !== []) {
+            throw ValidationException::withMessages($errori);
+        }
+
+        return $risolte;
+    }
+
+    /**
+     * L'imputazione della commissione trattenuta su un incasso (PayPal, #48; spec #33, D1): area D, «Commissioni e oneri bancari», in
+     * uscita, quindi con l'importo negativo, così le imputazioni sommano al netto che entra nel conto.
+     *
+     * @return array<string,mixed> come le righe di `risolvi`
+     *
+     * @throws ValidationException se la tipologia non c'è o non ha la voce D1 per l'esercizio del movimento
+     */
+    private static function commissione(Movimento $movimento): array
+    {
+        $tipologiaId = Tipologia::where('nome', Tipologia::COMMISSIONI)->value('id');
+        if ($tipologiaId === null || ! DB::table('voci_modello_d')->where(['esercizio' => $movimento->data->year, 'area' => Area::D->value, 'tipologia_id' => $tipologiaId])->exists()) {
+            throw ValidationException::withMessages(['imputazioni' => 'Manca la tipologia «'.Tipologia::COMMISSIONI.'» con la voce D1 per il '.$movimento->data->year.': il movimento ha una commissione e non si può classificare senza.']);
+        }
+
+        return ['importo' => -$movimento->commissione, 'area' => Area::D->value, 'attivita_id' => null, 'iniziativa_id' => null, 'tipologia_id' => $tipologiaId, 'tag' => []];
+    }
+}

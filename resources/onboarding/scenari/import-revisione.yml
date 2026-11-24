@@ -1,0 +1,15 @@
+# Scenario «import-revisione» (#71): un conto corrente con il saldo di partenza giusto per l'estratto di prova
+# (formato Crédit Agricole, tutto inventato). La proposta dell'AI è preregistrata qui: in prova l'AI non si chiama mai.
+utenti_finti:
+  - {chiave: tesoriera, nome: "Tina Esempio (finta)", email: "tina@prova.invalid", ruolo: Tesoriere}
+  - {chiave: ai, nome: "Assistente AI (di prova)", email: "ai@prova.invalid"}
+conti:
+  - {chiave: banca, tipo: banca, nome: "Conto corrente (prova)", formato_import: credit_agricole_csv, riga_modello_d: depositi, aperto_il: "2026-01-01", saldo_iniziale: 120000}
+estratto: import-revisione-estratto.csv
+# Le proposte arrivano dopo la conferma dell'import, per le righe che contengono il testo; le altre restano da decidere.
+proponente: ai
+proposte:
+  - {contiene: FERRAMENTA, tipologia: "Materiali e beni di consumo", iniziativa: "Festa della Torre"}
+  - {contiene: QUOTA ASSOCIATIVA, tipologia: "Quote associative", area: A}
+  - {contiene: CANONE, tipologia: "Commissioni e oneri bancari", area: D}
+  - {contiene: ENERGIA, tipologia: "Utenze", iniziativa: "La Casa"}

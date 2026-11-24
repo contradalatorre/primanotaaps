@@ -1,0 +1,45 @@
+name: Test
+
+# Stesso percorso del locale: i test girano nei contenitori di docker-compose.yml.
+# Su main e prova li lancia pubblica.yml prima di pubblicare (workflow_call), per non farli girare due volte.
+on:
+  push:
+    branches-ignore: [main, prova]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dipendenze e stili
+        run: docker compose run --rm tools sh -c "composer install --no-interaction --prefer-dist && npm ci && npm run build"
+
+      - name: Stile (pint)
+        run: docker compose run --rm tools vendor/bin/pint --test
+
+      # Il test del PDF di deposito (#60) lascia il PDF di prova in storage/app, per il passo dopo.
+      - name: Test
+        run: docker compose run --rm -e PDF_DI_PROVA=/app/storage/app/deposito-di-prova.pdf tools composer test
+
+      # Conformità PDF/A-1b del PDF di deposito (#18): veraPDF, versione fissata, esce con errore se il file non è conforme.
+      # Immagine ufficiale del progetto veraPDF (https://verapdf.org): l'unico validatore PDF/A open source di riferimento; gira solo qui, mai su Aruba.
+      - name: Validazione PDF/A-1b (veraPDF)
+        run: docker run --rm -v "$PWD/storage/app:/data" verapdf/cli:v1.30.4 --flavour 1b /data/deposito-di-prova.pdf
+
+      - name: Scrittura del .env di pubblicazione
+        run: sh scripts/prova-scrivi-env.sh
+
+      # Apache con .htaccess sotto /contabilita: la home reindirizza all'accesso, il resto del repo non si raggiunge.
+      - name: Apache sotto /contabilita
+        run: |
+          docker compose run --rm tools sh -c "cp .env.example .env && php artisan key:generate && php artisan migrate --force"
+          docker compose up -d --wait web
+          base=http://localhost:8080/contabilita
+          test "$(curl -s --retry 10 --retry-delay 2 --retry-connrefused -o /dev/null -w '%{http_code}' $base/accesso)" = 200
+          test "$(curl -s -o /dev/null -w '%{redirect_url}' $base/)" = "$base/accesso"
+          sh scripts/controlla-pubblicazione.sh $base
