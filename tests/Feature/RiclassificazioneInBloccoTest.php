@@ -252,8 +252,11 @@ class RiclassificazioneInBloccoTest extends TestCase
         $this->assertStringContainsString('Quote associative', session('errors')->first('area'));
         $this->assertSame('A', $this->festa->refresh()->predefinitiPer(2026)->area->value);
 
-        // Con la riga per l'area C si può.
-        DB::table('voci_modello_d')->insert(['esercizio' => 2026, 'area' => 'C', 'tipologia_id' => Tipologia::where('nome', 'Quote associative')->firstOrFail()->id, 'voce' => 'C1']);
+        // Con la riga per l'area C si può; per una raccolta occasionale serve anche la riga dello schema delle raccolte (#89).
+        $quote = Tipologia::where('nome', 'Quote associative')->firstOrFail()->id;
+        DB::table('voci_modello_d')->insert(['esercizio' => 2026, 'area' => 'C', 'tipologia_id' => $quote, 'voce' => 'C1']);
+        $this->come()->get('/riclassificazione/anteprima?'.http_build_query($cambio))->assertSessionHasErrors('area');
+        DB::table('righe_raccolta')->insert(['esercizio' => 2026, 'tipologia_id' => $quote, 'riga' => 'altri_proventi']);
         $this->applica($cambio)->assertSessionHasNoErrors();
         $this->assertSame('C', $this->festa->refresh()->predefinitiPer(2026)->area->value);
     }
