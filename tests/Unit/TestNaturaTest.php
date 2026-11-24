@@ -348,9 +348,17 @@ class TestNaturaTest extends TestCase
                 [self::e('B', 'B3', 5000, ['forzata' => false]), self::e('B', 'B3', 1000)],
                 ['forfettario.ricavi' => 1000],
             ],
-            'una raccolta fondi abituale (C1) conta tra i ricavi per prudenza e si vede a parte, forzata a non commerciale no' => [
-                [self::e('C', 'C1', 4000), self::e('C', 'C1', 600, ['forzata' => true]), self::e('C', 'C1', 900, ['forzata' => false])],
+            'una raccolta fondi abituale (C1) conta tra i ricavi e si vede a parte; forzata a commerciale conta come ogni forzatura' => [
+                [self::e('C', 'C1', 4000), self::e('C', 'C1', 600, ['forzata' => true])],
                 ['forfettario.ricavi' => 4600, 'forfettario.perArea.C' => 4600, 'forfettario.raccolteC1' => 4000],
+            ],
+            'la parte corrispettiva di C1 conta anche se forzata a non commerciale: la forzatura non dà un esito più favorevole della norma' => [
+                [self::e('C', 'C1', 4000), self::e('C', 'C1', 900, ['forzata' => false])],
+                ['forfettario.ricavi' => 4900, 'forfettario.perArea.C' => 4900, 'forfettario.raccolteC1' => 4900],
+            ],
+            'una liberalità in C1 forzata a non commerciale resta fuori, come senza forzatura' => [
+                [self::e('C', 'C1', 4000, ['proprieta' => ['liberalita'], 'forzata' => false])],
+                ['forfettario.ricavi' => 0],
             ],
             'una liberalità in C1 non è un ricavo: conta solo la parte corrispettiva della raccolta abituale (#61)' => [
                 [self::e('C', 'C1', 4000, ['proprieta' => ['liberalita']]), self::e('C', 'C1', 1500)],

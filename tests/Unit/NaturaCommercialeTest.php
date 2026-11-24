@@ -48,7 +48,8 @@ class NaturaCommercialeTest extends TestCase
             'somministrazione con l\'affiliazione ma la controparte non è indicata: prudente' => [['voce' => 'A2', 'affiliazione_rete' => true, 'proprieta' => ['commerciale_per_natura', 'somministrazione']], self::COMMERCIALE, 'commerciale-per-natura'],
             'somministrazione ai terzi con l\'affiliazione' => [['voce' => 'A7', 'tipo_controparte' => 'terzo', 'affiliazione_rete' => true, 'proprieta' => ['commerciale_per_natura', 'somministrazione']], self::COMMERCIALE, 'commerciale-per-natura'],
             'l\'affiliazione non decommercializza altro che la somministrazione' => [['voce' => 'A3', 'tipo_controparte' => 'socio', 'affiliazione_rete' => true, 'proprieta' => ['commerciale_per_natura']], self::COMMERCIALE, 'commerciale-per-natura'],
-            'raccolta fondi' => [['area' => 'C', 'voce' => 'C2'], self::NON_COMMERCIALE, 'area-c'],
+            'raccolta fondi occasionale' => [['area' => 'C', 'voce' => 'C2'], self::NON_COMMERCIALE, 'area-c'],
+            'raccolta fondi abituale' => [['area' => 'C', 'voce' => 'C1'], self::NON_COMMERCIALE, 'area-c1'],
             'interessi in D' => [['area' => 'D', 'voce' => 'D1'], self::NON_COMMERCIALE, 'area-d-e'],
             'altre entrate in E' => [['area' => 'E', 'voce' => 'E2'], self::NON_COMMERCIALE, 'area-d-e'],
             'entrata in A senza voce (combinazione non in tabella): non si può dire' => [['voce' => null], null, 'senza-voce'],
@@ -57,6 +58,14 @@ class NaturaCommercialeTest extends TestCase
             'uscita in A' => [['lato' => 'uscite', 'area' => 'A', 'voce' => 'A2'], null, 'uscita'],
             'senza tipologia' => [['tipologia_id' => null, 'voce' => null], null, 'senza-tipologia'],
         ];
+    }
+
+    public function test_la_spiegazione_di_c1_dice_che_la_parte_corrispettiva_conta_nel_forfettario(): void
+    {
+        $perche = Natura::calcola($this->ingressi(['area' => 'C', 'voce' => 'C1']))->perche;
+
+        $this->assertStringContainsString('forfettario', $perche);
+        $this->assertStringContainsString('art. 86', $perche);
     }
 
     #[DataProvider('casi')]

@@ -49,9 +49,9 @@
         <ul class="elenco">
             <li>Area A, corrispettivi commerciali (per natura o resi tali dal 2-bis): {{ $euro($f['perArea']['A']) }} €</li>
             <li>Area B, attività diverse, sponsorizzazioni comprese: {{ $euro($f['perArea']['B']) }} €, di cui contributi B2 e B4 {{ $euro($f['contributiB']) }} € (contano per prudenza)</li>
-            <li>Aree C, D ed E, solo se commerciali per natura o forzate tali: {{ $euro($f['perArea']['C'] + $f['perArea']['D'] + $f['perArea']['E']) }} €, di cui raccolte fondi abituali C1 {{ $euro($f['raccolteC1']) }} € (contano per prudenza, finché non si distingue la parte corrispettiva dalle liberalità)</li>
+            <li>Aree C, D ed E, solo se commerciali per natura o forzate tali: {{ $euro($f['perArea']['C'] + $f['perArea']['D'] + $f['perArea']['E']) }} €, di cui raccolte fondi abituali C1 {{ $euro($f['raccolteC1']) }} € (la sola parte corrispettiva, anche se forzata a non commerciale; le liberalità non contano)</li>
         </ul>
-        <p class="nota">Restano fuori quote, liberalità, 5 per mille, corrispettivi dei soci decommercializzati (art. 85), raccolte fondi occasionali, interessi e sopravvenienze. Una forzatura prevale. L’accesso al regime si misura sui ricavi dell’esercizio precedente (per il 2026 basta la previsione): questi sono i ricavi che contano dall’anno dopo.</p>
+        <p class="nota">Restano fuori quote, liberalità, 5 per mille, corrispettivi dei soci decommercializzati (art. 85), raccolte fondi occasionali, interessi e sopravvenienze. Una forzatura prevale, tranne sulla parte corrispettiva di C1. L’accesso al regime si misura sui ricavi dell’esercizio precedente (per il 2026 basta la previsione): questi sono i ricavi che contano dall’anno dopo.</p>
     </details>
 
     <details data-merlo="test-forfettario-base">

@@ -245,7 +245,7 @@ final class TestNatura
 
     /**
      * Art. 86: i ricavi commerciali dell'esercizio (A: i corrispettivi resi commerciali dal 2-bis o per natura; B: tutte le attività diverse,
-     * sponsorizzazioni comprese; C, D ed E solo se la natura o una forzatura le fa commerciali, tranne le raccolte fondi abituali C1 che contano per prudenza: interessi, sopravvenienze e liberalità restano fuori).
+     * sponsorizzazioni comprese; C, D ed E solo se la natura o una forzatura le fa commerciali, tranne la parte corrispettiva delle raccolte fondi abituali C1, che conta sempre, anche forzata a non commerciale: interessi, sopravvenienze e liberalità restano fuori).
      * Un'entrata di cui non si sa la natura conta, in qualunque area (prudenza, come nell'ente). Il 3% si arrotonda per eccesso. L'accesso al regime si misura sull'esercizio
      * precedente (per il 2026 vale la previsione): qui si vedono i ricavi dell'esercizio, che sono quelli che contano dall'anno dopo.
      */
@@ -259,8 +259,8 @@ final class TestNatura
             }
             $commerciale = self::commerciale($i, $areaACommerciale);
             // C1 conta per la sola parte corrispettiva continuativa (ricerca #7 § d): le liberalità (proprietà della tipologia, #61) no, restano non commerciali.
-            // Una forzatura prevale, in entrambi i sensi.
-            $c1 = $i->area === 'C' && $i->voce === 'C1' && $i->forzata === null && ! $i->liberalita;
+            // Una forzatura prevale, in entrambi i sensi, tranne che per la parte corrispettiva di C1: forzata a non commerciale conta lo stesso (la norma non la esclude).
+            $c1 = $i->area === 'C' && $i->voce === 'C1' && $i->forzata !== true && ! $i->liberalita;
             if ($c1) {
                 $commerciale = true;
             }
