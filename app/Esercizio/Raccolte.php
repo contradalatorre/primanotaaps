@@ -2,6 +2,7 @@
 
 namespace App\Esercizio;
 
+use App\Euro;
 use App\Models\DatiEsercizio;
 use App\Models\Iniziativa;
 use App\Models\LiberalitaNonMonetaria;

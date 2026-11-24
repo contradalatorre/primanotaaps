@@ -41,6 +41,9 @@ class DatiDiClassificazioneController extends Controller
     public function crea(Request $request, string $tipo): RedirectResponse
     {
         $dati = $request->validate($this->regole($tipo, null));
+        if ($tipo === 'attivita' && $dati['area'] !== 'C') {
+            $dati['raccolta'] = null;
+        }
         $elemento = new (self::TIPI[$tipo])($dati);
         if ($tipo === 'tipologie') {
             $elemento->verso = $dati['verso'];
@@ -147,7 +150,8 @@ class DatiDiClassificazioneController extends Controller
 
         return match ($tipo) {
             'tag' => ['nome' => $nome],
-            'attivita' => ['nome' => $nome] + ($esistente ? [] : ['area' => ['required', $aree]]),
+            // Il tipo di raccolta (#61) fa la voce C1 o C2: lo ha solo l'area C, lo sceglie chi la crea e dopo non cambia (le imputazioni già fatte cambierebbero voce).
+            'attivita' => ['nome' => $nome] + ($esistente ? [] : ['area' => ['required', $aree], 'raccolta' => [Rule::requiredIf(request('area') === 'C'), 'nullable', Rule::in(array_keys(Attivita::RACCOLTE))]]),
             'tipologie' => ['nome' => $nome, 'spiegazione' => ['required', 'string', 'max:2000'],
                 'proprieta' => ['nullable', 'array'], 'proprieta.*' => [Rule::in(array_keys(Tipologia::PROPRIETA))],
             ] + ($esistente ? [] : ['verso' => ['required', Rule::in(array_keys(Tipologia::VERSI))]]),

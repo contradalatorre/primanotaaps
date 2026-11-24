@@ -236,6 +236,169 @@ class RaccolteOccasionaliTest extends TestCase
         $this->come($this->tesoriere)->get('/esercizi/2026/approvazione')->assertOk()->assertSeeText('1 imputazione delle raccolte fondi senza riga dello schema');
     }
 
+    public function test_in_area_c_si_classifica_solo_con_un_attivita_di_raccolta(): void
+    {
+        $m = Movimento::factory()->create(['conto_id' => $this->cassa->id, 'verso' => 'entrata', 'importo' => 3000, 'data' => '2026-05-10', 'inserito_da' => $this->tesoriere->id]);
+        $liberalita = Tipologia::where('nome', 'Erogazioni liberali')->value('id');
+        $riga = fn (array $extra) => ['imputazioni' => [['tipologia_id' => $liberalita, 'area' => 'C', 'iniziativa_id' => $this->notte->id] + $extra]];
+
+        $this->actingAs($this->tesoriere)->put("/movimenti/{$m->id}/classificazione", $riga([]))->assertSessionHasErrors('imputazioni.0.attivita_id');
+        $this->actingAs($this->tesoriere)->put("/movimenti/{$m->id}/classificazione", $riga(['attivita_id' => Attivita::where('area', 'A')->first()->id]))->assertSessionHasErrors('imputazioni.0.attivita_id');
+        $this->assertSame(0, $m->imputazioni()->count());
+
+        $this->actingAs($this->tesoriere)->put("/movimenti/{$m->id}/classificazione", $riga(['attivita_id' => $this->occasionale()->id]))->assertSessionHasNoErrors();
+        $this->assertSame('C2', $m->imputazioni()->sole()->voce());
+    }
+
+    public function test_il_tipo_di_raccolta_si_sceglie_alla_creazione_di_un_attivita_in_area_c_e_non_cambia(): void
+    {
+        $this->actingAs($this->tesoriere)->post('/classificazione/attivita', ['area' => 'C', 'nome' => 'Cassetta delle offerte'])->assertSessionHasErrors('raccolta');
+        $this->actingAs($this->tesoriere)->post('/classificazione/attivita', ['area' => 'C', 'nome' => 'Cassetta delle offerte', 'raccolta' => 'occasionale'])->assertSessionHasNoErrors();
+        $this->actingAs($this->tesoriere)->post('/classificazione/attivita', ['area' => 'B', 'nome' => 'Vendita di pane', 'raccolta' => 'occasionale'])->assertSessionHasNoErrors();
+
+        $this->assertSame('occasionale', Attivita::where('nome', 'Cassetta delle offerte')->value('raccolta'));
+        $this->assertNull(Attivita::where('nome', 'Vendita di pane')->value('raccolta')); // fuori dall'area C non conta
+        $id = Attivita::where('nome', 'Cassetta delle offerte')->value('id');
+        $this->actingAs($this->tesoriere)->put("/classificazione/attivita/$id", ['nome' => 'Cassetta', 'raccolta' => 'abituale'])->assertSessionHasNoErrors();
+        $this->assertSame('occasionale', Attivita::find($id)->raccolta);
+    }
+
+    private function dati(array $extra = []): array
+    {
+        return $extra + ['dal' => '2026-12-08', 'al' => '2026-12-09', 'occasione' => 'Giornata del volontariato', 'beni_servizi' => 'Nessuno', 'descrizione' => 'Banchetto in piazza', 'luogo' => 'Piazza', 'modalita' => 'Offerte libere',
+            'finalita' => 'Restauro del lavatoio', 'dettaglio_costi' => 'Stampa dei volantini', 'attivita_destinazione_id' => Attivita::where('area', 'A')->value('id'),
+            'beni_modico_numero' => '12', 'beni_modico_prezzo' => '2,50', 'elargizioni_persone_fisiche' => '400,00', 'elargizioni_persone_giuridiche' => '100,00', 'motivazione' => ''];
+    }
+
+    public function test_l_elenco_e_la_pagina_della_raccolta_mostrano_rendiconto_relazione_e_guida(): void
+    {
+        $this->raccoltaCheQuadra();
+
+        $this->come($this->tesoriere)->get('/esercizi/2026/raccolte')->assertOk()->assertSeeText('Notte delle lanterne')->assertSeeText('500,00')->assertSeeText('Quadratura con la voce C2')
+            ->assertSeeText('La somma delle raccolte coincide con la voce C2');
+        $pagina = $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id)->assertOk();
+        $pagina->assertSeeText('Proventi (a)')->assertSeeText('Oneri (b)')->assertSeeText('Relazione illustrativa')->assertSeeText('Elenco guida per la relazione')->assertSeeText('da completare')
+            ->assertSeeText('Denaro raccolto in contanti')->assertSeeText('380,00');
+        $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->banchetto->id)->assertNotFound(); // senza imputazioni né dati: non è una raccolta dell'esercizio
+    }
+
+    public function test_il_tesoriere_scrive_i_dati_della_raccolta_e_la_relazione_li_riporta(): void
+    {
+        $this->raccoltaCheQuadra();
+
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/'.$this->notte->id, $this->dati())->assertSessionHasNoErrors();
+
+        $r = RaccoltaOccasionale::firstOrFail();
+        $this->assertSame('2026-12-08', $r->dal->toDateString());
+        $this->assertSame(250, $r->beni_modico_prezzo);
+        $this->assertSame(40000, $r->elargizioni_persone_fisiche);
+        $this->assertNull($r->motivazione); // il testo vuoto è «non scritto»
+        $this->assertDatabaseHas('registro_modifiche', ['oggetto_tipo' => 'raccolta_occasionale', 'oggetto_id' => $r->id, 'azione' => 'creato', 'user_id' => $this->tesoriere->id]);
+        $pagina = $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id)->assertOk();
+        $pagina->assertSeeText('Banchetto in piazza')->assertSeeText('dal 08/12/2026 al 09/12/2026')->assertDontSeeText('da completare');
+
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/'.$this->notte->id, $this->dati(['luogo' => 'Sagrato']))->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('registro_modifiche', ['oggetto_tipo' => 'raccolta_occasionale', 'azione' => 'modificato']);
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/'.$this->notte->id, $this->dati(['luogo' => 'Sagrato']))->assertSessionHasNoErrors();
+        $this->assertSame(2, DB::table('registro_modifiche')->where('oggetto_tipo', 'raccolta_occasionale')->count(), 'Salvare senza cambiare nulla non è una modifica');
+    }
+
+    public function test_i_dati_della_raccolta_si_convalidano(): void
+    {
+        $this->raccoltaCheQuadra();
+        $url = '/esercizi/2026/raccolte/'.$this->notte->id;
+
+        $this->come($this->tesoriere)->put($url, $this->dati(['dal' => '2026-12-10', 'al' => '2026-12-09']))->assertSessionHasErrors('al');
+        $this->come($this->tesoriere)->put($url, $this->dati(['elargizioni_persone_fisiche' => 'molto']))->assertSessionHasErrors('elargizioni_persone_fisiche');
+        $this->come($this->tesoriere)->put($url, $this->dati(['beni_modico_prezzo' => '-1,00']))->assertSessionHasErrors('beni_modico_prezzo');
+        $this->come($this->tesoriere)->put($url, $this->dati(['attivita_destinazione_id' => Attivita::where('area', 'B')->value('id')]))->assertSessionHasErrors('attivita_destinazione_id');
+        $this->come($this->tesoriere)->put($url, $this->dati(['dal' => '', 'al' => '']))->assertSessionHasNoErrors(); // le date sono facoltative: la guida le chiede
+        $this->assertSame(1, RaccoltaOccasionale::count());
+        // un'iniziativa che non è una raccolta dell'esercizio non ne ha una
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/'.$this->banchetto->id, $this->dati())->assertNotFound();
+        $this->assertSame(1, RaccoltaOccasionale::count());
+    }
+
+    public function test_le_liberalita_non_monetarie_entrano_solo_nel_rendiconto_della_raccolta(): void
+    {
+        $this->raccoltaCheQuadra();
+        $url = '/esercizi/2026/raccolte/'.$this->notte->id.'/liberalita';
+
+        $this->come($this->tesoriere)->post($url, ['descrizione' => 'Cesti di prodotti locali', 'quantita' => '4', 'valore' => '80,00', 'criterio' => 'Prezzo di listino del donatore', 'documento' => 'Ricevuta n. 1'])->assertSessionHasNoErrors();
+        $this->come($this->tesoriere)->post($url, ['descrizione' => 'Niente', 'quantita' => '0', 'valore' => '10,00', 'criterio' => 'x', 'documento' => 'y'])->assertSessionHasErrors('quantita');
+        $this->come($this->tesoriere)->post($url, ['descrizione' => 'Niente', 'quantita' => '1', 'valore' => '0', 'criterio' => 'x', 'documento' => 'y'])->assertSessionHasErrors('valore');
+
+        $raccolta = Raccolte::calcola(2026);
+        $this->assertSame(8000, $raccolta['raccolte'][0]['proventi']['liberalita_non_monetarie']);
+        $this->assertSame(58000, $raccolta['raccolte'][0]['proventi']['totale']);
+        $this->assertTrue($raccolta['quadratura']['quadra'], 'Non sono nel Modello D: C2 resta quella dei soli movimenti');
+        $this->assertSame(50000, Prospetto::modelloD(2026)['aree']['C']['entrate']['totale']['importo']);
+        $this->assertDatabaseHas('registro_modifiche', ['oggetto_tipo' => 'raccolta_occasionale', 'azione' => 'liberalita_aggiunta']);
+        $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id)->assertSeeText('Cesti di prodotti locali')->assertSeeText('Prezzo di listino del donatore');
+
+        $id = $raccolta['raccolte'][0]['liberalita'][0]['id'];
+        $this->come($this->tesoriere)->delete("$url/$id")->assertSessionHasNoErrors();
+        $this->assertSame(0, \App\Models\LiberalitaNonMonetaria::count());
+        $this->assertDatabaseHas('registro_modifiche', ['azione' => 'liberalita_tolta']);
+        $this->come($this->tesoriere)->delete("$url/$id")->assertSessionHasErrors('liberalita'); // già tolta
+    }
+
+    public function test_chi_vede_non_scrive(): void
+    {
+        $this->raccoltaCheQuadra();
+        $consigliere = $this->utenteCon('Consigliere');
+
+        $this->come($consigliere)->get('/esercizi/2026/raccolte/'.$this->notte->id)->assertOk()->assertDontSee('data-merlo="raccolta-modulo"', false);
+        $this->come($consigliere)->put('/esercizi/2026/raccolte/'.$this->notte->id, $this->dati())->assertForbidden();
+        $this->come($consigliere)->post('/esercizi/2026/raccolte/'.$this->notte->id.'/liberalita', ['descrizione' => 'x', 'quantita' => 1, 'valore' => '1,00', 'criterio' => 'x', 'documento' => 'y'])->assertForbidden();
+        $this->assertSame(0, RaccoltaOccasionale::count());
+    }
+
+    public function test_dopo_il_deposito_niente_si_scrive_e_le_pagine_leggono_l_istantanea(): void
+    {
+        $this->raccoltaCheQuadra();
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/'.$this->notte->id, $this->dati())->assertSessionHasNoErrors();
+        $this->approva()->assertSessionHasNoErrors();
+        $this->come($this->tesoriere)->post('/esercizi/2026/deposito', ['data' => '2027-04-20', 'impronta' => Deposito::impronta(2026)])->assertSessionHasNoErrors();
+        $this->assertSame('depositato', DatiEsercizio::per(2026)->stato);
+
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/'.$this->notte->id, $this->dati(['luogo' => 'Altrove']))->assertSessionHasErrors('esercizio');
+        $this->come($this->tesoriere)->post('/esercizi/2026/raccolte/'.$this->notte->id.'/liberalita', ['descrizione' => 'x', 'quantita' => 1, 'valore' => '1,00', 'criterio' => 'x', 'documento' => 'y'])->assertSessionHasErrors('esercizio');
+
+        $this->assertSame('Piazza', RaccoltaOccasionale::firstOrFail()->luogo);
+        $pagina = $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id)->assertOk();
+        $pagina->assertSeeText('Piazza')->assertDontSee('data-merlo="raccolta-modulo"', false);
+        // un dato scritto di nascosto dopo il deposito non si vede: né a schermo né nel file
+        RaccoltaOccasionale::query()->update(['luogo' => 'Altrove']);
+        $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id)->assertSeeText('Piazza')->assertDontSeeText('Altrove');
+        $xlsx = \App\Import\Foglio::leggi($this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id.'/xlsx')->assertOk()->getContent());
+        $this->assertContains('Piazza', collect($xlsx['Raccolta'])->flatten()->all());
+    }
+
+    public function test_ogni_raccolta_si_scarica_da_sola_in_pdf_e_in_xlsx_senza_nomi_di_persone(): void
+    {
+        $this->raccoltaCheQuadra();
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/'.$this->notte->id, $this->dati())->assertSessionHasNoErrors();
+
+        $pdf = $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id.'/pdf')->assertOk();
+        $this->assertSame('application/pdf', $pdf->headers->get('Content-Type'));
+        $this->assertSame('attachment; filename="Raccolta_2026_ContradaLaTorre_NotteDelleLanterne.pdf"', $pdf->headers->get('Content-Disposition'));
+        $this->assertStringStartsWith('%PDF-', $pdf->getContent());
+        $this->assertDatabaseHas('registro_accessi', ['evento' => 'esportazione_raccolta_pdf_2026']);
+
+        $r = $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id.'/xlsx')->assertOk();
+        $this->assertSame('attachment; filename="Raccolta_2026_ContradaLaTorre_NotteDelleLanterne.xlsx"', $r->headers->get('Content-Disposition'));
+        $celle = collect(\App\Import\Foglio::leggi($r->getContent())['Raccolta'])->flatten()->all();
+        $this->assertContains('Raccolta fondi occasionale · Notte delle lanterne · 2026', $celle);
+        $this->assertContains(500.0, $celle);
+        $this->assertContains(120.0, $celle);
+        $this->assertContains('Banchetto in piazza', $celle);
+        $this->assertContains('Provvisorio – aggiornato al 20/12/2026 09:30. Solo le imputazioni confermate.', $celle);
+
+        $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->banchetto->id.'/pdf')->assertNotFound();
+        $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id.'/csv')->assertNotFound();
+    }
+
     public function test_un_iniziativa_predefinita_in_area_c_occasionale_compare_prima_di_avere_movimenti(): void
     {
         DB::table('iniziativa_esercizio')->insert(['iniziativa_id' => $this->notte->id, 'esercizio' => 2026, 'area' => 'C', 'attivita_id' => $this->occasionale()->id]);

@@ -372,6 +372,11 @@ final class Classificazione
                 }
             }
 
+            // In area C la voce è C1 o C2 secondo l'attività (#61): senza un'attività di raccolta l'imputazione non avrebbe riga nel Modello D.
+            if ($area === Area::C && ! isset($errori[$chiave('attivita_id')]) && ($attivitaId === null || Attivita::find($attivitaId)?->raccolta === null)) {
+                $errori[$chiave('attivita_id')] = 'In area C scegli l’attività: raccolta fondi abituale o occasionale (da lì la voce è C1 o C2).';
+            }
+
             $tipologiaId = ($riga['tipologia_id'] ?? '') !== '' ? (int) $riga['tipologia_id'] : null;
             if ($tipologiaId !== null) {
                 $tipologia = Tipologia::find($tipologiaId);
