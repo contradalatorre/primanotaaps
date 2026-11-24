@@ -6,7 +6,9 @@
     @php($euro = fn (int $c) => \App\Euro::formatta($c))
     @php($puoScrivere = $modificabile && auth()->user()->can('gestire_esercizio'))
     <h1>Raccolta fondi occasionale · {{ $iniziativa->nome }} · {{ $anno }}</h1>
-    @include('esercizio.avviso-approvato', ['anno' => $anno])
+    @unless ($modificabile)
+        <p class="avviso" role="status">L’esercizio {{ $anno }} è approvato: il PDF di deposito stampa la versione approvata e le raccolte non si cambiano più. Per completare la relazione l’Amministratore riapre l’esercizio (<a href="{{ route('esercizio.approvazione', $anno) }}" class="link">vedi l’approvazione</a>).</p>
+    @endunless
     <p class="nota">
         <a href="{{ route('esercizio.raccolte', $anno) }}" class="link">Tutte le raccolte {{ $anno }}</a> ·
         Scarica: <a href="{{ route('esporta.raccolta', [$anno, $iniziativa, 'pdf']) }}" class="link">PDF</a> ·

@@ -63,10 +63,10 @@ final class Raccolte
         ];
     }
 
-    /** Ciò che il PDF e le pagine mostrano di un esercizio: l'istantanea del deposito se c'è, altrimenti il calcolo di adesso. */
+    /** Ciò che il PDF di deposito stampa: da approvato in poi la versione approvata (poi l'istantanea del deposito), altrimenti il calcolo di adesso. */
     public static function vista(int $anno, bool $proposte = false): array
     {
-        return Deposito::salvata($anno)['prospetti']['raccolte'] ?? self::calcola($anno, $proposte);
+        return Deposito::istantanea($anno)['prospetti']['raccolte'] ?? self::calcola($anno, $proposte);
     }
 
     /** @return array<string, mixed> i dati a mano come li vuole `Raccolta::calcola` */
@@ -81,15 +81,26 @@ final class Raccolte
     }
 
     /**
-     * Salva i dati a mano di una raccolta (la crea se manca). Dopo il deposito niente si scrive; dopo l'approvazione sì, con l'avviso della pagina (le raccolte approvate
-     * restano quelle della versione approvata).
+     * Dopo il deposito niente si scrive (`controllaNonDepositato`); dopo l'approvazione nemmeno, a differenza dei movimenti: il PDF di deposito stampa la versione approvata,
+     * e ciò che si scrivesse adesso resterebbe fuori dall'allegato mentre la pagina lo mostrerebbe. Per completare la relazione si riapre l'esercizio.
+     */
+    private static function controllaScrivibile(DatiEsercizio $dati, int $anno): void
+    {
+        DatiEsercizio::controllaNonDepositato([$anno], 'esercizio');
+        if ($dati->approvato()) {
+            throw ValidationException::withMessages(['esercizio' => "L'esercizio $anno è approvato: il PDF di deposito stampa la versione approvata, quindi le raccolte non si cambiano più. Per completare la relazione l'Amministratore riapre l'esercizio."]);
+        }
+    }
+
+    /**
+     * Salva i dati a mano di una raccolta (la crea se manca), finché l'esercizio è aperto.
      *
      * @param  array<string, mixed>  $campi  i campi di `RaccoltaOccasionale::CAMPI`, già convalidati
      */
     public static function salva(User $utente, int $anno, int $iniziativa, array $campi): RaccoltaOccasionale
     {
-        return DatiEsercizio::sottoBlocco($utente, $anno, function () use ($utente, $anno, $iniziativa, $campi) {
-            DatiEsercizio::controllaNonDepositato([$anno], 'esercizio');
+        return DatiEsercizio::sottoBlocco($utente, $anno, function (DatiEsercizio $dati) use ($utente, $anno, $iniziativa, $campi) {
+            self::controllaScrivibile($dati, $anno);
             $raccolta = RaccoltaOccasionale::firstOrNew(['iniziativa_id' => $iniziativa, 'esercizio' => $anno]);
             $prima = $raccolta->exists ? $raccolta->istantanea() : null;
             $raccolta->fill($campi)->save();
@@ -104,8 +115,8 @@ final class Raccolte
     /** @param  array{descrizione: string, quantita: int, valore: int, criterio: string, documento: string}  $campi */
     public static function aggiungiLiberalita(User $utente, int $anno, int $iniziativa, array $campi): LiberalitaNonMonetaria
     {
-        return DatiEsercizio::sottoBlocco($utente, $anno, function () use ($utente, $anno, $iniziativa, $campi) {
-            DatiEsercizio::controllaNonDepositato([$anno], 'esercizio');
+        return DatiEsercizio::sottoBlocco($utente, $anno, function (DatiEsercizio $dati) use ($utente, $anno, $iniziativa, $campi) {
+            self::controllaScrivibile($dati, $anno);
             $raccolta = RaccoltaOccasionale::firstOrCreate(['iniziativa_id' => $iniziativa, 'esercizio' => $anno]);
             $riga = $raccolta->liberalita()->create($campi);
             RegistroModifica::registra($utente, $raccolta, 'liberalita_aggiunta', null, ['esercizio' => $anno, 'liberalita' => self::testo($riga)]);
@@ -116,8 +127,8 @@ final class Raccolte
 
     public static function eliminaLiberalita(User $utente, int $anno, int $iniziativa, int $riga): void
     {
-        DatiEsercizio::sottoBlocco($utente, $anno, function () use ($utente, $anno, $iniziativa, $riga) {
-            DatiEsercizio::controllaNonDepositato([$anno], 'esercizio');
+        DatiEsercizio::sottoBlocco($utente, $anno, function (DatiEsercizio $dati) use ($utente, $anno, $iniziativa, $riga) {
+            self::controllaScrivibile($dati, $anno);
             $raccolta = RaccoltaOccasionale::where('iniziativa_id', $iniziativa)->where('esercizio', $anno)->first();
             $liberalita = $raccolta?->liberalita()->whereKey($riga)->first();
             if ($liberalita === null) {

@@ -90,7 +90,7 @@ final class Raccolta
             'relazione' => [
                 'denaro' => $denaro + ['totale' => $denaro['contanti'] + $denaro['conti']],
                 'valore_beni' => $nonMonetarie,
-                'campi' => array_intersect_key($dati, self::CAMPI + ['motivazione' => 1]),
+                'campi' => array_intersect_key($dati, self::CAMPI + ['motivazione' => 1, 'attivita_destinazione_id' => 1]),
                 'guida' => self::guida($dati, $motivo !== null),
             ],
         ];

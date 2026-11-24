@@ -305,6 +305,44 @@ class RaccolteOccasionaliTest extends TestCase
         $this->assertSame(2, DB::table('registro_modifiche')->where('oggetto_tipo', 'raccolta_occasionale')->count(), 'Salvare senza cambiare nulla non è una modifica');
     }
 
+    public function test_l_attivita_di_destinazione_resta_scelta_alla_riapertura_della_pagina(): void
+    {
+        $this->raccoltaCheQuadra();
+        $lettera = Attivita::where('area', 'A')->value('id');
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/'.$this->notte->id, $this->dati(['attivita_destinazione_id' => $lettera]))->assertSessionHasNoErrors();
+
+        $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id)->assertSee('value="'.$lettera.'" selected', false);
+    }
+
+    public function test_dopo_l_approvazione_i_dati_della_raccolta_non_si_scrivono_piu_perche_il_pdf_stampa_la_versione_approvata(): void
+    {
+        $this->raccoltaCheQuadra();
+        $this->approva()->assertSessionHasNoErrors();
+
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/'.$this->notte->id, $this->dati())->assertSessionHasErrors('esercizio');
+        $this->come($this->tesoriere)->post('/esercizi/2026/raccolte/'.$this->notte->id.'/liberalita', ['descrizione' => 'x', 'quantita' => 1, 'valore' => '1,00', 'criterio' => 'x', 'documento' => 'y'])->assertSessionHasErrors('esercizio');
+        $this->assertSame(0, RaccoltaOccasionale::count());
+        $this->come($this->tesoriere)->get('/esercizi/2026/raccolte/'.$this->notte->id)->assertOk()->assertDontSee('data-merlo="raccolta-modulo"', false)->assertSeeText('riapre l’esercizio');
+
+        // riaperto, si scrive di nuovo
+        $this->come($this->amministratore())->post('/esercizi/2026/riapertura', ['motivazione' => 'Relazione da completare'])->assertSessionHasNoErrors();
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/'.$this->notte->id, $this->dati())->assertSessionHasNoErrors();
+    }
+
+    private function amministratore(): User
+    {
+        return $this->utenteCon('Amministratore');
+    }
+
+    public function test_l_elenco_di_controllo_dice_quanti_campi_della_relazione_mancano(): void
+    {
+        $this->raccoltaCheQuadra();
+
+        $this->come($this->tesoriere)->get('/esercizi/2026/approvazione')->assertOk()->assertSeeText('«Notte delle lanterne»: 14 campi della relazione da completare');
+        $this->come($this->tesoriere)->put('/esercizi/2026/raccolte/'.$this->notte->id, $this->dati())->assertSessionHasNoErrors();
+        $this->come($this->tesoriere)->get('/esercizi/2026/approvazione')->assertOk()->assertDontSeeText('della relazione da completare');
+    }
+
     public function test_i_dati_della_raccolta_si_convalidano(): void
     {
         $this->raccoltaCheQuadra();

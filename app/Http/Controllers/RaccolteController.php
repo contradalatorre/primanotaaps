@@ -25,8 +25,8 @@ class RaccolteController extends Controller
 
     public function indice(Request $request, int $anno)
     {
-        // Un esercizio depositato si legge dall'istantanea (#60): né proposte né dati di oggi.
-        $proposte = Deposito::salvata($anno) === null && $request->boolean('proposte');
+        // Da approvato in poi si legge la versione approvata, come il PDF di deposito (#60): né proposte né dati di oggi.
+        $proposte = Deposito::istantanea($anno) === null && $request->boolean('proposte');
 
         return view('esercizio.raccolte', ['anno' => $anno, 'proposte' => $proposte, 'r' => Raccolte::vista($anno, $proposte)]);
     }
@@ -40,7 +40,7 @@ class RaccolteController extends Controller
 
         return view('esercizio.raccolta', [
             'anno' => $anno, 'iniziativa' => $iniziativa, 'raccolta' => $raccolta, 'quadratura' => $r['quadratura'],
-            'modificabile' => $dati->stato !== 'depositato',
+            'modificabile' => ! $dati->approvato(),
             'attivitaDestinazione' => Attivita::where('area', 'A')->whereNull('archiviata_il')->orderBy('nome')->get(),
             'valori' => $this->valori($raccolta),
         ]);

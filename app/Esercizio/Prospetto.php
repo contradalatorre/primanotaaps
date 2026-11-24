@@ -206,6 +206,13 @@ final class Prospetto
         foreach ($raccolte['bloccanti'] as $bloccante) {
             $impedimenti[] = ['testo' => 'Raccolte fondi: '.$bloccante, 'link' => route('esercizio.raccolte', $anno)];
         }
+        // Dopo l'approvazione le raccolte non si scrivono più: la relazione va completata prima.
+        foreach ($raccolte['raccolte'] as $r) {
+            $mancano = count(array_filter($r['relazione']['guida'], fn (array $g) => ! $g['fatto']));
+            if ($mancano > 0) {
+                $impedimenti[] = ['testo' => '«'.$r['nome'].'»: '.$mancano.($mancano === 1 ? ' campo della relazione da completare' : ' campi della relazione da completare'), 'link' => route('esercizio.raccolta', [$anno, $r['iniziativa_id']])];
+            }
+        }
 
         $senzaMeta = Giroconti::proposte()->where('tipo', '!=', 'coppia')->filter(fn (array $p) => $p['movimento']->data->year === $anno);
         foreach ($senzaMeta as $p) {

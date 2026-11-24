@@ -58,7 +58,7 @@ class EsportazioniController extends Controller
      */
     public function raccolta(Request $request, int $anno, int $iniziativa, string $formato): Response
     {
-        $salvata = Deposito::salvata($anno);
+        $salvata = Deposito::istantanea($anno);
         $proposte = $salvata === null && $request->boolean('proposte');
         $r = collect(Raccolte::vista($anno, $proposte)['raccolte'])->firstWhere('iniziativa_id', $iniziativa);
         abort_if($r === null, 404);
